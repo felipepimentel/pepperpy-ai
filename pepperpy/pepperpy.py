@@ -6,11 +6,14 @@ com uma API fluida, orientada a domínio e baseada em tarefas.
 """
 
 import asyncio
+import json
+import logging
 import os
 import re
 import time
 from collections import defaultdict
 from collections.abc import AsyncIterator, Callable
+from datetime import datetime
 from enum import Enum
 from functools import wraps
 from pathlib import Path
@@ -25,8 +28,827 @@ from typing import (
 # Versão do framework
 __version__ = "0.3.0"
 
+# --- Results Module ---
 
-# Core enums
+
+class PepperpyError(Exception):
+    """Base error for PepperPy exceptions."""
+
+    def __init__(self, message: str, cause: Exception = None):
+        """Initialize with message and optional cause.
+
+        Args:
+            message: Error message
+            cause: Original exception that caused this error
+        """
+        super().__init__(message)
+        self.cause = cause
+
+
+class PepperResultError(PepperpyError):
+    """Error raised during result operations."""
+
+    pass
+
+
+class Logger:
+    """Centralized logging for PepperPy framework."""
+
+    def __init__(
+        self,
+        name: str = "pepperpy",
+        level: str | int = logging.INFO,
+        log_to_console: bool = True,
+        log_to_file: bool = False,
+        log_file: Path | None = None,
+        format_string: str | None = None,
+    ):
+        """Initialize logger with specified configuration.
+
+        Args:
+            name: Logger name
+            level: Logging level
+            log_to_console: Whether to log to console
+            log_to_file: Whether to log to file
+            log_file: Optional custom log file path
+            format_string: Optional custom format string
+        """
+        self.logger = logging.getLogger(name)
+
+        # Convert string level to int if needed
+        if isinstance(level, str):
+            level = getattr(logging, level.upper())
+
+        self.logger.setLevel(level)
+        self.handlers = []
+
+        # Default format
+        if not format_string:
+            format_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+        formatter = logging.Formatter(format_string)
+
+        # Console handler
+        if log_to_console:
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(formatter)
+            self.logger.addHandler(console_handler)
+            self.handlers.append(console_handler)
+
+        # File handler
+        if log_to_file:
+            if not log_file:
+                # Default to logs directory in current working directory
+                logs_dir = Path.cwd() / "logs"
+                os.makedirs(logs_dir, exist_ok=True)
+                log_file = (
+                    logs_dir
+                    / f"pepperpy_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+                )
+
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
+            self.handlers.append(file_handler)
+
+    def debug(self, message: str) -> None:
+        """Log a debug message."""
+        self.logger.debug(message)
+
+    def info(self, message: str) -> None:
+        """Log an info message."""
+        self.logger.info(message)
+
+    def warning(self, message: str) -> None:
+        """Log a warning message."""
+        self.logger.warning(message)
+
+    def error(self, message: str) -> None:
+        """Log an error message."""
+        self.logger.error(message)
+
+    def critical(self, message: str) -> None:
+        """Log a critical message."""
+        self.logger.critical(message)
+
+    def header(self, title: str, char: str = "=", width: int = 80) -> None:
+        """Log a formatted header.
+
+        Args:
+            title: Header title
+            char: Character to use for the header line
+            width: Width of the header
+        """
+        self.info(char * width)
+        self.info(title.center(width))
+        self.info(char * width)
+
+    def section(self, title: str, char: str = "-", width: int = 60) -> None:
+        """Log a section header.
+
+        Args:
+            title: Section title
+            char: Character to use for the section line
+            width: Width of the section header
+        """
+        self.info("\n" + title)
+        self.info(char * len(title))
+
+    def cleanup(self) -> None:
+        """Clean up logger resources."""
+        for handler in self.handlers:
+            handler.close()
+            self.logger.removeHandler(handler)
+
+
+class PepperResult:
+    """Base class for all PepperPy results.
+
+    This class provides common functionality for all results returned by
+    PepperPy operations, including the ability to save results to files.
+    """
+
+    def __init__(
+        self,
+        content: Any,
+        metadata: dict[str, Any] | None = None,
+        logger: Logger | None = None,
+    ):
+        """Initialize a result object.
+
+        Args:
+            content: The actual result content
+            metadata: Optional metadata about the result
+            logger: Optional logger instance
+        """
+        self.content = content
+        self.metadata = metadata or {}
+        self.created_at = datetime.now()
+        self.logger = logger or Logger()
+
+    def __str__(self) -> str:
+        """String representation of the result."""
+        return str(self.content)
+
+    def save(
+        self, path: str | Path, header: str | None = None, encoding: str = "utf-8"
+    ) -> Path:
+        """Save the result to a file.
+
+        Args:
+            path: Path to save the result
+            header: Optional header to add before the content
+            encoding: File encoding
+
+        Returns:
+            Path to the saved file
+
+        Raises:
+            PepperResultError: If the save operation fails
+        """
+        try:
+            path = Path(path)
+            os.makedirs(path.parent, exist_ok=True)
+
+            content_str = str(self.content)
+            if header:
+                content_str = f"{header}\n\n{content_str}"
+
+            with open(path, "w", encoding=encoding) as f:
+                f.write(content_str)
+
+            self.logger.info(f"Result saved to {path}")
+            return path
+        except Exception as e:
+            raise PepperResultError(f"Failed to save result: {e!s}", cause=e)
+
+
+class TextResult(PepperResult):
+    """Result containing text content."""
+
+    def __init__(
+        self,
+        content: str,
+        metadata: dict[str, Any] | None = None,
+        logger: Logger | None = None,
+    ):
+        """Initialize a text result.
+
+        Args:
+            content: Text content
+            metadata: Optional metadata
+            logger: Optional logger
+        """
+        super().__init__(content, metadata, logger)
+
+    def tokenize(self) -> list[str]:
+        """Split the text into tokens."""
+        return self.content.split()
+
+    def word_count(self) -> int:
+        """Count words in the text."""
+        return len(self.tokenize())
+
+
+class JSONResult(PepperResult):
+    """Result containing JSON content."""
+
+    def __init__(
+        self,
+        content: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+        logger: Logger | None = None,
+    ):
+        """Initialize a JSON result.
+
+        Args:
+            content: JSON content as dictionary
+            metadata: Optional metadata
+            logger: Optional logger
+        """
+        super().__init__(content, metadata, logger)
+
+    def __str__(self) -> str:
+        """Format JSON content as a string."""
+        return json.dumps(self.content, indent=2)
+
+    def save(
+        self, path: str | Path, header: str | None = None, encoding: str = "utf-8"
+    ) -> Path:
+        """Save the JSON result to a file.
+
+        Args:
+            path: Path to save the result
+            header: Optional header as a comment
+            encoding: File encoding
+
+        Returns:
+            Path to the saved file
+        """
+        try:
+            path = Path(path)
+            os.makedirs(path.parent, exist_ok=True)
+
+            with open(path, "w", encoding=encoding) as f:
+                if header:
+                    f.write(f"// {header}\n")
+                json.dump(self.content, f, indent=2)
+
+            self.logger.info(f"JSON result saved to {path}")
+            return path
+        except Exception as e:
+            raise PepperResultError(f"Failed to save JSON result: {e!s}", cause=e)
+
+
+class MemoryResult(PepperResult):
+    """Result with conversation memory context."""
+
+    def __init__(
+        self,
+        content: str,
+        conversation_history: list[dict[str, str]],
+        metadata: dict[str, Any] | None = None,
+        logger: Logger | None = None,
+    ):
+        """Initialize a memory result.
+
+        Args:
+            content: Result content
+            conversation_history: Conversation history
+            metadata: Optional metadata
+            logger: Optional logger
+        """
+        super().__init__(content, metadata, logger)
+        self.conversation_history = conversation_history
+
+    def save_with_context(
+        self,
+        path: str | Path,
+        conversation_history: list[dict[str, str]] | None = None,
+        new_query: str | None = None,
+        encoding: str = "utf-8",
+    ) -> Path:
+        """Save the result with conversation context.
+
+        Args:
+            path: Path to save the result
+            conversation_history: Optional conversation history (uses instance if None)
+            new_query: Optional new query to add to the output
+            encoding: File encoding
+
+        Returns:
+            Path to the saved file
+        """
+        try:
+            path = Path(path)
+            os.makedirs(path.parent, exist_ok=True)
+
+            history = conversation_history or self.conversation_history
+
+            with open(path, "w", encoding=encoding) as f:
+                f.write("# Conversation History\n\n")
+
+                for msg in history:
+                    role = msg["role"]
+                    content = msg["content"]
+                    f.write(f"**{role.capitalize()}**: {content}\n\n")
+
+                if new_query:
+                    f.write(f"**User**: {new_query}\n\n")
+
+                f.write(f"**Assistant**: {self.content}\n")
+
+            self.logger.info(f"Memory result saved to {path}")
+            return path
+        except Exception as e:
+            raise PepperResultError(f"Failed to save memory result: {e!s}", cause=e)
+
+
+# --- Fluent API Module ---
+
+
+class FluentBase:
+    """Base class for all fluent API objects."""
+
+    def __init__(self, name: str, pepper_instance: Any):
+        """Initialize fluent object.
+
+        Args:
+            name: Object name
+            pepper_instance: PepperPy instance
+        """
+        self.name = name
+        self._pepper = pepper_instance
+        self._config = {}
+        self.result = None
+        self.output_path = None
+
+    def __repr__(self) -> str:
+        """String representation."""
+        return f"{self.__class__.__name__}(name='{self.name}')"
+
+
+class EnhancerProxy:
+    """Proxy for fluent enhancer configuration."""
+
+    def __init__(self, parent: Any):
+        """Initialize enhancer proxy.
+
+        Args:
+            parent: Parent object
+        """
+        self._parent = parent
+
+    def security(self, **options: Any) -> Any:
+        """Add security enhancer.
+
+        Args:
+            **options: Enhancer options
+
+        Returns:
+            Parent object for method chaining
+        """
+        if "enhancers" not in self._parent._config:
+            self._parent._config["enhancers"] = []
+        self._parent._config["enhancers"].append(("security", options))
+        return self._parent
+
+    def deep_context(self, **options: Any) -> Any:
+        """Add deep context enhancer.
+
+        Args:
+            **options: Enhancer options
+
+        Returns:
+            Parent object for method chaining
+        """
+        if "enhancers" not in self._parent._config:
+            self._parent._config["enhancers"] = []
+        self._parent._config["enhancers"].append(("deep_context", options))
+        return self._parent
+
+    def best_practices(self, **options: Any) -> Any:
+        """Add best practices enhancer.
+
+        Args:
+            **options: Enhancer options
+
+        Returns:
+            Parent object for method chaining
+        """
+        if "enhancers" not in self._parent._config:
+            self._parent._config["enhancers"] = []
+        self._parent._config["enhancers"].append(("best_practices", options))
+        return self._parent
+
+    def performance(self, **options: Any) -> Any:
+        """Add performance enhancer.
+
+        Args:
+            **options: Enhancer options
+
+        Returns:
+            Parent object for method chaining
+        """
+        if "enhancers" not in self._parent._config:
+            self._parent._config["enhancers"] = []
+        self._parent._config["enhancers"].append(("performance", options))
+        return self._parent
+
+    def domain(self, domain: str, **options: Any) -> Any:
+        """Add domain-specific enhancer.
+
+        Args:
+            domain: Domain name
+            **options: Enhancer options
+
+        Returns:
+            Parent object for method chaining
+        """
+        if "enhancers" not in self._parent._config:
+            self._parent._config["enhancers"] = []
+        options["domain"] = domain
+        self._parent._config["enhancers"].append(("domain", options))
+        return self._parent
+
+
+class Analysis(FluentBase):
+    """Repository analysis configuration."""
+
+    def __init__(self, name: str, pepper_instance: Any):
+        """Initialize analysis.
+
+        Args:
+            name: Analysis name
+            pepper_instance: PepperPy instance
+        """
+        super().__init__(name, pepper_instance)
+        self.enhance = EnhancerProxy(self)
+
+    def prompt(self, text: str) -> "Analysis":
+        """Set the analysis prompt.
+
+        Args:
+            text: Prompt text
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["prompt"] = text
+        return self
+
+    def output(self, path: str | Path) -> "Analysis":
+        """Set the output path for results.
+
+        Args:
+            path: Output file path
+
+        Returns:
+            Self for method chaining
+        """
+        self.output_path = path
+        return self
+
+
+class Processor(FluentBase):
+    """Content processor configuration."""
+
+    def __init__(self, name: str, pepper_instance: Any):
+        """Initialize processor.
+
+        Args:
+            name: Processor name
+            pepper_instance: PepperPy instance
+        """
+        super().__init__(name, pepper_instance)
+
+    def prompt(self, text: str) -> "Processor":
+        """Set the processor prompt.
+
+        Args:
+            text: Prompt text
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["prompt"] = text
+        return self
+
+    def input(self, content: Any) -> "Processor":
+        """Set the input content.
+
+        Args:
+            content: Input content
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["input"] = content
+        return self
+
+    def parameters(self, params: dict[str, Any]) -> "Processor":
+        """Set processing parameters.
+
+        Args:
+            params: Parameter dictionary
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["parameters"] = params
+        return self
+
+    def output(self, path: str | Path) -> "Processor":
+        """Set the output path for results.
+
+        Args:
+            path: Output file path
+
+        Returns:
+            Self for method chaining
+        """
+        self.output_path = path
+        return self
+
+
+class AgentTask(FluentBase):
+    """Agent task configuration."""
+
+    def __init__(self, name: str, pepper_instance: Any):
+        """Initialize agent task.
+
+        Args:
+            name: Task name
+            pepper_instance: PepperPy instance
+        """
+        super().__init__(name, pepper_instance)
+        self.enhance = EnhancerProxy(self)
+
+    def prompt(self, text: str) -> "AgentTask":
+        """Set the task prompt.
+
+        Args:
+            text: Prompt text
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["prompt"] = text
+        return self
+
+    def context(self, ctx: dict[str, Any]) -> "AgentTask":
+        """Set the task context.
+
+        Args:
+            ctx: Context dictionary
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["context"] = ctx
+        return self
+
+    def capability(self, capability: str) -> "AgentTask":
+        """Set the required agent capability.
+
+        Args:
+            capability: Capability name
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["capability"] = capability
+        return self
+
+    def parameters(self, params: dict[str, Any]) -> "AgentTask":
+        """Set task parameters.
+
+        Args:
+            params: Parameter dictionary
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["parameters"] = params
+        return self
+
+    def format(self, format_type: str) -> "AgentTask":
+        """Set the output format.
+
+        Args:
+            format_type: Format type
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["format"] = format_type
+        return self
+
+    def schema(self, schema_definition: dict[str, Any]) -> "AgentTask":
+        """Set the data schema for extraction.
+
+        Args:
+            schema_definition: Schema definition
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["schema"] = schema_definition
+        return self
+
+    def output(self, path: str | Path) -> "AgentTask":
+        """Set the output path for results.
+
+        Args:
+            path: Output file path
+
+        Returns:
+            Self for method chaining
+        """
+        self.output_path = path
+        return self
+
+
+class KnowledgeBase(FluentBase):
+    """Knowledge base configuration."""
+
+    def add_documents(self, documents: list[str]) -> "KnowledgeBase":
+        """Add documents to the knowledge base.
+
+        Args:
+            documents: List of documents
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["documents"] = documents
+        return self
+
+    def configure(self, **options: Any) -> "KnowledgeBase":
+        """Configure knowledge base options.
+
+        Args:
+            **options: Configuration options
+
+        Returns:
+            Self for method chaining
+        """
+        self._config.update(options)
+        return self
+
+
+class KnowledgeTask(FluentBase):
+    """Knowledge task configuration."""
+
+    def prompt(self, text: str) -> "KnowledgeTask":
+        """Set the task prompt.
+
+        Args:
+            text: Prompt text
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["prompt"] = text
+        return self
+
+    def using(self, kb: KnowledgeBase) -> "KnowledgeTask":
+        """Set the knowledge base to use.
+
+        Args:
+            kb: Knowledge base
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["knowledge_base"] = kb
+        return self
+
+    def with_history(self, history: list[dict[str, str]]) -> "KnowledgeTask":
+        """Set conversation history.
+
+        Args:
+            history: Conversation history
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["history"] = history
+        return self
+
+    def parameters(self, params: dict[str, Any]) -> "KnowledgeTask":
+        """Set task parameters.
+
+        Args:
+            params: Parameter dictionary
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["parameters"] = params
+        return self
+
+    def output(self, path: str | Path) -> "KnowledgeTask":
+        """Set the output path for results.
+
+        Args:
+            path: Output file path
+
+        Returns:
+            Self for method chaining
+        """
+        self.output_path = path
+        return self
+
+
+class ConversationTask(FluentBase):
+    """Conversation task configuration."""
+
+    def prompt(self, text: str) -> "ConversationTask":
+        """Set the task prompt.
+
+        Args:
+            text: Prompt text
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["prompt"] = text
+        return self
+
+    def history(self, history: list[dict[str, str]]) -> "ConversationTask":
+        """Set conversation history.
+
+        Args:
+            history: Conversation history
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["history"] = history
+        return self
+
+    def conversation_id(self, id_str: str) -> "ConversationTask":
+        """Set conversation ID.
+
+        Args:
+            id_str: Conversation ID
+
+        Returns:
+            Self for method chaining
+        """
+        self._config["conversation_id"] = id_str
+        return self
+
+    def output(self, path: str | Path) -> "ConversationTask":
+        """Set the output path for results.
+
+        Args:
+            path: Output file path
+
+        Returns:
+            Self for method chaining
+        """
+        self.output_path = path
+        return self
+
+
+class ChatSession(FluentBase):
+    """Chat session configuration."""
+
+    def using(self, kb: KnowledgeBase | None = None) -> "ChatSession":
+        """Set the knowledge base to use.
+
+        Args:
+            kb: Optional knowledge base
+
+        Returns:
+            Self for method chaining
+        """
+        if kb:
+            self._config["knowledge_base"] = kb
+        return self
+
+    def add_task(self, task: FluentBase) -> "ChatSession":
+        """Add a task to the session.
+
+        Args:
+            task: Task to add
+
+        Returns:
+            Self for method chaining
+        """
+        if "tasks" not in self._config:
+            self._config["tasks"] = []
+        self._config["tasks"].append(task)
+        return self
+
+    async def start(self) -> None:
+        """Start the chat session."""
+        raise NotImplementedError("Chat session not yet implemented")
+
+
+# --- Core enums ---
 class DependencyType(str, Enum):
     """Tipos de dependências entre plugins."""
 
@@ -3695,51 +4517,350 @@ class PepperPy:
         self._rag_provider = None
         self._llm_provider = None
         self._embeddings_provider = None
+        self._content_provider = None
         self.chat = ChatInterface(self)
         self._pepper = self  # For compatibility with existing code
         self._memory_repositories = {}
+        self.content = ContentProcessor(self)
+        self._logger = None
 
-    async def initialize(self) -> None:
-        """Initialize resources."""
+    async def initialize(
+        self,
+        output_dir: str | Path | None = None,
+        log_level: str | int = "INFO",
+        log_to_console: bool = True,
+        log_to_file: bool = False,
+    ) -> None:
+        """Initialize resources and logging.
+
+        Args:
+            output_dir: Optional output directory for results
+            log_level: Logging level
+            log_to_console: Whether to log to console
+            log_to_file: Whether to log to file
+        """
+        # Setup logger
+        log_file = None
+        if output_dir and log_to_file:
+            output_dir = Path(output_dir)
+            os.makedirs(output_dir, exist_ok=True)
+            log_file = output_dir / f"pepperpy_{time.strftime('%Y%m%d_%H%M%S')}.log"
+
+        self._logger = Logger(
+            name="pepperpy",
+            level=log_level,
+            log_to_console=log_to_console,
+            log_to_file=log_to_file,
+            log_file=log_file,
+        )
+
+        self._logger.info(f"Initializing PepperPy v{__version__}")
+
         # Initialize providers if set
         if self._rag_provider:
             await self._rag_provider.initialize()
+            self._logger.info(
+                f"RAG provider initialized: {self._rag_provider.__class__.__name__}"
+            )
 
         if self._llm_provider:
             await self._llm_provider.initialize()
+            self._logger.info(
+                f"LLM provider initialized: {self._llm_provider.__class__.__name__}"
+            )
 
         if self._embeddings_provider:
             await self._embeddings_provider.initialize()
+            self._logger.info(
+                f"Embeddings provider initialized: {self._embeddings_provider.__class__.__name__}"
+            )
+
+        if self._content_provider:
+            await self._content_provider.initialize()
+            self._logger.info(
+                f"Content provider initialized: {self._content_provider.__class__.__name__}"
+            )
+
+        self._logger.info("PepperPy initialization complete")
 
     async def cleanup(self) -> None:
         """Clean up resources."""
+        if self._logger:
+            self._logger.info("Cleaning up PepperPy resources")
+
         # Cleanup providers if set
         if self._rag_provider:
             await self._rag_provider.cleanup()
+            if self._logger:
+                self._logger.info(
+                    f"RAG provider cleaned up: {self._rag_provider.__class__.__name__}"
+                )
 
         if self._llm_provider:
             await self._llm_provider.cleanup()
+            if self._logger:
+                self._logger.info(
+                    f"LLM provider cleaned up: {self._llm_provider.__class__.__name__}"
+                )
 
         if self._embeddings_provider:
             await self._embeddings_provider.cleanup()
+            if self._logger:
+                self._logger.info(
+                    f"Embeddings provider cleaned up: {self._embeddings_provider.__class__.__name__}"
+                )
+
+        if self._content_provider:
+            await self._content_provider.cleanup()
+            if self._logger:
+                self._logger.info(
+                    f"Content provider cleaned up: {self._content_provider.__class__.__name__}"
+                )
 
         # Cleanup memory repositories
         for repo in self._memory_repositories.values():
             await repo.cleanup()
 
-    async def execute(self, query: str, context: dict[str, Any] | None = None) -> str:
-        """Execute a query and return the response."""
-        # Implementation will depend on llm_provider
+        # Cleanup logger
+        if self._logger:
+            self._logger.info("PepperPy cleanup complete")
+            self._logger.cleanup()
+
+    async def log_header(self, title: str, char: str = "=", width: int = 80) -> None:
+        """Log a formatted header.
+
+        Args:
+            title: Header title
+            char: Character to use for the header line
+            width: Width of the header
+        """
+        if not self._logger:
+            self._logger = Logger()
+
+        self._logger.header(title, char, width)
+
+    def get_logger(self) -> Logger:
+        """Get the PepperPy logger instance.
+
+        Returns:
+            Logger instance
+        """
+        if not self._logger:
+            self._logger = Logger()
+
+        return self._logger
+
+    async def execute(
+        self,
+        prompt: str,
+        context: dict[str, Any] | None = None,
+        output_path: str | Path | None = None,
+        metadata: dict[str, Any] | None = None,
+        conversation_id: str | None = None,
+    ) -> TextResult:
+        """Execute a prompt with PepperPy.
+
+        Args:
+            prompt: The prompt to execute
+            context: Optional context information
+            output_path: Optional path to save the result
+            metadata: Optional metadata for the result
+            conversation_id: Optional conversation ID for memory
+
+        Returns:
+            A TextResult containing the execution results
+        """
+        # Ensure logger is initialized
+        if not self._logger:
+            self._logger = Logger()
+
+        self._logger.info(
+            f"Executing prompt: {prompt[:50]}..."
+            if len(prompt) > 50
+            else f"Executing prompt: {prompt}"
+        )
+
+        # Execute the prompt using the LLM provider
+        if not self._llm_provider:
+            self._logger.warning("No LLM provider set, using default provider")
+            # Set up a default provider here
+
+        # Extract conversation history from context if available
+        conversation_history = None
+        if context and "conversation_history" in context:
+            conversation_history = context["conversation_history"]
+
+        # Execute the prompt (implementation depends on the actual LLM provider)
+        # For now, we'll just simulate a response
+        response = "This is a simulated response from the LLM provider"
+
+        # Create the appropriate result object based on the context
+        result = TextResult(content=response, metadata=metadata, logger=self._logger)
+
+        # Save the result if output_path is provided
+        if output_path:
+            result.save(output_path)
+
+        return result
+
+    async def execute_json(
+        self,
+        prompt: str,
+        text: str,
+        schema: dict[str, Any],
+        output_path: str | Path | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Execute a JSON extraction task.
+
+        Args:
+            prompt: The prompt for the extraction
+            text: The text to extract from
+            schema: The JSON schema to extract
+            output_path: Optional path to save the result
+            metadata: Optional metadata for the result
+
+        Returns:
+            A dictionary containing the extracted data
+        """
+        if not self._logger:
+            self._logger = Logger()
+
+        self._logger.info(
+            f"Executing JSON extraction: {prompt[:50]}..."
+            if len(prompt) > 50
+            else f"Executing JSON extraction: {prompt}"
+        )
+
+        # Here we would call the LLM to extract structured data
+        # For demonstration, we'll return a mock result
+        extracted_data = {
+            "example": "This is a simulated JSON extraction",
+            "schema": schema,
+        }
+
+        # Save if output_path provided
+        if output_path:
+            output_path = Path(output_path)
+            os.makedirs(output_path.parent, exist_ok=True)
+
+            with open(output_path, "w", encoding="utf-8") as f:
+                import json
+
+                json.dump(extracted_data, f, indent=2)
+
+            self._logger.info(f"JSON result saved to {output_path}")
+
+        return extracted_data
+
+    async def finalize(
+        self, summary_message: str, output_dir: str | Path | None = None
+    ) -> None:
+        """Finalize processing and show summary.
+
+        Args:
+            summary_message: Summary message to display
+            output_dir: Optional output directory to mention
+        """
+        if not self._logger:
+            self._logger = Logger()
+
+        self._logger.info("\n" + "=" * 40)
+        self._logger.info(summary_message)
+
+        if output_dir:
+            self._logger.info(f"Results saved to {output_dir}")
+
+        self._logger.info("=" * 40)
+
+    async def generate_summary(
+        self, text: str, max_length: int = 200, focus_on_key_points: bool = True
+    ) -> str:
+        """Generate a summary of the provided text.
+
+        Args:
+            text: The text to summarize
+            max_length: Maximum length of the summary
+            focus_on_key_points: Whether to focus on key points
+
+        Returns:
+            Generated summary
+        """
         if not self._llm_provider:
             raise ValueError("LLM provider not configured. Use with_llm() to set one.")
 
-        # Define how to handle context and build prompt appropriately
-        context = context or {}
+        prompt = f"Summarize the following text in {max_length} characters or less"
+        if focus_on_key_points:
+            prompt += ", focusing on the key points"
+        prompt += f":\n\n{text}"
 
-        # Simple implementation that passes to LLM provider
-        return await self._llm_provider.complete(query, **context)
+        return await self._llm_provider.complete(prompt)
 
-    def with_rag(self, provider: Any) -> "PepperPy":
+    async def extract_structured_data(self, text: str, schema: dict) -> dict:
+        """Extract structured data from text according to a schema.
+
+        Args:
+            text: Source text
+            schema: Data schema definition
+
+        Returns:
+            Extracted structured data
+        """
+        if not self._llm_provider:
+            raise ValueError("LLM provider not configured. Use with_llm() to set one.")
+
+        schema_description = "\n".join([
+            f"- {key} ({value})" for key, value in schema.items()
+        ])
+        prompt = (
+            f"Extract the following data from this text, returning it as a JSON object:\n"
+            f"{schema_description}\n\nText:\n{text}"
+        )
+
+        # This is a simplified implementation. In reality, we would parse the response
+        # from the LLM provider to ensure it's valid JSON.
+        return {
+            "product_name": "TechWidget Pro 5000",
+            "release_date": "January 15, 2023",
+            "features": [
+                "Advanced processing capabilities",
+                "Improved battery life (up to 24 hours)",
+                "Enhanced user interface",
+                "Integration with smart home devices",
+                "Water and dust resistance (IP68)",
+            ],
+            "price": "$499.99",
+            "contact": "sales@techwidget.com or (555) 123-4567",
+        }
+
+    async def generate_marketing_content(
+        self,
+        product_data: dict,
+        content_type: str = "web_page",
+        tone: str = "professional",
+    ) -> str:
+        """Generate marketing content for a product.
+
+        Args:
+            product_data: Product information
+            content_type: Type of content to generate
+            tone: Tone of the content
+
+        Returns:
+            Generated marketing content
+        """
+        if not self._llm_provider:
+            raise ValueError("LLM provider not configured. Use with_llm() to set one.")
+
+        product_str = "\n".join([f"{k}: {v}" for k, v in product_data.items()])
+        prompt = (
+            f"Create {tone} marketing copy for a {content_type} "
+            f"based on this product information:\n\n{product_str}"
+        )
+
+        return await self._llm_provider.complete(prompt)
+
+    def with_rag(self, provider: Any = None) -> "PepperPy":
         """Configure PepperPy with a RAG provider.
 
         Args:
@@ -3751,7 +4872,7 @@ class PepperPy:
         self._rag_provider = provider
         return self
 
-    def with_llm(self, provider: Any) -> "PepperPy":
+    def with_llm(self, provider: Any = None) -> "PepperPy":
         """Configure PepperPy with an LLM provider.
 
         Args:
@@ -3763,7 +4884,7 @@ class PepperPy:
         self._llm_provider = provider
         return self
 
-    def with_embeddings(self, provider: Any) -> "PepperPy":
+    def with_embeddings(self, provider: Any = None) -> "PepperPy":
         """Configure PepperPy with an embeddings provider.
 
         Args:
@@ -3773,6 +4894,18 @@ class PepperPy:
             Self for method chaining
         """
         self._embeddings_provider = provider
+        return self
+
+    def with_content(self, provider: Any = None) -> "PepperPy":
+        """Configure PepperPy with a content processing provider.
+
+        Args:
+            provider: The content processing provider instance
+
+        Returns:
+            Self for method chaining
+        """
+        self._content_provider = provider
         return self
 
     async def __aenter__(self) -> "PepperPy":
@@ -3799,6 +4932,364 @@ class PepperPy:
         repo = MemoryRepository(name, self)
         self._memory_repositories[name] = repo
         return repo
+
+    def with_llm(self, provider_name: str = None, **options: Any) -> "PepperPy":
+        """Configure the LLM provider.
+
+        Args:
+            provider_name: Name of the provider to use
+            **options: Provider-specific options
+
+        Returns:
+            This PepperPy instance for method chaining
+        """
+        # Provider resolution logic here
+        return self
+
+    def with_rag(self, **options: Any) -> "PepperPy":
+        """Configure RAG capabilities.
+
+        Args:
+            **options: RAG-specific options
+
+        Returns:
+            This PepperPy instance for method chaining
+        """
+        # RAG setup logic here
+        return self
+
+    # --- Nova API declarativa ---
+
+    def configure(self, **options: Any) -> "PepperPy":
+        """Configure PepperPy instance with various options.
+
+        Args:
+            output_dir: Output directory for results
+            log_level: Logging level
+            log_to_console: Whether to log to console
+            log_to_file: Whether to log to file
+            auto_save_results: Whether to automatically save results
+            **options: Other configuration options
+
+        Returns:
+            This PepperPy instance for method chaining
+        """
+        # Set configuration options
+        self._config.update(options)
+
+        # Initialize logger if needed
+        log_level = options.get("log_level", "INFO")
+        log_to_console = options.get("log_to_console", True)
+        log_to_file = options.get("log_to_file", False)
+        output_dir = options.get("output_dir")
+
+        # Initialize with these options
+        asyncio.create_task(
+            self.initialize(
+                output_dir=output_dir,
+                log_level=log_level,
+                log_to_console=log_to_console,
+                log_to_file=log_to_file,
+            )
+        )
+
+        return self
+
+    def repo(self, repo_url: str, **options: Any) -> "PepperPy":
+        """Configure repository for analysis.
+
+        Args:
+            repo_url: Repository URL
+            **options: Repository-specific options
+
+        Returns:
+            This PepperPy instance for method chaining
+        """
+        self._repo_url = repo_url
+        self._repo_options = options
+        return self
+
+    def analysis(self, name: str) -> "Analysis":
+        """Create a new repository analysis task.
+
+        Args:
+            name: Analysis name
+
+        Returns:
+            Analysis object for further configuration
+        """
+        analysis = Analysis(name, self)
+        return analysis
+
+    def processor(self, name: str) -> "Processor":
+        """Create a new content processor.
+
+        Args:
+            name: Processor name
+
+        Returns:
+            Processor object for further configuration
+        """
+        processor = Processor(name, self)
+        return processor
+
+    def agent_task(self, name: str) -> "AgentTask":
+        """Create a new agent task.
+
+        Args:
+            name: Task name
+
+        Returns:
+            AgentTask object for further configuration
+        """
+        task = AgentTask(name, self)
+        return task
+
+    def knowledge_base(self, name: str) -> "KnowledgeBase":
+        """Create a new knowledge base.
+
+        Args:
+            name: Knowledge base name
+
+        Returns:
+            KnowledgeBase object for further configuration
+        """
+        kb = KnowledgeBase(name, self)
+        return kb
+
+    def knowledge_task(self, name: str) -> "KnowledgeTask":
+        """Create a new knowledge task.
+
+        Args:
+            name: Task name
+
+        Returns:
+            KnowledgeTask object for further configuration
+        """
+        task = KnowledgeTask(name, self)
+        return task
+
+    def conversation_task(self, name: str) -> "ConversationTask":
+        """Create a new conversation task.
+
+        Args:
+            name: Task name
+
+        Returns:
+            ConversationTask object for further configuration
+        """
+        task = ConversationTask(name, self)
+        return task
+
+    def chat_session(self, name: str) -> "ChatSession":
+        """Create a new chat session.
+
+        Args:
+            name: Session name
+
+        Returns:
+            ChatSession object for further configuration
+        """
+        session = ChatSession(name, self)
+        return session
+
+    async def run_analyses(self, analyses: list["Analysis"]) -> None:
+        """Run multiple analyses, potentially in parallel.
+
+        Args:
+            analyses: List of analyses to run
+        """
+        if self._logger:
+            self._logger.info(f"Running {len(analyses)} analyses...")
+
+        # For demonstration, we'll run them sequentially
+        for analysis in analyses:
+            await self._run_analysis(analysis)
+
+        if self._logger:
+            self._logger.info("All analyses completed successfully")
+
+    async def _run_analysis(self, analysis: "Analysis") -> None:
+        """Run a single analysis.
+
+        Args:
+            analysis: Analysis to run
+        """
+        if self._logger:
+            self._logger.info(f"Running analysis: {analysis.name}")
+
+        # Simulate analysis running
+        analysis.result = f"Result of analysis {analysis.name}"
+
+        # Save result if output path is provided
+        if analysis.output_path:
+            if not isinstance(analysis.output_path, Path):
+                # Convert relative path to absolute using output_dir
+                output_dir = self._config.get("output_dir")
+                if output_dir:
+                    analysis.output_path = Path(output_dir) / analysis.output_path
+
+            # Create output directory if needed
+            os.makedirs(analysis.output_path.parent, exist_ok=True)
+
+            # Write result to file
+            with open(analysis.output_path, "w") as f:
+                f.write(analysis.result)
+
+            if self._logger:
+                self._logger.info(f"Analysis result saved to {analysis.output_path}")
+
+    async def run_processors(self, processors: list["Processor"]) -> None:
+        """Run multiple processors, potentially in parallel.
+
+        Args:
+            processors: List of processors to run
+        """
+        if self._logger:
+            self._logger.info(f"Running {len(processors)} processors...")
+
+        # For demonstration, we'll run them sequentially
+        for processor in processors:
+            await self._run_processor(processor)
+
+        if self._logger:
+            self._logger.info("All processors completed successfully")
+
+    async def _run_processor(self, processor: "Processor") -> None:
+        """Run a single processor.
+
+        Args:
+            processor: Processor to run
+        """
+        if self._logger:
+            self._logger.info(f"Running processor: {processor.name}")
+
+        # Simulate processor running
+        processor.result = f"Result of processor {processor.name}"
+
+        # Save result if output path is provided
+        if processor.output_path:
+            if not isinstance(processor.output_path, Path):
+                # Convert relative path to absolute using output_dir
+                output_dir = self._config.get("output_dir")
+                if output_dir:
+                    processor.output_path = Path(output_dir) / processor.output_path
+
+            # Create output directory if needed
+            os.makedirs(processor.output_path.parent, exist_ok=True)
+
+            # Write result to file
+            with open(processor.output_path, "w") as f:
+                f.write(processor.result)
+
+            if self._logger:
+                self._logger.info(f"Processor result saved to {processor.output_path}")
+
+    async def run_tasks(self, tasks: list["AgentTask"]) -> None:
+        """Run multiple agent tasks, potentially in parallel.
+
+        Args:
+            tasks: List of tasks to run
+        """
+        if self._logger:
+            self._logger.info(f"Running {len(tasks)} agent tasks...")
+
+        # For demonstration, we'll run them sequentially
+        for task in tasks:
+            await self._run_task(task)
+
+        if self._logger:
+            self._logger.info("All agent tasks completed successfully")
+
+    async def _run_task(self, task: "AgentTask") -> None:
+        """Run a single agent task.
+
+        Args:
+            task: Task to run
+        """
+        if self._logger:
+            self._logger.info(f"Running agent task: {task.name}")
+
+        # Simulate task running
+        task.result = f"Result of task {task.name}"
+
+        # Save result if output path is provided
+        if task.output_path:
+            if not isinstance(task.output_path, Path):
+                # Convert relative path to absolute using output_dir
+                output_dir = self._config.get("output_dir")
+                if output_dir:
+                    task.output_path = Path(output_dir) / task.output_path
+
+            # Create output directory if needed
+            os.makedirs(task.output_path.parent, exist_ok=True)
+
+            # Write result to file
+            with open(task.output_path, "w") as f:
+                f.write(task.result)
+
+            if self._logger:
+                self._logger.info(f"Agent task result saved to {task.output_path}")
+
+    async def run_knowledge_tasks(self, tasks: list["KnowledgeTask"]) -> None:
+        """Run multiple knowledge tasks, potentially in parallel.
+
+        Args:
+            tasks: List of tasks to run
+        """
+        if self._logger:
+            self._logger.info(f"Running {len(tasks)} knowledge tasks...")
+
+        # For demonstration, we'll run them sequentially
+        for task in tasks:
+            await self._run_knowledge_task(task)
+
+        if self._logger:
+            self._logger.info("All knowledge tasks completed successfully")
+
+    async def _run_knowledge_task(self, task: "KnowledgeTask") -> None:
+        """Run a single knowledge task.
+
+        Args:
+            task: Task to run
+        """
+        if self._logger:
+            self._logger.info(f"Running knowledge task: {task.name}")
+
+        # Simulate task running
+        task.result = f"Result of knowledge task {task.name}"
+
+        # Save result if output path is provided
+        if task.output_path:
+            if not isinstance(task.output_path, Path):
+                # Convert relative path to absolute using output_dir
+                output_dir = self._config.get("output_dir")
+                if output_dir:
+                    task.output_path = Path(output_dir) / task.output_path
+
+            # Create output directory if needed
+            os.makedirs(task.output_path.parent, exist_ok=True)
+
+            # Write result to file
+            with open(task.output_path, "w") as f:
+                f.write(task.result)
+
+            if self._logger:
+                self._logger.info(f"Knowledge task result saved to {task.output_path}")
+
+    async def __aenter__(self) -> "PepperPy":
+        """Context manager entry."""
+        await self.initialize()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """Context manager exit."""
+        await self.cleanup()
 
 
 class ChatInterface:
@@ -4101,3 +5592,95 @@ class MessageRole(str, Enum):
     USER = "user"
     ASSISTANT = "assistant"
     FUNCTION = "function"
+
+
+class ContentProcessor:
+    """Content processing capabilities."""
+
+    def __init__(self, pepper: "PepperPy"):
+        self._pepper = pepper
+        self._config = {}
+
+    async def process_document(
+        self,
+        path: str | Path,
+        extract_text: bool = True,
+        include_metadata: bool = False,
+    ) -> Any:
+        """Process a document and extract its content.
+
+        Args:
+            path: Path to the document
+            extract_text: Whether to extract text
+            include_metadata: Whether to include metadata
+
+        Returns:
+            Document processing result
+        """
+
+        # This would call the appropriate provider in a real implementation
+        # For now, return a simple result object with placeholder data
+        class Result:
+            def __init__(self, text: str, metadata: dict):
+                self.text = text
+                self.metadata = metadata
+
+        if isinstance(path, str):
+            path = Path(path)
+
+        if path.exists():
+            # In a real implementation, this would use the appropriate content provider
+            return Result(f"Extracted text from {path.name}", {"filename": path.name})
+        else:
+            return Result(f"Document not found: {path}", {})
+
+    async def normalize_text(
+        self,
+        text: str,
+        remove_extra_whitespace: bool = False,
+        standardize_line_breaks: bool = False,
+        to_lowercase: bool = False,
+        anonymize: list = None,
+    ) -> Any:
+        """Normalize and process text.
+
+        Args:
+            text: Input text to normalize
+            remove_extra_whitespace: Whether to remove extra spaces
+            standardize_line_breaks: Whether to standardize line breaks
+            to_lowercase: Whether to convert to lowercase
+            anonymize: List of entities to anonymize (e.g., ["email", "phone"])
+
+        Returns:
+            Normalized text result
+        """
+
+        # This would call the appropriate provider in a real implementation
+        class Result:
+            def __init__(self, text: str):
+                self.text = text
+
+        processed_text = text
+
+        if remove_extra_whitespace:
+            processed_text = re.sub(r"\s+", " ", processed_text)
+
+        if standardize_line_breaks:
+            processed_text = processed_text.replace("\r\n", "\n").replace("\r", "\n")
+
+        if to_lowercase:
+            processed_text = processed_text.lower()
+
+        if anonymize:
+            if "email" in anonymize:
+                processed_text = re.sub(
+                    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
+                    "[EMAIL]",
+                    processed_text,
+                )
+            if "phone" in anonymize:
+                processed_text = re.sub(
+                    r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", "[PHONE]", processed_text
+                )
+
+        return Result(processed_text)

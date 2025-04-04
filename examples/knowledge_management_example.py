@@ -2,21 +2,19 @@
 """
 Knowledge Management Example
 
-This example demonstrates PepperPy's knowledge management capabilities for:
+This example demonstrates PepperPy's declarative API for knowledge management:
 1. Creating and querying knowledge bases
 2. Using RAG for improved responses
 3. Working with conversation memory
 """
 
 import asyncio
-import os
 from pathlib import Path
 
 from pepperpy import PepperPy
 
-# Output directory
+# Define output directory
 OUTPUT_DIR = Path(__file__).parent / "output" / "knowledge"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Sample documents - PepperPy handles parsing and processing internally
 DOCUMENTS = [
@@ -118,7 +116,7 @@ DOCUMENTS = [
     """,
 ]
 
-# Sample conversation - PepperPy handles conversation state internally
+# Sample conversation for memory demonstration
 SAMPLE_CONVERSATION = [
     {"role": "user", "content": "I want to learn about large language models."},
     {
@@ -134,74 +132,74 @@ SAMPLE_CONVERSATION = [
 ]
 
 
-async def knowledge_base_example() -> None:
-    """Demonstrate knowledge management capabilities."""
-    # PepperPy handles embeddings, vector storage, logging, and saving results
-    async with PepperPy().with_llm().with_rag() as pepper:
-        # Setup context with our documents
-        knowledge_context = {
-            "documents": DOCUMENTS,
-            "topic": "AI concepts and techniques",
-        }
-
-        # Execute query with RAG-enhanced context
-        await pepper.execute(
-            "What is RAG and how does it work?",
-            context=knowledge_context,
-            output_path=OUTPUT_DIR / "rag_answer.txt",
-            metadata={"query": "What is RAG and how does it work?"},
-        )
-
-
-async def rag_conversation_example() -> None:
-    """Demonstrate RAG-enhanced conversation."""
-    # PepperPy handles RAG, logging, and result storage
-    async with PepperPy().with_llm().with_rag() as pepper:
-        # Execute query with knowledge grounding
-        await pepper.execute(
-            "Explain how RAG systems improve the accuracy of LLMs",
-            context={"documents": DOCUMENTS},
-            output_path=OUTPUT_DIR / "rag_explanation.txt",
-            metadata={
-                "question": "Explain how RAG systems improve the accuracy of LLMs"
-            },
-        )
-
-
-async def memory_example() -> None:
-    """Demonstrate conversation memory capabilities."""
-    # PepperPy handles conversation memory, logging, and result saving
-    async with PepperPy().with_llm() as pepper:
-        # Execute with conversation history context
-        await pepper.execute(
-            "Based on what we discussed earlier, can you explain how retrieval works in language models?",
-            context={"conversation_history": SAMPLE_CONVERSATION},
-            output_path=OUTPUT_DIR / "memory_response.txt",
-            conversation_id="memory-example",
-        )
-
-
-async def main() -> None:
-    """Run all knowledge management examples."""
-    # PepperPy should handle both console output and logging
-    pepper = PepperPy()
-
-    # Initialize with logging and output configuration
-    await pepper.initialize(
-        output_dir=OUTPUT_DIR, log_level="INFO", log_to_console=True, log_to_file=True
-    )
-
-    await pepper.log_header("PEPPERPY KNOWLEDGE MANAGEMENT EXAMPLE")
-
-    await knowledge_base_example()
-    await rag_conversation_example()
-    await memory_example()
-
-    # Finalize with automatic summary of results
-    await pepper.finalize(
-        summary_message="All knowledge management examples completed!",
+async def main():
+    """Demonstrate knowledge management using PepperPy's declarative API."""
+    # Setup pipeline with configuration
+    pepper = PepperPy().configure(
         output_dir=OUTPUT_DIR,
+        log_level="INFO",
+        log_to_console=True,
+        auto_save_results=True,
     )
+
+    # Create a knowledge base with our documents
+    kb = (
+        pepper.knowledge_base("ai_concepts")
+        .add_documents(DOCUMENTS)
+        .configure(
+            chunk_size=1000,
+            embedding_model="text-embedding-ada-002",
+            vector_store="chroma",
+        )
+    )
+
+    # Define all knowledge tasks declaratively
+    tasks = [
+        # Basic knowledge base query
+        pepper.knowledge_task("rag_query")
+        .prompt("What is RAG and how does it work?")
+        .using(kb)
+        .output("rag_answer.txt"),
+        # RAG-enhanced explanation
+        pepper.knowledge_task("rag_explanation")
+        .prompt("Explain how RAG systems improve the accuracy of LLMs")
+        .using(kb)
+        .parameters({"detail_level": "high"})
+        .output("rag_explanation.txt"),
+        # Memory-based task
+        pepper.conversation_task("memory_response")
+        .prompt(
+            "Based on what we discussed earlier, can you explain how retrieval works in language models?"
+        )
+        .history(SAMPLE_CONVERSATION)
+        .conversation_id("memory-example")
+        .output("memory_response.txt"),
+        # Combined knowledge + memory task
+        pepper.knowledge_task("advanced_retrieval")
+        .prompt("Compare different vector embedding approaches for retrieval systems")
+        .using(kb)
+        .with_history(SAMPLE_CONVERSATION)
+        .parameters({"format": "comparison"})
+        .output("advanced_retrieval.txt"),
+    ]
+
+    # Execute all knowledge tasks - potentially in parallel
+    await pepper.run_knowledge_tasks(tasks)
+
+    # Additional option: Conversational interface
+    chat_session = pepper.chat_session("kb_chat").using(kb)
+    # Add tasks to chat pipeline
+    for task in tasks:
+        chat_session.add_task(task)
+
+    # Execute interactive session (commented out for demonstration)
+    # await chat_session.start()
+
+    # Display results
+    print("\nAll knowledge management tasks completed successfully!")
+    print(f"Results saved to {OUTPUT_DIR}")
+    for task in tasks:
+        print(f"- {task.name}: Task completed")
 
 
 if __name__ == "__main__":

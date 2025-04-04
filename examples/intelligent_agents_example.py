@@ -1,29 +1,32 @@
 #!/usr/bin/env python3
 """
-Intelligent agents example showing how to use PepperPy for different agent tasks.
+Intelligent Agents Example with PepperPy.
 
-This example demonstrates using PepperPy's intelligent agents for:
-- Code analysis
-- Content generation
-- Technical writing
-- Data extraction
+This example demonstrates how to use PepperPy's declarative API for intelligent
+agent tasks such as code analysis, content generation, technical writing, and data extraction.
 """
 
 import asyncio
-import os
 from pathlib import Path
 
 from pepperpy import PepperPy
 
-# Output directory
+# Define output directory
 OUTPUT_DIR = Path(__file__).parent / "output" / "agents"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-async def code_analysis_agent() -> None:
-    """Run a code analysis agent."""
-    # Sample code to analyze
-    code = """
+async def main():
+    """Run intelligent agent examples using PepperPy's declarative API."""
+    # Setup pipeline with configuration
+    pepper = PepperPy().configure(
+        output_dir=OUTPUT_DIR,
+        log_level="INFO",
+        log_to_console=True,
+        auto_save_results=True,
+    )
+
+    # Sample data for tasks
+    code_sample = """
     def fibonacci(n):
         if n <= 0:
             return 0
@@ -37,31 +40,7 @@ async def code_analysis_agent() -> None:
     print(f"Fibonacci(10) = {result}")
     """
 
-    # PepperPy internalizes the complexity of configuring, communicating, and saving results
-    async with PepperPy().with_llm() as pepper:
-        # The library handles prompt engineering, logging, and saving results
-        await pepper.execute(
-            "Analyze this code for efficiency, correctness, and improvements:",
-            context={"code": code},
-            output_path=OUTPUT_DIR / "code_analysis_result.txt",
-        )
-
-
-async def content_generation_agent() -> None:
-    """Run a content generation agent."""
-    # PepperPy handles all the prompt engineering, logging, and result management
-    async with PepperPy().with_llm() as pepper:
-        # The library creates proper prompts, logs operations, and saves results
-        await pepper.execute(
-            "Generate an informative blog post about AI in Healthcare for healthcare professionals, approximately 500 words long.",
-            output_path=OUTPUT_DIR / "generated_content.txt",
-        )
-
-
-async def technical_writing_agent() -> None:
-    """Run a technical writing agent."""
-    # API endpoints to document
-    endpoints = [
+    api_endpoints = [
         {
             "name": "createDevice",
             "method": "POST",
@@ -92,20 +71,7 @@ async def technical_writing_agent() -> None:
         },
     ]
 
-    # The library handles forming well-structured prompts and logging
-    async with PepperPy().with_llm() as pepper:
-        # All the complexity of prompt engineering and logging is handled internally
-        await pepper.execute(
-            "Create detailed API Documentation for SmartIoT Hub, covering all provided endpoints.",
-            context={"endpoints": endpoints},
-            output_path=OUTPUT_DIR / "technical_documentation.md",
-        )
-
-
-async def data_extraction_agent() -> None:
-    """Run a data extraction agent."""
-    # Sample text with structured information
-    text = """
+    product_data = """
     Product Information:
     Name: Ultra HD Smart TV X9000
     SKU: TV-X9000-65
@@ -127,48 +93,57 @@ async def data_extraction_agent() -> None:
     Email: support@electronics-store.com
     """
 
-    # Schema for data extraction
-    schema = {
-        "product_name": "string",
-        "sku": "string",
-        "price": "float",
-        "availability": {"status": "string", "quantity": "integer"},
-        "features": "list of strings",
-        "rating": "float",
-        "review_count": "integer",
-        "contact": {"phone": "string", "email": "string"},
-    }
-
-    # The library handles everything from extraction to saving and logging
-    async with PepperPy().with_llm() as pepper:
-        # The library should handle complex prompts, JSON parsing, and logging
-        await pepper.execute_json(
-            prompt="Extract product information according to the schema",
-            text=text,
-            schema=schema,
-            output_path=OUTPUT_DIR / "extracted_data.json",
+    # Define all agent tasks declaratively
+    tasks = [
+        # Code Analysis Task
+        pepper.agent_task("code_analysis")
+        .prompt("Analyze this code for efficiency, correctness, and improvements:")
+        .context({"code": code_sample})
+        .capability("code_analysis")
+        .output("code_analysis_result.txt"),
+        # Content Generation Task
+        pepper.agent_task("content_generation")
+        .prompt(
+            "Generate an informative blog post about AI in Healthcare for healthcare professionals, approximately 500 words long."
         )
+        .capability("content_generation")
+        .parameters({"style": "professional", "max_words": 500})
+        .output("generated_content.txt"),
+        # Technical Writing Task
+        pepper.agent_task("technical_writing")
+        .prompt(
+            "Create detailed API Documentation for SmartIoT Hub, covering all provided endpoints."
+        )
+        .context({"endpoints": api_endpoints})
+        .capability("technical_writing")
+        .format("markdown")
+        .output("technical_documentation.md"),
+        # Data Extraction Task
+        pepper.agent_task("data_extraction")
+        .prompt("Extract structured product information")
+        .context({"text": product_data})
+        .schema({
+            "product_name": "string",
+            "sku": "string",
+            "price": "float",
+            "availability": {"status": "string", "quantity": "integer"},
+            "features": "list of strings",
+            "rating": "float",
+            "review_count": "integer",
+            "contact": {"phone": "string", "email": "string"},
+        })
+        .capability("data_extraction")
+        .output("extracted_data.json"),
+    ]
 
+    # Execute all tasks at once - potentially in parallel
+    await pepper.run_tasks(tasks)
 
-async def main() -> None:
-    """Run all intelligent agents examples."""
-    # PepperPy should handle both console output and logging
-    pepper = PepperPy()
-    await pepper.initialize(
-        output_dir=OUTPUT_DIR, log_level="INFO", log_to_console=True, log_to_file=True
-    )
-
-    await pepper.log_header("PEPPERPY INTELLIGENT AGENTS EXAMPLE")
-
-    await code_analysis_agent()
-    await content_generation_agent()
-    await technical_writing_agent()
-    await data_extraction_agent()
-
-    # Finalize with automatic summary of results
-    await pepper.finalize(
-        summary_message="All agent examples completed!", output_dir=OUTPUT_DIR
-    )
+    # Display results
+    print("\nAll intelligent agent tasks completed successfully!")
+    print(f"Results saved to {OUTPUT_DIR}")
+    for task in tasks:
+        print(f"- {task.name}: Task completed")
 
 
 if __name__ == "__main__":

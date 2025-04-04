@@ -26,27 +26,44 @@ from .core.logging import get_logger
 #     create_workflow,
 # )
 from .pepperpy import (
+    AgentTask,
+    # Fluent API (anteriormente em core/fluent.py)
+    Analysis,
+    # Enums
     AnalysisLevel,
     AnalysisScope,
-    # Enums
     AnalysisType,
-    BestPracticesEnhancer,
-    DeepContextEnhancer,
     # Enhancers
+    BestPracticesEnhancer,
+    ChatSession,
+    ConversationTask,
+    DeepContextEnhancer,
     Enhancer,
+    EnhancerProxy,
+    FluentBase,
+    # Core classes
     GitRepository,
     HistoricalTrendsEnhancer,
-    # Core classes
+    # Results (anteriormente em core/results.py)
+    JSONResult,
+    KnowledgeBase,
+    KnowledgeTask,
+    Logger,
+    MemoryResult,
     PepperPy,
+    PepperResult,
+    PepperResultError,
     PerformanceEnhancer,
+    Processor,
     RepositoryAnalysis,
     Result,
     SecurityEnhancer,
+    TextResult,
+    # Decorators
     code_analysis,
     enhancer,
     event_handler,
     on_analysis_complete,
-    # Decorators
     repository_task,
 )
 

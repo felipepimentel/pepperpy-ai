@@ -2,7 +2,7 @@
 """
 Content Processing Workflow Example
 
-This example demonstrates PepperPy's content processing capabilities for:
+This example demonstrates PepperPy's declarative API for content processing workflows:
 1. Text extraction from documents
 2. Text normalization
 3. Content generation
@@ -10,14 +10,12 @@ This example demonstrates PepperPy's content processing capabilities for:
 """
 
 import asyncio
-import os
 from pathlib import Path
 
 from pepperpy import PepperPy
 
-# Output directory for results
+# Define output directory
 OUTPUT_DIR = Path(__file__).parent / "output" / "content"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Sample document for processing
 SAMPLE_DOCUMENT = """
@@ -65,20 +63,8 @@ and entertainment. From medical diagnosis to autonomous vehicles, the applicatio
 """
 
 
-async def text_extraction_example() -> None:
-    """Demonstrate text extraction functionality."""
-    # PepperPy handles both text extraction, logging, and result saving
-    async with PepperPy().with_llm() as pepper:
-        # Execute with automatic logging of operations
-        await pepper.execute(
-            "Extract and list all machine learning types and algorithms mentioned in this document.",
-            context={"document": SAMPLE_DOCUMENT},
-            output_path=OUTPUT_DIR / "extraction_result.txt",
-        )
-
-
-async def text_normalization_example() -> None:
-    """Demonstrate text normalization functionality."""
+async def main():
+    """Demonstrate content processing using PepperPy's declarative API."""
     # Text with inconsistencies to normalize
     inconsistent_text = """
     machine Learning can be divided into: supervised learning, UNsupervised learning, 
@@ -86,60 +72,61 @@ async def text_normalization_example() -> None:
     regression, decision trees, etc. Neural nets are also popular ML algorithms.
     """
 
-    # PepperPy handles both normalization, logging, and result saving
-    async with PepperPy().with_llm() as pepper:
-        # Execute with automatic logging
-        await pepper.execute(
-            "Normalize this text by using consistent terminology, proper capitalization, and professional formatting.",
-            context={"text": inconsistent_text},
-            output_path=OUTPUT_DIR / "normalization_result.txt",
-        )
-
-
-async def content_generation_example() -> None:
-    """Demonstrate content generation functionality."""
-    # PepperPy handles both content generation, logging, and result saving
-    async with PepperPy().with_llm() as pepper:
-        # Execute with automatic logging
-        await pepper.execute(
-            "Generate a short introduction paragraph about deep learning, explaining how it relates to machine learning.",
-            output_path=OUTPUT_DIR / "generation_result.txt",
-        )
-
-
-async def content_summarization_example() -> None:
-    """Demonstrate content summarization functionality."""
-    # PepperPy handles both summarization, logging, and result saving
-    async with PepperPy().with_llm() as pepper:
-        # Execute with automatic logging
-        await pepper.execute(
-            "Provide a concise 3-sentence summary of this document about machine learning.",
-            context={"document": SAMPLE_DOCUMENT},
-            output_path=OUTPUT_DIR / "summarization_result.txt",
-        )
-
-
-async def main() -> None:
-    """Run all content processing examples."""
-    # PepperPy should handle both console output and logging
-    pepper = PepperPy()
-    await pepper.log_header("PEPPERPY CONTENT PROCESSING WORKFLOW EXAMPLE")
-
-    # Initialize for this example with automatic logging of operations
-    await pepper.initialize(
-        output_dir=OUTPUT_DIR, log_level="INFO", log_to_console=True, log_to_file=True
-    )
-
-    await text_extraction_example()
-    await text_normalization_example()
-    await content_generation_example()
-    await content_summarization_example()
-
-    # Finalize with automatic summary of results
-    await pepper.finalize(
-        summary_message="All content processing examples completed!",
+    # Setup pipeline with declarative configuration
+    pepper = PepperPy().configure(
         output_dir=OUTPUT_DIR,
+        log_level="INFO",
+        log_to_console=True,
+        auto_save_results=True,
     )
+
+    # Define all content processing steps
+    processors = [
+        # Text extraction processor
+        pepper.processor("text_extraction")
+        .prompt(
+            "Extract and list all machine learning types and algorithms mentioned in this document."
+        )
+        .input(SAMPLE_DOCUMENT)
+        .output("extraction_result.txt"),
+        # Text normalization processor
+        pepper.processor("text_normalization")
+        .prompt(
+            "Normalize this text by using consistent terminology, proper capitalization, and professional formatting."
+        )
+        .input(inconsistent_text)
+        .output("normalization_result.txt"),
+        # Content generation processor
+        pepper.processor("content_generation")
+        .prompt(
+            "Generate a short introduction paragraph about deep learning, explaining how it relates to machine learning."
+        )
+        .parameters({"max_length": 200, "style": "educational"})
+        .output("generation_result.txt"),
+        # Content summarization processor
+        pepper.processor("content_summarization")
+        .prompt(
+            "Provide a concise 3-sentence summary of this document about machine learning."
+        )
+        .input(SAMPLE_DOCUMENT)
+        .parameters({"sentences": 3, "style": "concise"})
+        .output("summarization_result.txt"),
+    ]
+
+    # Execute all processors at once - potentially in parallel
+    await pepper.run_processors(processors)
+
+    # Generate report showing results
+    print("\nAll content processing completed successfully!")
+    print(f"Results saved to {OUTPUT_DIR}")
+    for processor in processors:
+        print(f"- {processor.name}: Processing completed")
+
+    # Optional: run a sequential workflow instead
+    # workflow = pepper.workflow("content_processing")
+    # workflow.add_steps(processors)
+    # workflow.set_dependencies({"text_normalization": ["text_extraction"]})
+    # await workflow.execute()
 
 
 if __name__ == "__main__":
