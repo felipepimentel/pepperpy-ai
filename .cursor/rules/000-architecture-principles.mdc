@@ -36,6 +36,31 @@ pepperpy = PepperPy().with_llm("openai")
 result = await pepperpy.execute("prompt")
 ```
 
+#### Exception: Adapter Pattern for Development or Troubleshooting
+
+When developing new functionality or troubleshooting issues with the plugin system, the Direct Adapter Pattern may be used as a temporary solution:
+
+```python
+# Development/Debug Only: Direct adapter access
+from plugins.domain.provider_type.adapter import DirectAdapter
+
+# For script isolation or testing
+async def run_direct():
+    adapter = DirectAdapter()
+    await adapter.initialize()
+    try:
+        result = await adapter.execute(input_data)
+        return result
+    finally:
+        await adapter.cleanup()
+```
+
+This pattern should be limited to:
+- Isolated scripts (not framework code)
+- Development and debugging sessions
+- Temporary workarounds for critical functionality
+- Dedicated CLI tools that need direct access
+
 ### 2. Configuration Strategy
 
 PepperPy uses a layered configuration strategy:

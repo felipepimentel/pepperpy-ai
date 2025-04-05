@@ -1,8 +1,6 @@
 ---
 description: USE ALWAYS when working with plugins - mandatory structure and patterns for all plugin work
-globs: 
-  - "plugins/**/*.py"
-  - "plugins/**/*.yaml"
+globs: plugins/**/*.py, **/plugin*.py
 alwaysApply: true
 ---
 
@@ -146,6 +144,35 @@ class MyProvider(DomainProvider, ProviderPlugin):
 - Provide defaults in plugin.yaml
 - Access config via attributes (self.option)
 
+## Direct Adapter Pattern
+
+When encountering plugin system issues, consider using the Direct Adapter Pattern:
+
+```python
+# Direct adapter usage without plugin registry
+from plugins.workflow.repository_analyzer.provider import RepositoryAnalyzerAdapter
+
+# Create adapter directly
+adapter = RepositoryAnalyzerAdapter()
+await adapter.initialize()
+
+# Use adapter functionality
+result = await adapter.execute({"task": "analyze_repository"})
+```
+
+### When to use Direct Adapter Pattern:
+
+✅ **USE WHEN**:
+- Developing/debugging new plugin functionality
+- Plugin registry shows registration or discovery issues
+- Need a temporary workaround for production code
+- Creating CLI tools that need direct access to functionality
+
+❌ **AVOID WHEN**:
+- Plugin system is working correctly
+- Building production-ready components
+- Need to maintain dynamic provider switching
+
 ## Testing Requirements
 
 ```python
@@ -164,4 +191,76 @@ async def test_provider():
     async with provider:
         result = await provider.process("test input")
         assert result == "expected output"
+```
+
+## Testing Direct Adapter 
+
+When testing adapters directly, utilize this pattern:
+
+```python
+@pytest.mark.asyncio
+async def test_adapter_direct():
+    """Test adapter functionality directly."""
+    from plugins.domain.provider_type.adapter import DirectAdapter
+    
+    adapter = DirectAdapter(config_param="value")
+    await adapter.initialize()
+    
+    try:
+        result = await adapter.execute({"task": "specific_task"})
+        assert result["status"] == "success"
+    finally:
+        await adapter.cleanup()
+```
+
+## Troubleshooting Plugin Issues
+
+### Plugin Registration Issues
+
+If plugin doesn't register properly:
+
+1. Check plugin.yaml for correct format (plugin_type, provider_name)
+2. Verify adapter class inherits required base classes
+3. Look for import errors in plugin initialization
+4. Consider the Direct Adapter Pattern for critical functionality
+
+### Type Compatibility Issues
+
+When facing type compatibility issues between models:
+
+```python
+# Handling type incompatibilities
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from pepperpy.workflow.models import Workflow as ModelsWorkflow
+
+# Cast to appropriate type when necessary
+workflow_id = cast(str, workflow.id)
+```
+
+### CLI Access to Plugin Functionality
+
+Create dedicated entry points for direct CLI access:
+
+```python
+#!/usr/bin/env python3
+
+import asyncio
+import sys
+from plugins.domain.provider_type.adapter import DirectAdapter
+
+async def main():
+    """Direct CLI access to plugin functionality."""
+    adapter = DirectAdapter()
+    await adapter.initialize()
+    
+    try:
+        result = await adapter.execute({"task": sys.argv[1]})
+        print(result)
+    finally:
+        await adapter.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ``` 

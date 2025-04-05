@@ -420,6 +420,92 @@ async def process(self, input_data: str) -> str:
         raise DomainError(f"Failed to process input: {e}") from e
 ```
 
+#### Workflow Implementation Pattern
+
+When implementing a workflow provider, follow these guidelines:
+
+```python
+@workflow(
+    name="domain_workflow",
+    description="Workflow description",
+    version="0.1.0",
+)
+class DomainWorkflow(WorkflowProvider):
+    """Workflow implementation."""
+    
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize with configuration."""
+        super().__init__(**kwargs)
+        
+        # Configuration values with defaults
+        self.config = kwargs
+        self.option = self.config.get("option", "default")
+        
+        # Initialize state
+        self.initialized = False
+        self.resources = None
+    
+    async def initialize(self) -> None:
+        """Initialize resources."""
+        if self.initialized:
+            return
+            
+        try:
+            # Create necessary resources
+            self.resources = await create_resources(self.config)
+            self.initialized = True
+            logger.info("Initialized workflow")
+        except Exception as e:
+            logger.error(f"Failed to initialize: {e}")
+            raise
+    
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if not self.initialized:
+            return
+            
+        try:
+            if self.resources:
+                await self.resources.close()
+            self.initialized = False
+            logger.info("Cleaned up resources")
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
+    
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute workflow.
+        
+        Args:
+            input_data: Contains task and parameters
+            
+        Returns:
+            Execution result
+        """
+        try:
+            # Initialize if needed
+            if not self.initialized:
+                await self.initialize()
+                
+            # Get task from input
+            task = input_data.get("task", "default_task")
+            
+            # Execute appropriate task
+            if task == "task_one":
+                return await self._task_one(input_data)
+            elif task == "task_two":
+                return await self._task_two(input_data)
+            else:
+                return {"status": "error", "message": f"Unknown task: {task}"}
+        except Exception as e:
+            logger.error(f"Error executing task '{input_data.get('task')}': {e}")
+            return {"status": "error", "message": str(e)}
+            
+    # Internal task implementation methods
+    async def _task_one(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Implement specific task."""
+        # Task implementation
+        return {"status": "success", "result": "task completed"}
+
 ## Fluent API Design
 
 PepperPy follows a fluent API design:
@@ -612,3 +698,54 @@ This architecture ensures:
 4. Configuration flexibility
 5. Proper error handling
 6. Clean public APIs 
+
+#### Direct CLI Access
+
+For workflows that need direct CLI access:
+
+```python
+#!/usr/bin/env python3
+"""CLI for direct workflow execution."""
+
+import asyncio
+import json
+import sys
+from typing import Dict, Any
+
+from plugins.workflow.domain_workflow.provider import DomainWorkflowAdapter
+
+async def main() -> None:
+    """Execute workflow directly."""
+    # Parse command line arguments
+    if len(sys.argv) < 2:
+        print("Usage: python script.py <task> [--input '{}']")
+        sys.exit(1)
+        
+    task = sys.argv[1]
+    input_data: Dict[str, Any] = {"task": task}
+    
+    # Parse input if provided
+    for i, arg in enumerate(sys.argv):
+        if arg == "--input" and i + 1 < len(sys.argv):
+            try:
+                input_data.update(json.loads(sys.argv[i + 1]))
+            except json.JSONDecodeError:
+                print("Error: Invalid JSON input")
+                sys.exit(1)
+    
+    # Create and initialize workflow
+    adapter = DomainWorkflowAdapter()
+    await adapter.initialize()
+    
+    try:
+        # Execute workflow
+        result = await adapter.execute(input_data)
+        
+        # Print result
+        print(json.dumps(result, indent=2))
+    finally:
+        # Clean up resources
+        await adapter.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(main()) 

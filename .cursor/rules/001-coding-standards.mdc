@@ -277,3 +277,36 @@ Use base classes with "template methods" that define a skeleton, with specific s
 
 #### 3. Strategy Pattern
 Extract varying behavior into separate strategy classes that implement a common interface.
+
+### Handling Type Compatibility Issues
+
+When working with types from different modules that represent the same concept:
+
+```python
+# When importing types that might conflict
+from typing import TYPE_CHECKING, cast, TypeVar, Generic
+
+# Use aliases for types from different modules that refer to same concept
+if TYPE_CHECKING:
+    from pepperpy.workflow.models import Workflow as ModelsWorkflow
+    from pepperpy.workflow.base import Workflow as BaseWorkflow
+
+# Use type parameters for generics
+T = TypeVar('T')
+class Registry(Generic[T]):
+    def register(self, name: str, obj: T) -> None:
+        """Register an object."""
+        pass
+
+# Use cast() when type checker can't resolve compatibility
+def process_workflow(workflow: 'BaseWorkflow') -> str:
+    # When passing to a function expecting the other type
+    from pepperpy.workflow.models import execute_workflow
+    return execute_workflow(cast('ModelsWorkflow', workflow))
+```
+
+Key principles for resolving type conflicts:
+1. Use type aliases to clarify different imports of similar types
+2. Apply type parameters with TypeVar for flexible containers
+3. Use cast() carefully when conversion is safe but type checker complains
+4. Consider creating conversion functions for complex type translations
