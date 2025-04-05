@@ -194,6 +194,8 @@ class StorageResult(BaseModel, Generic[T]):
     pages: int | None = None
     has_more: bool = False
 
+    model_config = {"arbitrary_types_allowed": True}
+
 
 class StorageConnection(Protocol):
     """Protocol for storage connections.

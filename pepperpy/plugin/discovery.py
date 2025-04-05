@@ -477,3 +477,8 @@ class PluginDiscoveryProvider(PluginDiscoveryProtocol):
             Loaded plugin class
         """
         return await load_plugin(plugin_info)
+
+    async def cleanup(self) -> None:
+        """Clean up any resources."""
+        # Currently no resources to clean up
+        pass
