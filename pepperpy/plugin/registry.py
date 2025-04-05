@@ -6,32 +6,21 @@ Core plugin registration and retrieval functionality.
 
 from typing import Any
 
-from pepperpy.core.errors import PepperpyError
 from pepperpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class PluginRegistryError(PepperpyError):
-    """Base exception for plugin registry errors."""
-
-    pass
-
-
 class PluginRegistry:
     """Registry for PepperPy plugins."""
 
-    _instance = None
+    def __init__(self) -> None:
+        """Initialize plugin registry."""
+        self._initialized = False
+        self._init()
 
-    def __new__(cls):
-        """Create a singleton instance."""
-        if cls._instance is None:
-            cls._instance = super(PluginRegistry, cls).__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-
-    def __init__(self):
-        """Initialize the plugin registry."""
+    def _init(self) -> None:
+        """Initialize plugin registry."""
         if self._initialized:
             return
 
@@ -46,6 +35,7 @@ class PluginRegistry:
             "rag": {},
             "content": {},
             "embeddings": {},
+            "workflow": {},
         }
         self._initialized = True
 
@@ -133,7 +123,7 @@ class PluginRegistry:
         return result
 
 
-# Create a singleton registry instance
+# Global plugin registry instance
 plugin_registry = PluginRegistry()
 
 

@@ -6,7 +6,7 @@ Result classes specific to workflow operations.
 
 from typing import Any, Optional
 
-from pepperpy.common.result import Result
+from pepperpy.core.results import PepperResult as Result
 
 
 class WorkflowStepResult(Result):

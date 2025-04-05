@@ -7,6 +7,7 @@ installed packages, and registry entries.
 
 import importlib
 import importlib.util
+import inspect
 import os
 import sys
 from typing import Any
@@ -164,6 +165,171 @@ class FileSystemDiscovery:
             logger.error(f"Error loading plugin.yaml from {plugin_dir}: {e}")
             return None
 
+    async def _find_plugin_class(
+        self, plugin_dir: str, plugin_info: PluginInfo
+    ) -> type:
+        """Find the plugin class automatically.
+
+        This method searches for a class that inherits from the expected base class
+        according to the plugin type.
+
+        Args:
+            plugin_dir: Plugin directory
+            plugin_info: Plugin information
+
+        Returns:
+            The plugin class
+
+        Raises:
+            DiscoveryError: If plugin class cannot be found
+        """
+        # Add plugin directory to path temporarily
+        if plugin_dir not in sys.path:
+            sys.path.insert(0, plugin_dir)
+
+        try:
+            # First try common module names
+            possible_modules = [
+                "provider",
+                "workflow",
+                plugin_info.provider_type.lower(),
+            ]
+
+            # If entry_point is specified, use that module first
+            entry_point = plugin_info.module
+            if entry_point and entry_point not in possible_modules:
+                possible_modules.insert(0, entry_point)
+
+            # Attempt to import each possible module
+            for module_name in possible_modules:
+                try:
+                    module = importlib.import_module(module_name)
+
+                    # Look for classes with __pepperpy_plugin__ attribute first
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+
+                        # Check if it's a class with plugin metadata
+                        if not inspect.isclass(attr):
+                            continue
+
+                        # Check if class has plugin metadata
+                        if hasattr(attr, "__pepperpy_plugin__"):
+                            plugin_meta = attr.__pepperpy_plugin__
+                            # Check if plugin type matches
+                            if plugin_meta.get("type") == plugin_info.plugin_type:
+                                return attr
+
+                    # If no decorated class found, look for matching class names
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+
+                        # Check if it's a class and matches the provider type
+                        if not inspect.isclass(attr):
+                            continue
+
+                        # Match by class name pattern
+                        if (
+                            plugin_info.provider_type in attr_name
+                            or plugin_info.plugin_type.capitalize() in attr_name
+                            or "Provider" in attr_name
+                        ):
+                            # Additional validation could be done here
+                            # For example, check if it inherits from proper base class
+
+                            return attr
+
+                except ImportError:
+                    # This module doesn't exist, try the next one
+                    continue
+                except Exception as e:
+                    logger.warning(f"Error examining module {module_name}: {e}")
+                    continue
+
+            # If we reach here, we couldn't find a suitable class
+            # Try scanning all Python files
+            for root, _, files in os.walk(plugin_dir):
+                for file in files:
+                    if not file.endswith(".py"):
+                        continue
+
+                    try:
+                        file_path = os.path.join(root, file)
+                        module_name = os.path.splitext(os.path.basename(file))[0]
+
+                        # Skip __init__.py
+                        if module_name == "__init__":
+                            continue
+
+                        # Try to import via spec
+                        spec = importlib.util.spec_from_file_location(
+                            module_name, file_path
+                        )
+                        if spec and spec.loader:
+                            module = importlib.util.module_from_spec(spec)
+                            spec.loader.exec_module(module)
+
+                            # Look for classes with __pepperpy_plugin__ attribute first
+                            for attr_name in dir(module):
+                                attr = getattr(module, attr_name)
+
+                                if not inspect.isclass(attr):
+                                    continue
+
+                                # Check if class has plugin metadata
+                                if hasattr(attr, "__pepperpy_plugin__"):
+                                    plugin_meta = attr.__pepperpy_plugin__
+                                    # Check if plugin type matches
+                                    if (
+                                        plugin_meta.get("type")
+                                        == plugin_info.plugin_type
+                                    ):
+                                        return attr
+
+                            # If no decorated class found, look for matching class names
+                            for attr_name in dir(module):
+                                attr = getattr(module, attr_name)
+
+                                if not inspect.isclass(attr):
+                                    continue
+
+                                # Match by class name pattern
+                                if (
+                                    plugin_info.provider_type in attr_name
+                                    or plugin_info.plugin_type.capitalize() in attr_name
+                                    or "Provider" in attr_name
+                                    or "Workflow" in attr_name
+                                ):
+                                    return attr
+                    except Exception as e:
+                        logger.warning(f"Error examining file {file_path}: {e}")
+                        continue
+
+            # If no class found, fallback to default name based on provider_type
+            provider_class_name = f"{plugin_info.provider_type.capitalize()}Provider"
+            if plugin_info.plugin_type == "workflow":
+                provider_class_name = (
+                    f"{plugin_info.provider_type.capitalize()}Workflow"
+                )
+
+            # Try various modules with this class name
+            for module_name in possible_modules:
+                try:
+                    module = importlib.import_module(module_name)
+                    if hasattr(module, provider_class_name):
+                        return getattr(module, provider_class_name)
+                except (ImportError, AttributeError):
+                    pass
+
+            raise DiscoveryError(
+                f"Cannot find provider class for plugin {plugin_info.name}"
+            )
+
+        finally:
+            # Remove plugin directory from path
+            if plugin_dir in sys.path:
+                sys.path.remove(plugin_dir)
+
     async def load_plugin(self, plugin_info: PluginInfo) -> Any:
         """Load a plugin from its information.
 
@@ -187,23 +353,61 @@ class FileSystemDiscovery:
                 sys.path.insert(0, plugin_info.path)
 
             try:
+                # First check if class is already loaded
+                if plugin_info.is_loaded():
+                    return plugin_info.get_class()
+
                 # Import the module
                 module_name = plugin_info.module or "provider"
-                try:
-                    module = importlib.import_module(module_name)
-                except ImportError:
-                    # Try with parent directory as the package
-                    parent_dir = os.path.basename(
-                        os.path.dirname(plugin_info.path or "")
-                    )
-                    module = importlib.import_module(f"{parent_dir}.{module_name}")
+                class_name = plugin_info.class_name or "Provider"
 
-                # Get the class
-                class_name = (
-                    plugin_info.class_name
-                    or f"{plugin_info.provider_type.capitalize()}Provider"
-                )
-                plugin_class = getattr(module, class_name)
+                try:
+                    # Try normal import first
+                    module = importlib.import_module(module_name)
+
+                    # Try to get the class
+                    if hasattr(module, class_name):
+                        plugin_class = getattr(module, class_name)
+                    # If class not found in module, try auto-discovery
+                    elif plugin_info.path:
+                        plugin_class = await self._find_plugin_class(
+                            plugin_info.path, plugin_info
+                        )
+                    else:
+                        raise DiscoveryError(
+                            f"No path specified for plugin {plugin_info.name}"
+                        )
+
+                except ImportError:
+                    try:
+                        # Try with parent directory as the package
+                        parent_dir = os.path.basename(
+                            os.path.dirname(plugin_info.path or "")
+                        )
+                        module = importlib.import_module(f"{parent_dir}.{module_name}")
+
+                        # Try to get the class
+                        if hasattr(module, class_name):
+                            plugin_class = getattr(module, class_name)
+                        # If class not found in module, try auto-discovery
+                        elif plugin_info.path:
+                            plugin_class = await self._find_plugin_class(
+                                plugin_info.path, plugin_info
+                            )
+                        else:
+                            raise DiscoveryError(
+                                f"No path specified for plugin {plugin_info.name}"
+                            )
+                    except ImportError:
+                        # If still failing, try auto-discovery
+                        if plugin_info.path:
+                            plugin_class = await self._find_plugin_class(
+                                plugin_info.path, plugin_info
+                            )
+                        else:
+                            raise DiscoveryError(
+                                f"No path specified for plugin {plugin_info.name}"
+                            )
 
                 # Set the class in plugin info
                 plugin_info._plugin_class = plugin_class

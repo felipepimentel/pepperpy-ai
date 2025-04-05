@@ -1,7 +1,7 @@
-"""Command-line interface for PepperPy.
+"""
+Command-line interface for PepperPy.
 
-This module provides a robust command-line interface for PepperPy,
-enabling users to list and run workflows, manage plugins, and more.
+This module provides a command-line interface for interacting with PepperPy.
 """
 
 import argparse
@@ -10,12 +10,36 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
-from pepperpy.core import PepperpyError
+from pepperpy.core.errors import PepperpyError
+from pepperpy.orchestration import WorkflowOrchestrator
 from pepperpy.plugin.discovery import PluginDiscoveryProvider
 from pepperpy.plugin.registry import plugin_registry
-from pepperpy.workflow.orchestrator import WorkflowOrchestrator
+
+
+# Define a protocol for workflow providers
+class WorkflowProviderProtocol(Protocol):
+    """Protocol for workflow providers."""
+
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        ...
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        ...
+
+    async def execute(self, input_data: dict[str, Any]) -> Any:
+        """Execute workflow with input data."""
+        ...
+
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 
 class CLI:
@@ -24,8 +48,7 @@ class CLI:
     def __init__(self) -> None:
         """Initialize CLI."""
         self.parser = self._create_parser()
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger("pepperpy.cli")
         self._orchestrator = None
 
     def _create_parser(self) -> argparse.ArgumentParser:
@@ -35,28 +58,17 @@ class CLI:
             Configured argument parser
         """
         parser = argparse.ArgumentParser(
-            description="PepperPy CLI - Run AI workflows from the command line",
-            formatter_class=argparse.RawDescriptionHelpFormatter,
+            description="PepperPy command-line interface",
+            prog="pepperpy",
         )
 
-        # Global options
         parser.add_argument(
-            "-v",
-            "--verbose",
-            action="store_true",
-            help="Enable verbose logging",
-        )
-        parser.add_argument(
-            "--version",
-            action="version",
-            version="%(prog)s 0.1.0",
+            "--verbose", "-v", action="store_true", help="Enable verbose output"
         )
 
-        # Subcommands
+        # Create subparsers for top-level commands
         subparsers = parser.add_subparsers(
-            title="commands",
-            dest="command",
-            help="Command to execute",
+            title="commands", dest="command", help="Command to execute"
         )
 
         # Plugin commands
@@ -76,18 +88,19 @@ class CLI:
             help="List available plugins",
         )
         list_plugins.add_argument(
-            "--type",
-            help="Filter plugins by type",
+            "type",
+            nargs="?",
+            help="Plugin type to filter",
         )
 
-        # Show plugin info
-        info_plugin = plugin_subparsers.add_parser(
+        # Plugin info
+        plugin_info = plugin_subparsers.add_parser(
             "info",
             help="Show plugin information",
         )
-        info_plugin.add_argument(
+        plugin_info.add_argument(
             "plugin_id",
-            help="Plugin ID (<type>/<name>)",
+            help="Plugin ID to show info for",
         )
 
         # Workflow commands
@@ -105,6 +118,16 @@ class CLI:
         list_workflows = workflow_subparsers.add_parser(
             "list",
             help="List available workflows",
+        )
+
+        # Info workflow
+        info_workflow = workflow_subparsers.add_parser(
+            "info",
+            help="Show workflow information",
+        )
+        info_workflow.add_argument(
+            "workflow_id",
+            help="ID of the workflow to show info for (<type>/<name>)",
         )
 
         # Run workflow
@@ -162,7 +185,7 @@ class CLI:
         """List available plugins.
 
         Args:
-            plugin_type: Optional plugin type to filter by
+            plugin_type: Optional plugin type to filter
         """
         # Initialize plugin discovery
         discovery = PluginDiscoveryProvider()
@@ -173,79 +196,83 @@ class CLI:
 
         plugins = plugin_registry.list_plugins()
 
-        if not plugins:
-            print("No plugins found.")
-            return
+        if plugin_type:
+            if plugin_type not in plugins:
+                print(f"No plugins found for type '{plugin_type}'.")
+                return
 
-        print("Available Plugins:")
-        print("------------------")
-
-        for domain, providers in sorted(plugins.items()):
-            if plugin_type and domain != plugin_type:
-                continue
-
-            if not providers:
-                continue
-
-            print(f"\n{domain}:")
-
-            for name in sorted(providers.keys()):
-                plugin_id = f"{domain}/{name}"
-                print(f"  - {plugin_id}")
+            print(f"Available {plugin_type} plugins:")
+            print("---------------------" + "-" * len(plugin_type))
+            for name, plugin_class in sorted(plugins[plugin_type].items()):
+                plugin_id = f"{plugin_type}/{name}"
+                plugin_info = getattr(plugin_class, "__plugin_info__", {})
+                description = plugin_info.get("description", "No description")
+                print(f"  - {plugin_id}: {description}")
+        else:
+            print("Available plugin types:")
+            print("---------------------")
+            for p_type, p_dict in sorted(plugins.items()):
+                print(f"  - {p_type} ({len(p_dict)} plugins)")
 
     async def _show_plugin_info(self, plugin_id: str) -> None:
-        """Show plugin information.
+        """Show information about a plugin.
 
         Args:
             plugin_id: Plugin ID (<type>/<name>)
         """
-        # Initialize plugin discovery
-        discovery = PluginDiscoveryProvider()
-        discovery.config = {"scan_paths": [str(Path.cwd() / "plugins")]}
-
-        # Discover plugins
-        await discovery.discover_plugins()
-
         try:
             plugin_type, plugin_name = plugin_id.split("/", 1)
         except ValueError:
             self.logger.error("Invalid plugin ID format. Use <type>/<name>")
             return
 
-        # Get plugins from registry
+        # Initialize plugin discovery
+        discovery = PluginDiscoveryProvider()
+        discovery.config = {"scan_paths": [str(Path.cwd() / "plugins")]}
+
+        # Discover plugins
+        await discovery.discover_plugins()
+
         plugins = plugin_registry.list_plugins()
-        plugin_providers = plugins.get(plugin_type, {})
 
-        if plugin_name not in plugin_providers:
-            self.logger.error(f"Plugin not found: {plugin_id}")
+        if plugin_type not in plugins:
+            self.logger.error(f"Plugin type '{plugin_type}' not found")
             return
 
-        # Get plugin metadata
-        plugin_class = plugin_providers[plugin_name]
+        if plugin_name not in plugins[plugin_type]:
+            self.logger.error(f"Plugin '{plugin_id}' not found")
+            return
+
+        plugin_class = plugins[plugin_type][plugin_name]
         plugin_info = getattr(plugin_class, "__plugin_info__", {})
-
-        if not plugin_info:
-            self.logger.error(f"No information available for plugin: {plugin_id}")
-            return
 
         print(f"Plugin: {plugin_id}")
         print("-" * (len(plugin_id) + 8))
-        print(f"Version: {plugin_info.get('version', 'N/A')}")
-        print(f"Description: {plugin_info.get('description', 'N/A')}")
-        print(f"Author: {plugin_info.get('author', 'N/A')}")
-
-        if "documentation" in plugin_info:
-            print("\nDocumentation:")
-            print(plugin_info["documentation"])
+        print(f"Name: {plugin_info.get('name', plugin_id)}")
+        print(f"Version: {plugin_info.get('version', 'unknown')}")
+        print(f"Description: {plugin_info.get('description', 'No description')}")
+        print(f"Author: {plugin_info.get('author', 'unknown')}")
+        print()
 
         if "config_schema" in plugin_info:
-            print("\nConfiguration Schema:")
-            for key, value in plugin_info["config_schema"].items():
-                print(f"  {key}:")
-                print(f"    Description: {value.get('description', 'N/A')}")
-                print(f"    Type: {value.get('type', 'N/A')}")
-                if "default" in value:
-                    print(f"    Default: {value['default']}")
+            print("Configuration schema:")
+            print("---------------------")
+            schema = plugin_info["config_schema"]
+            if schema.get("properties"):
+                for name, prop in schema["properties"].items():
+                    default = prop.get("default", "none")
+                    required = name in schema.get("required", [])
+                    req_str = "(required)" if required else "(optional)"
+                    print(f"  - {name} {req_str}: {prop.get('description', '')}")
+                    print(f"    Type: {prop.get('type', 'any')}, Default: {default}")
+            else:
+                print("  No configuration properties defined")
+            print()
+
+        if "documentation" in plugin_info:
+            print("Documentation:")
+            print("--------------")
+            print(plugin_info["documentation"])
 
     async def _handle_workflow_command(self, args: argparse.Namespace) -> None:
         """Handle workflow-related commands.
@@ -255,6 +282,8 @@ class CLI:
         """
         if args.workflow_command == "list":
             await self._list_workflows()
+        elif args.workflow_command == "info":
+            await self._show_workflow_info(args.workflow_id)
         elif args.workflow_command == "run":
             # Process input data from JSON string or file
             if args.input:
@@ -345,20 +374,87 @@ class CLI:
             description = plugin_info.get("description", "No description")
             print(f"  - {plugin_id}: {description}")
 
+    async def _show_workflow_info(self, workflow_id: str) -> None:
+        """Show information about a workflow.
+
+        Args:
+            workflow_id: Workflow ID (<type>/<name>)
+        """
+        try:
+            workflow_type, workflow_name = workflow_id.split("/", 1)
+        except ValueError:
+            self.logger.error("Invalid workflow ID format. Use <type>/<name>")
+            return
+
+        if workflow_type != "workflow":
+            self.logger.error(f"Invalid workflow type: {workflow_type}")
+            return
+
+        # Initialize plugin discovery
+        discovery = PluginDiscoveryProvider()
+        discovery.config = {"scan_paths": [str(Path.cwd() / "plugins")]}
+
+        # Discover plugins
+        await discovery.discover_plugins()
+
+        plugins = plugin_registry.list_plugins()
+
+        workflow_plugins = plugins.get("workflow", {})
+
+        if workflow_name not in workflow_plugins:
+            self.logger.error(f"Workflow '{workflow_id}' not found")
+            return
+
+        plugin_class = workflow_plugins[workflow_name]
+        plugin_info = getattr(plugin_class, "__plugin_info__", {})
+
+        print(f"Workflow: {workflow_id}")
+        print("-" * (len(workflow_id) + 10))
+        print(f"Name: {plugin_info.get('name', workflow_id)}")
+        print(f"Version: {plugin_info.get('version', 'unknown')}")
+        print(f"Description: {plugin_info.get('description', 'No description')}")
+        print(f"Author: {plugin_info.get('author', 'unknown')}")
+        print()
+
+        if "config_schema" in plugin_info:
+            print("Configuration schema:")
+            print("---------------------")
+            schema = plugin_info["config_schema"]
+            if schema.get("properties"):
+                for name, prop in schema["properties"].items():
+                    default = prop.get("default", "none")
+                    required = name in schema.get("required", [])
+                    req_str = "(required)" if required else "(optional)"
+                    print(f"  - {name} {req_str}: {prop.get('description', '')}")
+                    print(f"    Type: {prop.get('type', 'any')}, Default: {default}")
+            else:
+                print("  No configuration properties defined")
+            print()
+
+        if "documentation" in plugin_info:
+            print("Documentation:")
+            print("--------------")
+            print(plugin_info["documentation"])
+
+        if "usage" in plugin_info:
+            print("\nUsage examples:")
+            print("--------------")
+            print(plugin_info["usage"])
+
     async def _run_workflow(
         self, workflow_id: str, input_data: dict[str, Any], config: dict[str, Any]
     ) -> None:
         """Run a workflow.
 
         Args:
-            workflow_id: Workflow ID (<type>/<n>)
+            workflow_id: Workflow ID (<type>/<name>)
             input_data: Input data for the workflow
             config: Configuration for the workflow
         """
         try:
             workflow_type, workflow_name = workflow_id.split("/", 1)
         except ValueError:
-            self.logger.error("Invalid workflow ID format. Use <type>/<n>")
+            self.logger.error("Invalid workflow ID format. Use <type>/<name>")
             return
 
         if workflow_type != "workflow":
@@ -388,54 +484,40 @@ class CLI:
 
             # Get the workflow provider
             try:
+                # Use the protocol to type the provider correctly
+                print(f"Trying to create workflow provider: {workflow_name}")
+
                 workflow_provider = create_provider_instance(
                     "workflow", workflow_name, **config
                 )
+                workflow_provider_typed: WorkflowProviderProtocol = workflow_provider  # type: ignore
             except Exception as e:
                 self.logger.error(f"Failed to create workflow provider: {e}")
                 return
 
             # Initialize the provider
-            await workflow_provider.initialize()
+            await workflow_provider_typed.initialize()
 
+            # Execute the workflow
             try:
-                # Execute the workflow with the input data
-                # Use a generic approach to avoid type checking issues
-                if not hasattr(workflow_provider, "execute"):
-                    self.logger.error(
-                        f"Workflow provider doesn't support execution: {workflow_name}"
-                    )
-                    return
+                result = await workflow_provider_typed.execute(task_input)
 
-                execute_method = workflow_provider.execute
-                result = await execute_method(task_input)
-
-                # Format and print result
-                if result:
-                    # Check if the result has a summary
-                    if isinstance(result, dict) and "summary" in result:
-                        print("\nWorkflow Summary:")
-                        print(result["summary"])
-                        print("\nFull Results:")
-
-                    # Print full results
-                    try:
-                        formatted_result = json.dumps(result, indent=2)
-                        print(formatted_result)
-                    except (TypeError, ValueError):
-                        print(result)
+                # Print the result
+                if hasattr(result, "to_dict"):
+                    print("\nResult:")
+                    print(json.dumps(result.to_dict(), indent=2))
                 else:
-                    print("\nWorkflow completed with no result.")
-
-                print("\nWorkflow execution completed successfully.")
+                    print("\nResult:")
+                    print(json.dumps(result, indent=2, default=str))
+            except Exception as e:
+                self.logger.error(f"Failed to execute workflow: {e}")
+                return
             finally:
-                # Clean up provider
-                await workflow_provider.cleanup()
+                # Clean up
+                await workflow_provider_typed.cleanup()
 
         except Exception as e:
             self.logger.error(f"Error running workflow: {e}")
-            if hasattr(e, "__cause__") and e.__cause__:
-                self.logger.error(f"Caused by: {e.__cause__}")
 
     async def run_async(self) -> None:
         """Run CLI asynchronously."""
@@ -451,27 +533,23 @@ class CLI:
                 await self._handle_workflow_command(args)
             else:
                 self.parser.print_help()
-        except NotImplementedError:
-            self.logger.error("Command not implemented yet")
-            sys.exit(1)
         except PepperpyError as e:
             self.logger.error(str(e))
             sys.exit(1)
         except Exception as e:
-            self.logger.error(f"Unexpected error: {e}")
-            if hasattr(e, "__cause__") and e.__cause__:
-                self.logger.error(f"Caused by: {e.__cause__}")
+            self.logger.exception("Unexpected error: %s", e)
             sys.exit(1)
 
     def run(self) -> None:
         """Run CLI synchronously."""
-        try:
-            asyncio.run(self.run_async())
-        except KeyboardInterrupt:
-            self.logger.info("Operation cancelled by user")
-            sys.exit(130)
+        asyncio.run(self.run_async())
+
+
+def main() -> None:
+    """Run CLI main entry point."""
+    cli = CLI()
+    cli.run()
 
 
 if __name__ == "__main__":
-    cli = CLI()
-    cli.run()
+    main()

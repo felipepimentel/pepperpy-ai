@@ -1,33 +1,25 @@
 """
-PepperPy Core Module.
+PepperPy - A comprehensive framework for building AI/LLM applications.
 
-Main module for the PepperPy framework.
+This module provides the main interfaces for working with the PepperPy framework.
 """
 
-from pepperpy.agent import AgentProvider
-from pepperpy.cache import CacheProvider
-from pepperpy.core import configure_logging, get_logger
+from pepperpy.content import ContentProcessor
 from pepperpy.llm import LLMProvider
-from pepperpy.pepperpy import PepperPy
-from pepperpy.plugin.base.discovery import BaseDiscoveryProvider
-from pepperpy.storage import StorageProvider
-from pepperpy.tool import ToolProvider
-from pepperpy.tts import TTSProvider
 
-__version__ = "0.1.0"
+# Import orchestration components at the end to avoid circular imports
+from pepperpy.orchestration import OrchestrationProvider, WorkflowOrchestrator
+from pepperpy.plugin.discovery import PluginDiscoveryProvider
+from pepperpy.plugin.registry import PluginRegistry, list_plugins
+from pepperpy.storage import StorageProvider
 
 __all__ = [
-    # Main framework entry point
-    "PepperPy",
-    # Base provider interfaces
-    "AgentProvider",
-    "BaseDiscoveryProvider",
-    "CacheProvider",
+    "ContentProcessor",
     "LLMProvider",
+    "OrchestrationProvider",
+    "PluginDiscoveryProvider",
+    "PluginRegistry",
     "StorageProvider",
-    "ToolProvider",
-    "TTSProvider",
-    # Logging utilities
-    "configure_logging",
-    "get_logger",
+    "WorkflowOrchestrator",
+    "list_plugins",
 ]

@@ -6,19 +6,26 @@ Result classes specific to content processing.
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from pepperpy.common.result import Result, ResultError
+from pepperpy.core.errors import PepperpyError
+from pepperpy.core.results import Logger, PepperResult
 
 
-class TextResult(Result):
+class ResultError(PepperpyError):
+    """Error during result handling."""
+
+    pass
+
+
+class TextResult(PepperResult):
     """Result containing text content."""
 
     def __init__(
         self,
         content: str,
         metadata: dict[str, Any] | None = None,
-        logger: Optional = None,
+        logger: Logger | None = None,
     ):
         """Initialize a text result.
 
@@ -38,14 +45,14 @@ class TextResult(Result):
         return len(self.tokenize())
 
 
-class JSONResult(Result):
+class JSONResult(PepperResult):
     """Result containing JSON content."""
 
     def __init__(
         self,
         content: dict[str, Any],
         metadata: dict[str, Any] | None = None,
-        logger: Optional = None,
+        logger: Logger | None = None,
     ):
         """Initialize a JSON result.
 
@@ -88,7 +95,7 @@ class JSONResult(Result):
             raise ResultError(f"Failed to save JSON result: {e!s}", cause=e)
 
 
-class DocumentResult(Result):
+class DocumentResult(PepperResult):
     """Result containing processed document content."""
 
     def __init__(
@@ -97,7 +104,7 @@ class DocumentResult(Result):
         document_type: str,
         source_path: Path | None = None,
         metadata: dict[str, Any] | None = None,
-        logger: Optional = None,
+        logger: Logger | None = None,
     ):
         """Initialize a document result.
 

@@ -1,24 +1,17 @@
 """
 PepperPy Workflow Module.
 
-Module for workflow orchestration in the PepperPy framework.
+This module provides workflow implementations and task definitions.
+For workflow orchestration and execution, see the orchestration module.
 """
 
+from pepperpy.workflow.models import Task, Workflow, WorkflowExecution
 from pepperpy.workflow.result import WorkflowResult, WorkflowStepResult
-from pepperpy.workflow.tasks import (
-    LLMStep,
-    ProcessorStep,
-    Workflow,
-    WorkflowStep,
-)
 
 __all__ = [
-    # Results
+    "Task",
+    "Workflow",
+    "WorkflowExecution",
     "WorkflowResult",
     "WorkflowStepResult",
-    # Tasks
-    "LLMStep",
-    "ProcessorStep",
-    "Workflow",
-    "WorkflowStep",
 ]

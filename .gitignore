@@ -108,3 +108,5 @@ data/chroma/
 examples/data/
 
 backup
+output/repository_analysis/report.markdown
+output/repository_analysis/structure.markdown

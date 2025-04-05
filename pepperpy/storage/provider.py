@@ -6,6 +6,8 @@ Storage providers enable persistent data storage with different backends like
 SQLite, PostgreSQL, or cloud storage services.
 """
 
+import importlib
+import os
 from datetime import datetime
 from typing import Any, Generic, Protocol, TypeVar
 
@@ -13,9 +15,12 @@ from pydantic import BaseModel, Field
 
 from pepperpy.core.errors import PepperpyError
 
+# Type variable for generic object types
+T = TypeVar("T")
+
 
 class StorageError(PepperpyError):
-    """Base error for storage-related exceptions."""
+    """Base error class for storage operations."""
 
     def __init__(
         self,
@@ -26,20 +31,31 @@ class StorageError(PepperpyError):
         *args,
         **kwargs,
     ):
-        """Initialize storage error.
+        """Initialize StorageError.
 
         Args:
             message: Error message
-            container: Optional container/collection name
-            object_id: Optional object identifier
-            operation: Operation that failed
-            *args: Additional positional arguments
-            **kwargs: Additional named context values
+            container: Optional container name where the error occurred
+            object_id: Optional object ID where the error occurred
+            operation: Optional operation that caused the error
         """
-        super().__init__(message, *args, **kwargs)
         self.container = container
         self.object_id = object_id
         self.operation = operation
+
+        # Enhance message with context
+        context = []
+        if container:
+            context.append(f"container='{container}'")
+        if object_id:
+            context.append(f"id='{object_id}'")
+        if operation:
+            context.append(f"op='{operation}'")
+
+        if context:
+            message = f"{message} ({', '.join(context)})"
+
+        super().__init__(message, *args, **kwargs)
 
 
 class ObjectNotFoundError(StorageError):
@@ -52,19 +68,24 @@ class ObjectNotFoundError(StorageError):
         *args,
         **kwargs,
     ):
-        """Initialize object not found error.
+        """Initialize ObjectNotFoundError.
 
         Args:
-            object_id: Object identifier
-            container: Optional container/collection name
-            *args: Additional positional arguments
-            **kwargs: Additional named context values
+            object_id: ID of the object that was not found
+            container: Optional container name
         """
-        message = f"Object not found: {object_id}"
-        if container:
-            message += f" in container {container}"
+        self.object_id = object_id
+        self.container = container
+
+        container_msg = f" in container '{container}'" if container else ""
+        message = f"Object with id '{object_id}' not found{container_msg}"
         super().__init__(
-            message, container=container, object_id=object_id, *args, **kwargs
+            message,
+            container=container,
+            object_id=object_id,
+            operation="get",
+            *args,
+            **kwargs,
         )
 
 
@@ -77,15 +98,21 @@ class ContainerNotFoundError(StorageError):
         *args,
         **kwargs,
     ):
-        """Initialize container not found error.
+        """Initialize ContainerNotFoundError.
 
         Args:
-            container: Container/collection name
-            *args: Additional positional arguments
-            **kwargs: Additional named context values
+            container: Name of the container that was not found
         """
-        message = f"Container not found: {container}"
-        super().__init__(message, container=container, *args, **kwargs)
+        self.container = container
+
+        message = f"Container '{container}' not found"
+        super().__init__(
+            message,
+            container=container,
+            operation="access",
+            *args,
+            **kwargs,
+        )
 
 
 class StorageConfig(BaseModel):
@@ -132,15 +159,12 @@ class StorageObject(Protocol):
     metadata: dict[str, Any]
 
 
-T = TypeVar("T", bound=StorageObject)
-
-
 class StorageContainer(Generic[T]):
-    """A container for storage objects.
+    """Container definition for storage.
 
-    A container is a collection of related objects, similar to a table in a
-    database or a collection in MongoDB. Each container has a name and a
-    schema that describes the structure of objects it can store.
+    A container represents a logical grouping of objects of the same type,
+    similar to a table or collection. This class stores the metadata about
+    the container, including its name, object type, and description.
     """
 
     def __init__(
@@ -149,18 +173,16 @@ class StorageContainer(Generic[T]):
         object_type: type[T],
         description: str | None = None,
     ):
-        """Initialize storage container.
+        """Initialize a storage container.
 
         Args:
-            name: Container name
-            object_type: Type of objects in this container
-            description: Optional description
+            name: Container name (must be unique within a storage provider)
+            object_type: Type of objects stored in this container
+            description: Optional description of the container
         """
         self.name = name
         self.object_type = object_type
-        self.description = (
-            description or f"Container for {object_type.__name__} objects"
-        )
+        self.description = description
 
 
 class StorageQuery(BaseModel):
@@ -181,20 +203,22 @@ class StorageQuery(BaseModel):
     search_fields: list[str] = Field(default_factory=list)
 
 
-class StorageResult(BaseModel, Generic[T]):
+class StorageResult(BaseModel):
     """Result of a storage query operation.
 
     This model provides a standardized way to return query results, including
     the matched objects and pagination information.
     """
 
-    items: list[T]
+    items: list[Any]
     total: int
     page: int = 1
     pages: int | None = None
     has_more: bool = False
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = {
+        "arbitrary_types_allowed": True,
+    }
 
 
 class StorageConnection(Protocol):
@@ -334,7 +358,7 @@ class StorageProvider(Protocol):
         """
         ...
 
-    async def query(self, container_name: str, query: StorageQuery) -> StorageResult[T]:
+    async def query(self, container_name: str, query: StorageQuery) -> StorageResult:
         """Query objects from the storage backend.
 
         Args:
@@ -366,16 +390,74 @@ class StorageProvider(Protocol):
         text: str,
         fields: list[str] | None = None,
         limit: int = 10,
-    ) -> StorageResult[T]:
+    ) -> StorageResult:
         """Search objects in the storage backend.
 
         Args:
             container_name: Container name
             text: Search text
-            fields: Fields to search in
-            limit: Maximum number of results
+            fields: Fields to search in (None means all text fields)
+            limit: Maximum number of results to return
 
         Returns:
-            Search result with matched objects
+            Search results with matched objects
         """
         ...
+
+
+def create_provider(
+    provider_type: str = "sqlite",
+    **config: Any,
+) -> StorageProvider:
+    """Create a storage provider instance.
+
+    This factory function creates a storage provider instance based on the
+    specified provider type. It dynamically imports the appropriate provider
+    module and class.
+
+    Args:
+        provider_type: Provider type, such as "sqlite" or "postgres"
+        **config: Provider-specific configuration options
+
+    Returns:
+        Storage provider instance
+
+    Raises:
+        ImportError: If provider module not found
+        ValueError: If provider type is invalid
+    """
+    # Default to sqlite if not specified
+    provider_type = provider_type or os.environ.get(
+        "PEPPERPY_STORAGE_PROVIDER", "sqlite"
+    )
+
+    try:
+        # Dynamically import provider module
+        module_path = (
+            f".providers.{provider_type}.provider"
+            if provider_type != "basic"
+            else ".basic"
+        )
+        provider_module = importlib.import_module(
+            module_path, package="pepperpy.storage"
+        )
+
+        # Get provider class
+        class_name = f"{provider_type.capitalize()}StorageProvider"
+        provider_class = getattr(provider_module, class_name)
+
+        # Create instance
+        return provider_class(**config)
+    except ImportError as e:
+        # Check if the provider exists in plugins
+        try:
+            from pepperpy.plugin import create_provider_instance
+
+            return create_provider_instance("storage", provider_type, **config)
+        except Exception:
+            # If not found in plugins, re-raise original error
+            raise ImportError(
+                f"Storage provider '{provider_type}' not found: {e}"
+            ) from e
+    except AttributeError as e:
+        raise ValueError(f"Invalid storage provider '{provider_type}': {e}") from e

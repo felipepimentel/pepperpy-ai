@@ -12,7 +12,6 @@ from pepperpy.tts.base import (
     TTSProviderError,
     TTSVoiceError,
 )
-from pepperpy.tts.providers import AzureTTSProvider
 
 __all__ = [
     # Base classes
@@ -23,6 +22,4 @@ __all__ = [
     "TTSProviderError",
     "TTSConfigError",
     "TTSVoiceError",
-    # Providers
-    "AzureTTSProvider",
 ]
