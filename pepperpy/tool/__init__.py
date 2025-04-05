@@ -11,6 +11,14 @@ from pepperpy.tool.base import (
     ToolProvider,
     ToolProviderError,
 )
+from pepperpy.tool.registry import (
+    ToolCategory,
+    get_tool,
+    get_tools_by_category,
+    list_tools,
+    register_tool,
+)
+from pepperpy.tool.result import ToolResult
 from pepperpy.tool.tasks import APITool, GitTool, Tool
 
 __all__ = [
@@ -21,6 +29,14 @@ __all__ = [
     "ToolError",
     "ToolProviderError",
     "ToolConfigError",
+    # Tool Registry
+    "ToolCategory",
+    "get_tool",
+    "get_tools_by_category",
+    "list_tools",
+    "register_tool",
+    # Results
+    "ToolResult",
     # Tasks
     "APITool",
     "GitTool",

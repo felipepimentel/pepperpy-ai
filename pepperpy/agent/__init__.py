@@ -20,6 +20,9 @@ from pepperpy.agent.task import (
     TaskBase,
 )
 
+# Tool integration
+from pepperpy.agent.tool_enabled import ToolEnabledAgent
+
 __all__ = [
     # Results
     "AgentTaskResult",
@@ -38,4 +41,6 @@ __all__ = [
     "ChatSession",
     # Data classes
     "Message",
+    # Tool integration
+    "ToolEnabledAgent",
 ]

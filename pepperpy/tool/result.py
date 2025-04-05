@@ -1,89 +1,77 @@
 """
-PepperPy Tool Results.
+PepperPy Tool Result Module.
 
-Result classes specific to tool operations.
+Result types for tool operations.
 """
 
-from typing import Any, Optional
-
-from pepperpy.common.result import Result
+from typing import Any, Dict, List, Optional
 
 
-class ToolResult(Result):
-    """Result of a tool operation."""
-
+class ToolResult:
+    """Result from tool execution."""
+    
     def __init__(
-        self,
-        content: Any,
-        tool_name: str,
-        success: bool = True,
-        error_message: str | None = None,
-        metadata: dict[str, Any] | None = None,
-        logger: Optional = None,
-    ):
-        """Initialize a tool result.
-
+        self, 
+        success: bool, 
+        data: Dict[str, Any], 
+        error: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Initialize tool result.
+        
         Args:
-            content: Tool output content
-            tool_name: Name of the tool
             success: Whether the operation was successful
-            error_message: Optional error message (if not successful)
-            metadata: Optional metadata
-            logger: Optional logger
+            data: Result data
+            error: Error message if unsuccessful
+            metadata: Additional metadata
         """
-        metadata = metadata or {}
-        metadata["tool_name"] = tool_name
-        metadata["success"] = success
-        if error_message:
-            metadata["error"] = error_message
-
-        super().__init__(content, metadata, logger)
-        self.tool_name = tool_name
         self.success = success
-        self.error_message = error_message
-
-    @property
-    def is_error(self) -> bool:
-        """Check if the result represents an error.
-
+        self.data = data
+        self.error = error
+        self.metadata = metadata or {}
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary.
+        
         Returns:
-            True if this is an error result
+            Dictionary representation of the result
         """
-        return not self.success
-
-
-class APIResult(ToolResult):
-    """Result of an API call."""
-
-    def __init__(
-        self,
-        content: Any,
-        tool_name: str,
-        status_code: int | None = None,
-        headers: dict[str, str] | None = None,
-        success: bool = True,
-        error_message: str | None = None,
-        metadata: dict[str, Any] | None = None,
-        logger: Optional = None,
-    ):
-        """Initialize an API result.
-
+        result = {
+            "success": self.success,
+            "data": self.data
+        }
+        
+        if self.error:
+            result["error"] = self.error
+            
+        if self.metadata:
+            result["metadata"] = self.metadata
+            
+        return result
+        
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ToolResult":
+        """Create from dictionary.
+        
         Args:
-            content: API response content
-            tool_name: Name of the API tool
-            status_code: HTTP status code
-            headers: Response headers
-            success: Whether the call was successful
-            error_message: Optional error message
-            metadata: Optional metadata
-            logger: Optional logger
+            data: Dictionary data
+            
+        Returns:
+            Tool result instance
         """
-        metadata = metadata or {}
-        if status_code is not None:
-            metadata["status_code"] = status_code
-        if headers:
-            metadata["headers"] = headers
-
-        super().__init__(content, tool_name, success, error_message, metadata, logger)
-        self.status_code = status_code
-        self.headers = headers or {}
+        return cls(
+            success=data.get("success", False),
+            data=data.get("data", {}),
+            error=data.get("error"),
+            metadata=data.get("metadata")
+        )
+        
+    def __repr__(self) -> str:
+        """Get string representation.
+        
+        Returns:
+            String representation
+        """
+        status = "success" if self.success else "error"
+        error_info = f", error={self.error}" if self.error else ""
+        return f"ToolResult(status={status}, data={self.data}{error_info})"

@@ -1,0 +1,27 @@
+name: web_search_tool
+version: 0.1.0
+description: Web search tool for finding information online
+author: PepperPy Team
+
+plugin_type: tool
+category: search
+provider_name: web_search
+entry_point: provider.WebSearchToolPlugin
+
+config_schema:
+  type: object
+  properties:
+    search_engine:
+      type: string
+      description: Search engine to use
+      enum: ["google", "bing", "duckduckgo"]
+    api_key:
+      type: string
+      description: API key for search engine (required for Google and Bing)
+    safe_search:
+      type: boolean
+      description: Whether to filter explicit content
+      
+default_config:
+  search_engine: "duckduckgo"
+  safe_search: true 
