@@ -96,7 +96,7 @@ environments:
 
 3. **Ative a validação de segurança**
    ```python
-   from pepperpy.core.config_manager import validate_config_security
+   from pepperpy.core.config.manager import validate_config_security
    
    # Verifica problemas de segurança
    issues = validate_config_security()
@@ -248,7 +248,7 @@ os.environ["PEPPERPY_ENV"] = "production"
 ## Acessando a Configuração Programaticamente
 
 ```python
-from pepperpy.core.config_manager import (
+from pepperpy.core.config import (
     get_config,
     get_plugin_configuration,
     get_provider_api_key,

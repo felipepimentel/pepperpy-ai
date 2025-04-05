@@ -1,6 +1,6 @@
 ---
 description: USE ALWAYS when designing or implementing any component - core design principles and architectural vision
-globs: 
+globs: "**/*"
 alwaysApply: true
 ---
 

@@ -1,7 +1,7 @@
 ---
 description: Use when user asks to create or update *.mdc files
-globs: **/*.mdc
-alwaysApply: false
+globs: "**/*.mdc"
+alwaysApply: true
 ---
 # MDC File Format Guide
 

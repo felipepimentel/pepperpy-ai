@@ -1,0 +1,317 @@
+---
+description: Core architectural principles for the PepperPy framework
+globs: **/*.py, **/*.md
+alwaysApply: true
+---
+
+# PepperPy Architectural Principles
+
+## Framework Vision
+
+PepperPy is a unified abstraction for AI/LLM ecosystems with a focus on agentic AI capabilities.
+
+- **Not just a wrapper**: PepperPy goes beyond a simple wrapper for LLMs or RAG
+- **Agentic platform**: Facilitates orchestration of autonomous agents and workflows
+- **Composable by design**: Independent components that can be combined
+- **Think vertical, not horizontal**: Organized by business domains, not technical types
+
+## Fundamental Principles
+
+### 1. Indirect Plugin Access
+
+❌ **NEVER access plugins directly**
+```python
+# WRONG: Direct import from plugin
+from plugins.llm.openai.provider import OpenAIProvider  # VIOLATION!
+
+provider = OpenAIProvider(api_key="...")
+```
+
+✅ **ALWAYS use framework orchestration**
+```python
+# CORRECT: Framework-managed access
+from pepperpy import PepperPy
+
+pepperpy = PepperPy().with_llm("openai")
+result = await pepperpy.execute("prompt")
+```
+
+### 2. Configuration Strategy
+
+PepperPy uses a layered configuration strategy:
+
+1. **Global Configuration** (.config.yml)
+   - Defines framework-wide settings
+   - Specifies which providers are used by default
+
+2. **Plugin Configuration** (plugin.yaml)
+   - Defines plugin-specific configuration schema
+   - Establishes defaults for specific plugins
+   - Documents available options
+
+3. **API Access**
+   - Allows programmatic override of configurations
+   - Enables runtime adjustments
+
+### 3. Implementation Independence
+
+Each domain must be independent, interacting only through abstract interfaces:
+
+```
+LLM ◄─────────── RAG ◄─────────── Agent
+  │                │                │
+  ▼                ▼                ▼
+Plugins          Plugins          Plugins
+```
+
+- Domains must not depend on specific implementations of other domains
+- Communication only through interface contracts
+
+### 4. Language Standard
+
+❌ **NEVER mix languages in codebase**
+```python
+# WRONG: Non-English variable names or comments
+def processar_texto(texto_entrada):  # VIOLATION!
+    # Processar o texto aqui
+    return texto_processado
+```
+
+✅ **ALWAYS use English throughout the codebase**
+```python
+# CORRECT: English-only
+def process_text(input_text):
+    # Process the text here
+    return processed_text
+```
+
+### 5. Plugin Architecture
+
+❌ **NEVER put provider implementations in the core package**
+```
+# WRONG: Provider in core package
+pepperpy/
+├── llm/
+│   ├── __init__.py
+│   ├── base.py
+│   └── providers/  # VIOLATION!
+│       └── openai.py
+```
+
+✅ **ALWAYS implement providers as plugins**
+```
+# CORRECT: Provider as plugin
+pepperpy/
+├── llm/
+│   ├── __init__.py
+│   └── base.py  # Only interfaces and abstract classes
+plugins/
+├── llm/
+│   └── openai/  # Plugin implementation
+│       ├── pepperpy_llm_openai/
+│       │   ├── __init__.py
+│       │   └── provider.py
+│       ├── pyproject.toml
+│       └── README.md
+```
+
+The plugin directory structure must follow:
+```
+plugins/
+├── {domain}/
+│   └── {provider_name}/
+│       ├── pepperpy_{domain}_{provider_name}/
+│       │   ├── __init__.py
+│       │   └── provider.py
+│       ├── pyproject.toml
+│       └── README.md
+```
+
+### 6. Class Naming Uniqueness
+
+❌ **NEVER duplicate core class names across files**
+```python
+# WRONG: Same class name in multiple files
+# File: pepperpy/facade.py
+class PepperPy:  # VIOLATION!
+    """Main facade for the PepperPy framework."""
+    
+# File: pepperpy/pepperpy.py
+class PepperPy:  # VIOLATION! 
+    """Main PepperPy framework class."""
+```
+
+✅ **ALWAYS use unique class names with clear purposes**
+```python
+# CORRECT: Unique class names
+# File: pepperpy/facade.py
+class PepperPyFacade:
+    """Facade for orchestrating domain providers."""
+    
+# File: pepperpy/pepperpy.py
+class PepperPy:
+    """Main entry point for the framework."""
+```
+
+The main entry point class should always be:
+- Located in `pepperpy/__init__.py` or `pepperpy/pepperpy.py`
+- Named `PepperPy` (without suffix)
+- All other classes should have descriptive suffixes (Facade, Manager, etc.)
+
+### 7. Naming Consistency
+
+❌ **NEVER mix singular/plural forms for the same concept**
+```
+# WRONG: Mixing singular and plural
+pepperpy/
+├── tool/    # Singular
+│   └── base.py
+plugins/
+├── tools/   # Plural - VIOLATION!
+│   └── github/
+```
+
+✅ **ALWAYS use consistent singular form for domains**
+```
+# CORRECT: Consistent naming
+pepperpy/
+├── tool/        # Singular 
+│   └── base.py
+plugins/
+├── tool/        # Also singular
+│   └── github/
+```
+
+Rules for consistent naming:
+- Always use **singular form** for domain names (e.g., `agent`, not `agents`)
+- If a module represents a collection, still use singular form for consistency:
+  - `pepperpy.repository` not `pepperpy.repositories`
+  - `pepperpy.function` not `pepperpy.functions`
+- Consistently use the same domain name across:
+  - Core package module names
+  - Plugin directory structures
+  - Class names and imports
+  - Configuration keys
+
+#### Enforcement
+
+During development:
+1. **Immediately remove plural directories** when found - don't maintain both versions
+2. **Copy needed code** to the singular directory
+3. **Update all references** to use the singular form
+4. **Run tests** to ensure nothing is broken
+
+❌ **NO deprecation warnings or compatibility layer** - we prioritize clean architecture over backward compatibility during early development
+
+## Main Modules
+
+PepperPy is organized into vertical domains, each with specific responsibilities:
+
+| Domain       | Purpose                              | Examples                        |
+|-----|-----|-----|
+| **LLM**      | Interaction with language models     | OpenAI, Anthropic, Ollama      |
+| **RAG**      | Retrieval Augmented Generation       | Chroma, Pinecone, FAISS        |
+| **Embedding**| Text embedding generation            | OpenAI, HuggingFace, Cohere    |
+| **Content**  | Content processing                   | Loaders, Extractors, Parsers   |
+| **Agent**    | Autonomous agents and assistants     | Copilot, Assistant, Agent      |
+| **Tool**     | Tools and integrations               | GitHub, Jira, Slack            |
+| **Workflow** | Pipeline orchestration               | Sequential, Parallel, DAG      |
+
+## Dependency Management
+
+PepperPy uses a modern dependency management strategy:
+
+- **Poetry** for package management in the core
+  - Defines dependencies in `pyproject.toml`
+  - Ensures reproducibility with `poetry.lock`
+
+- **uv** for accelerated installation
+  - Fast module loading
+  - Compatible with Poetry environment
+
+- **Plugin isolation**
+  - Plugins specify their own dependencies
+  - Avoids conflicts between plugin requirements
+
+## Anti-Patterns
+
+### Framework Bypass
+
+❌ **NEVER bypass the framework**
+```python
+# WRONG: Bypassing the framework
+import openai  # VIOLATION!
+
+response = openai.ChatCompletion.create(...)
+```
+
+### Configuration Hardcoding
+
+❌ **NEVER hardcode configurations**
+```python
+# WRONG: Hardcoding configuration
+model = "gpt-4"  # VIOLATION!
+```
+
+### Direct Provider Dependencies
+
+❌ **NEVER create direct provider dependencies**
+```python
+# WRONG: Directly depending on a specific provider
+class MyAgent:
+    def __init__(self):
+        from pepperpy.llm.providers.openai import OpenAIProvider  # VIOLATION!
+        self.llm = OpenAIProvider()
+```
+
+### Duplicate Class Names
+
+❌ **NEVER use the same class name in multiple files**
+```python
+# WRONG: Same class name in different files
+# In facade.py:
+class PepperPy:  # VIOLATION!
+    pass
+
+# In pepperpy.py:
+class PepperPy:  # VIOLATION!
+    pass
+```
+
+### Incorrect Class Naming
+
+❌ **NEVER use framework name for utility classes**
+```python
+# WRONG: Using framework name for utility
+class PepperPyUtils:  # VIOLATION! (Framework name should only be used for main class)
+    pass
+```
+
+### Provider Code in Core Package
+
+❌ **NEVER create providers in the core package**
+```python
+# WRONG: Creating providers directory inside the core package 
+# pepperpy/llm/providers/openai.py  # VIOLATION!
+# pepperpy/tts/providers/azure.py   # VIOLATION!
+```
+
+### Inconsistent Singular/Plural Naming
+
+❌ **NEVER mix singular and plural for related concepts**
+```python
+# WRONG: Inconsistent naming
+from pepperpy.tool import ToolProvider  # Singular
+from plugins.tools.github import GithubProvider  # Plural - VIOLATION!
+```
+
+## Development Workflow
+
+1. **Think domain-first**: Identify which domain your functionality belongs to
+2. **Interface-driven**: Design the public interface before implementation
+3. **Provider-agnostic**: Implement without depending on specific providers
+4. **Config-aware**: Use the configuration system for all parameters
+5. **Test with alternatives**: Test with multiple providers to ensure abstraction
+6. **Naming clarity**: Use unique names that clearly indicate class purpose
+7. **Consistency**: Use singular form for all domains, regardless of conceptual plurality
+8. **Directory check**: Before creating a new module or directory, check if a similar one already exists (with either singular or plural form) to avoid duplication 

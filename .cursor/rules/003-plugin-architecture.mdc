@@ -3,7 +3,7 @@ description: USE ALWAYS when working with plugins - mandatory structure and patt
 globs: 
   - "plugins/**/*.py"
   - "plugins/**/*.yaml"
-alwaysApply: false
+alwaysApply: true
 ---
 
 # PepperPy Plugin System

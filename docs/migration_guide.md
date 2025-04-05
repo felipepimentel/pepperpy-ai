@@ -68,7 +68,7 @@ model = os.environ.get("PEPPERPY_LLM__MODEL", "gpt-3.5-turbo")
 
 **After:**
 ```python
-from pepperpy.core.config_manager import get_provider_api_key, get_component_config
+from pepperpy.core.config import get_provider_api_key, get_component_config
 
 api_key = get_provider_api_key("llm", "openai")
 llm_config = get_component_config("llm")

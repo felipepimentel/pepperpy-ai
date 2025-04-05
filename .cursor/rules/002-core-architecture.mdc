@@ -3,7 +3,7 @@ description: USE ALWAYS when modifying core framework components or creating new
 globs: 
   - "pepperpy/**/*.py"
   - "scripts/**/*.py"
-alwaysApply: false
+alwaysApply: true
 ---
 
 # PepperPy Core Architecture
