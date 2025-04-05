@@ -206,7 +206,7 @@ O PepperPy implementa um sistema robusto de plugins que permite estender suas fu
 
 ### Exemplo de Criação de Plugin
 ```python
-from pepperpy.plugins.plugin import ProviderPlugin
+from pepperpy.plugin.plugin import ProviderPlugin
 from pepperpy.llm import LLMProvider
 
 class CustomLLMProvider(LLMProvider, ProviderPlugin):

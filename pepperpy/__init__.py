@@ -1,72 +1,33 @@
 """
-PepperPy Framework - Biblioteca declarativa para análise de código com IA.
+PepperPy Core Module.
+
+Main module for the PepperPy framework.
 """
 
-# Version information
-__version__ = "0.3.0"
+from pepperpy.agent import AgentProvider
+from pepperpy.cache import CacheProvider
+from pepperpy.core import configure_logging, get_logger
+from pepperpy.llm import LLMProvider
+from pepperpy.pepperpy import PepperPy
+from pepperpy.plugin.base.discovery import BaseDiscoveryProvider
+from pepperpy.storage import StorageProvider
+from pepperpy.tool import ToolProvider
+from pepperpy.tts import TTSProvider
 
-# Core framework
-# Logging
-# Registro de handlers e hooks registrados dinamicamente
-# Este módulo deve ser carregado para registrar eles
-# import pepperpy.hooks
+__version__ = "0.1.0"
 
-from .core.logging import get_logger
-
-# Factory functions - remover a importação do factory.py já que foi integrado ao pepperpy.py
-# from .factory import (
-#     create_agent,
-#     create_content,
-#     create_embeddings,
-#     create_llm,
-#     create_plugin,
-#     create_rag,
-#     create_storage,
-#     create_tts,
-#     create_workflow,
-# )
-from .pepperpy import (
-    AgentTask,
-    # Fluent API (anteriormente em core/fluent.py)
-    Analysis,
-    # Enums
-    AnalysisLevel,
-    AnalysisScope,
-    AnalysisType,
-    # Enhancers
-    BestPracticesEnhancer,
-    ChatSession,
-    ConversationTask,
-    DeepContextEnhancer,
-    Enhancer,
-    EnhancerProxy,
-    FluentBase,
-    # Core classes
-    GitRepository,
-    HistoricalTrendsEnhancer,
-    # Results (anteriormente em core/results.py)
-    JSONResult,
-    KnowledgeBase,
-    KnowledgeTask,
-    Logger,
-    MemoryResult,
-    PepperPy,
-    PepperResult,
-    PepperResultError,
-    PerformanceEnhancer,
-    Processor,
-    RepositoryAnalysis,
-    Result,
-    SecurityEnhancer,
-    TextResult,
-    # Decorators
-    code_analysis,
-    enhancer,
-    event_handler,
-    on_analysis_complete,
-    repository_task,
-)
-
-# Plugin API
-from .plugins.plugin import PepperpyPlugin
-from .plugins.registry import get_plugin
+__all__ = [
+    # Main framework entry point
+    "PepperPy",
+    # Base provider interfaces
+    "AgentProvider",
+    "BaseDiscoveryProvider",
+    "CacheProvider",
+    "LLMProvider",
+    "StorageProvider",
+    "ToolProvider",
+    "TTSProvider",
+    # Logging utilities
+    "configure_logging",
+    "get_logger",
+]

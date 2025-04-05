@@ -64,7 +64,7 @@ dependencies:
   - openai>=1.0.0
 ```
 
-### 3. Provider Registry (`pepperpy/plugins/registry.py`)
+### 3. Provider Registry (`pepperpy/plugin/registry.py`)
 
 Handles:
 - Plugin discovery
@@ -128,7 +128,7 @@ Key features:
 ### Example 1: Using the OpenAI LLM Provider
 
 ```python
-from pepperpy.plugins.registry import create_provider_instance
+from pepperpy.plugin.registry import create_provider_instance
 from pepperpy.llm import Message, MessageRole
 
 provider = await create_provider_instance(
@@ -152,7 +152,7 @@ await provider.cleanup()
 ### Example 2: Using the TTS Provider
 
 ```python
-from pepperpy.plugins.registry import create_provider_instance
+from pepperpy.plugin.registry import create_provider_instance
 
 provider = await create_provider_instance(
     "tts", 
@@ -178,7 +178,7 @@ await provider.cleanup()
 ### Example 3: Using the RAG Provider
 
 ```python
-from pepperpy.plugins.registry import create_provider_instance
+from pepperpy.plugin.registry import create_provider_instance
 from pepperpy.rag import Document
 
 provider = await create_provider_instance(

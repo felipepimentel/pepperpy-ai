@@ -8,7 +8,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from pepperpy.core.exceptions import PipelineError
-from pepperpy.plugins.plugin import PepperpyPlugin
+from pepperpy.plugin.plugin import PepperpyPlugin
 from pepperpy.workflow.base import (
     ComponentType,
     PipelineContext,

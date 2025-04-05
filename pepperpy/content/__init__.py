@@ -1,10 +1,7 @@
-"""Content processing module for PepperPy.
+"""
+PepperPy Content Module.
 
-This module provides functionality for processing various types of content:
-- Documents (PDF, Word, etc.)
-- Images
-- Audio
-- Video
+Module for content processing in the PepperPy framework.
 """
 
 from pepperpy.content.base import (
@@ -50,6 +47,16 @@ from pepperpy.content.lazy import (
     AVAILABLE_PROCESSORS,
     DEFAULT_PROCESSORS,
 )
+from pepperpy.content.result import (
+    DocumentResult,
+    JSONResult,
+    TextResult,
+)
+from pepperpy.content.tasks import (
+    ContentWorkflow,
+    DocumentProcessor,
+    Processor,
+)
 
 from .archives import ArchiveError, ArchiveHandler
 from .integration import ContentRAGError, ContentRAGProcessor
@@ -74,4 +81,12 @@ __all__ = [
     # RAG integration
     "ContentRAGError",
     "ContentRAGProcessor",
+    # Results
+    "DocumentResult",
+    "JSONResult",
+    "TextResult",
+    # Tasks
+    "ContentWorkflow",
+    "DocumentProcessor",
+    "Processor",
 ]

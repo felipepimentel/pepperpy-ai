@@ -64,6 +64,7 @@ class PepperpyError(Exception):
                 "details",
                 "cause",
                 "args",
+                "errors",
             ) and not attr.startswith("_"):
                 parts.append(f"{attr}={value}")
 
@@ -98,6 +99,7 @@ class PepperpyError(Exception):
                 "details",
                 "cause",
                 "args",
+                "errors",
             ) and not attr.startswith("_"):
                 result[attr] = value
 
@@ -154,6 +156,7 @@ class ValidationError(PepperpyError):
         field: str | None = None,
         value: Any | None = None,
         constraint: str | None = None,
+        errors: list[str] | None = None,
         *args,
         **kwargs,
     ):
@@ -164,6 +167,7 @@ class ValidationError(PepperpyError):
             field: Optional field name that failed validation
             value: Optional value that failed validation
             constraint: Optional constraint that was violated
+            errors: Optional list of specific validation errors
             *args: Additional positional arguments
             **kwargs: Additional named context values
         """
@@ -171,6 +175,7 @@ class ValidationError(PepperpyError):
         self.field = field
         self.value = value
         self.constraint = constraint
+        self.errors = errors or []
 
 
 class ConfigurationError(PepperpyError):
@@ -908,3 +913,9 @@ class PluginValidationError(ValidationError):
         self.plugin_id = plugin_id
         self.plugin_type = plugin_type
         self.provider_type = provider_type
+
+
+class ExecutionError(PepperpyError):
+    """Error during task execution."""
+
+    pass

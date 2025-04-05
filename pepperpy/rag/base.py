@@ -1,13 +1,12 @@
 """Base interfaces and components for RAG functionality."""
 
-import importlib
 from abc import abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from pepperpy.core.errors import ValidationError
-from pepperpy.plugins.plugin import PepperpyPlugin
+from pepperpy.plugin import PepperpyPlugin, create_provider_instance
 from pepperpy.workflow.base import WorkflowComponent
 
 T = TypeVar("T")
@@ -282,53 +281,38 @@ class RAGComponent(WorkflowComponent):
             await self.provider.cleanup()
 
 
-def create_provider(
-    provider_type: str,
-    **config: Any,
-) -> RAGProvider:
-    """Create a RAG provider instance.
+def create_provider(provider_type: str = "default", **config: Any) -> "RAGProvider":
+    """Create a RAG provider.
+
+    This function creates a RAG provider instance of the specified type.
 
     Args:
-        provider_type: Type of provider to create
+        provider_type: Type of provider to create (e.g., "chroma", "pinecone")
         **config: Provider configuration
 
     Returns:
-        Instantiated RAG provider
+        RAG provider instance
 
     Raises:
-        ValueError: If provider type is invalid
+        ValidationError: If provider creation fails
     """
-    # Handle built-in provider types
-    if provider_type == "memory":
-        # Import here to avoid circular imports
-        from pepperpy.rag.memory_provider import MemoryProvider
+    try:
+        # Try to create from plugin registry
+        return cast(
+            RAGProvider, create_provider_instance("rag", provider_type, **config)
+        )
+    except (ImportError, ValueError):
+        # Fallback to direct import
+        if provider_type == "chroma":
+            from .providers.chroma import ChromaProvider
 
-        return MemoryProvider(**config)
-    else:
-        try:
-            # Try to create from plugin registry
-            from pepperpy.plugins.registry import create_provider_instance
+            return ChromaProvider(**config)
+        elif provider_type == "default":
+            from .providers.memory import InMemoryRAGProvider
 
-            return create_provider_instance("rag", provider_type, **config)
-        except (ImportError, ValueError):
-            # Try dynamic import for custom providers
-            try:
-                module_name = f"pepperpy.rag.providers.{provider_type}"
-                module = importlib.import_module(module_name)
-
-                # Find the provider class (assumed to be the only RAGProvider subclass)
-                for attr_name in dir(module):
-                    attr = getattr(module, attr_name)
-                    if (
-                        isinstance(attr, type)
-                        and issubclass(attr, RAGProvider)
-                        and attr != RAGProvider
-                    ):
-                        return attr(**config)
-
-                raise ValueError(f"No RAGProvider subclass found in {module_name}")
-            except (ImportError, AttributeError) as e:
-                raise ValueError(f"Invalid RAG provider type: {provider_type}") from e
+            return InMemoryRAGProvider(**config)
+        else:
+            raise ValidationError(f"Unknown RAG provider type: {provider_type}")
 
 
 class Filter:

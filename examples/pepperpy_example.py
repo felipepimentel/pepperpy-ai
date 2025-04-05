@@ -3,7 +3,7 @@
 PepperPy Framework Example.
 
 This script demonstrates how to use the PepperPy framework with
-various providers including the new SQLite storage provider.
+various providers using the proper abstraction layer.
 """
 
 import asyncio
@@ -11,21 +11,21 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from pepperpy import PepperPy
-from pepperpy.storage.base.provider import StorageContainer
-from pepperpy.storage.providers.sqlite import SQLiteConfig, SQLiteProvider
+from pepperpy.storage.provider import StorageContainer
 
 
-class TestObject:
+class TestObject(BaseModel):
     """Test object for storage."""
 
-    def __init__(self, id: str, name: str, description: str):
-        self.id = id
-        self.name = name
-        self.description = description
-        self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
-        self.metadata: dict[str, Any] = {}
+    id: str
+    name: str
+    description: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 async def main():
@@ -33,26 +33,19 @@ async def main():
     # Create a data directory
     data_dir = Path("examples/data")
     data_dir.mkdir(exist_ok=True)
+    db_path = data_dir / "pepperpy.db"
 
     # Create PepperPy instance
     pepperpy = PepperPy()
 
-    # Configure SQLite storage provider
-    sqlite_config = SQLiteConfig(
-        database_path=str(data_dir / "pepperpy.db"),
-        create_if_missing=True,
-    )
-
-    # Create SQLite provider
-    sqlite_provider = SQLiteProvider(config=sqlite_config)
-
-    # Add storage provider to PepperPy
-    pepperpy.with_storage(sqlite_provider)
+    # Configure storage provider through the framework's API
+    # This is the correct way - no direct access to provider classes
+    pepperpy.with_storage("sqlite", database_path=str(db_path), create_if_missing=True)
 
     # Initialize all providers
     await pepperpy.initialize()
 
-    # Access the storage provider
+    # Access the storage provider through the framework
     storage = pepperpy.storage
     print(f"Storage provider: {storage.name}")
     print(f"Storage type: {storage.type}")

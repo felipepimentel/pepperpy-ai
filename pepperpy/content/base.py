@@ -4,10 +4,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pepperpy.core.base import PepperpyError
-from pepperpy.plugins.plugin import PepperpyPlugin
+from pepperpy.plugin import PepperpyPlugin
 
 
 class ContentProcessingError(PepperpyError):
@@ -54,16 +54,16 @@ class ProcessingResult:
     """Result of content processing."""
 
     # Texto extraído (para documentos, OCR em imagens, transcrição em áudio)
-    text: Optional[str] = None
+    text: str | None = None
 
     # Metadados sobre o conteúdo processado
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Conteúdo extraído/processado em diferentes formatos
-    extracted_text: Optional[str] = None
-    extracted_images: Optional[List[Any]] = None
-    audio_transcription: Optional[str] = None
-    structured_data: Optional[Dict[str, Any]] = None
+    extracted_text: str | None = None
+    extracted_images: list[Any] | None = None
+    audio_transcription: str | None = None
+    structured_data: dict[str, Any] | None = None
 
 
 class ContentProcessor(PepperpyPlugin, ABC):
@@ -74,7 +74,7 @@ class ContentProcessor(PepperpyPlugin, ABC):
     def __init__(
         self,
         name: str = "base",
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize content processor.
@@ -103,7 +103,7 @@ class ContentProcessor(PepperpyPlugin, ABC):
 
     @abstractmethod
     async def process(
-        self, content_path: Union[str, Path], **options: Any
+        self, content_path: str | Path, **options: Any
     ) -> ProcessingResult:
         """Process content and return the result.
 
@@ -119,7 +119,7 @@ class ContentProcessor(PepperpyPlugin, ABC):
         """
         raise NotImplementedError("process must be implemented by processor")
 
-    def get_capabilities(self) -> Dict[str, Any]:
+    def get_capabilities(self) -> dict[str, Any]:
         """Get processor capabilities.
 
         Returns:
@@ -135,8 +135,8 @@ class ContentProcessor(PepperpyPlugin, ABC):
 
 
 async def create_processor(
-    content_type: Union[str, ContentType],
-    provider_name: Optional[str] = None,
+    content_type: str | ContentType,
+    provider_name: str | None = None,
     **kwargs: Any,
 ) -> ContentProcessor:
     """Create content processor instance.

@@ -1,19 +1,19 @@
-"""RAG (Retrieval Augmented Generation) module."""
+"""
+PepperPy RAG (Retrieval-Augmented Generation) Module.
 
-from .base import (
-    RAGProvider,
-    Document,
-    Query,
-    RetrievalResult,
-    SearchResult,
-    create_provider,
+This module provides core functionality for RAG pipelines.
+"""
+
+from pepperpy.rag.processor import (
+    ProcessedText,
+    ProcessingOptions,
+    TextProcessingError,
+    TextProcessor,
 )
 
 __all__ = [
-    "RAGProvider",
-    "Document",
-    "Query",
-    "RetrievalResult",
-    "SearchResult",
-    "create_provider",
+    "ProcessedText",
+    "ProcessingOptions",
+    "TextProcessingError",
+    "TextProcessor",
 ]

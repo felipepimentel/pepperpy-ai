@@ -29,7 +29,7 @@ Dependencies can be declared in two ways:
 Use the `__dependencies__` class variable:
 
 ```python
-from pepperpy.plugins import PepperpyPlugin, DependencyType
+from pepperpy.plugin import PepperpyPlugin, DependencyType
 
 class MyPlugin(PepperpyPlugin):
     __metadata__ = {
@@ -49,7 +49,7 @@ class MyPlugin(PepperpyPlugin):
 ### 2. Using the `depends_on` Method
 
 ```python
-from pepperpy.plugins import PepperpyPlugin, DependencyType
+from pepperpy.plugin import PepperpyPlugin, DependencyType
 
 class MyPlugin(PepperpyPlugin):
     # Setup basic plugin
@@ -87,7 +87,7 @@ conflicts = plugin.check_conflicts()  # List of conflicting dependencies
 The system can calculate the correct load order for a set of plugins based on their dependencies:
 
 ```python
-from pepperpy.plugins import get_load_order
+from pepperpy.plugin import get_load_order
 
 # Get the correct order to load these plugins
 plugins_to_load = ["ui", "database", "api", "auth"]
@@ -103,7 +103,7 @@ for plugin_id in load_order:
 The system detects circular dependencies and raises a `CircularDependencyError`:
 
 ```python
-from pepperpy.plugins import get_load_order, CircularDependencyError
+from pepperpy.plugin import get_load_order, CircularDependencyError
 
 try:
     load_order = get_load_order(plugin_ids)
@@ -154,7 +154,7 @@ class DependencyType(Enum):
 ## Example: Plugin with Dependencies
 
 ```python
-from pepperpy.plugins import PepperpyPlugin, DependencyType
+from pepperpy.plugin import PepperpyPlugin, DependencyType
 
 class DatabasePlugin(PepperpyPlugin):
     __metadata__ = {
@@ -183,7 +183,7 @@ class APIPlugin(PepperpyPlugin):
             self.logger.warning("Initializing with unmet dependencies")
             
         # Get the database plugin
-        from pepperpy.plugins.registry import get_plugin
+        from pepperpy.plugin.registry import get_plugin
         self.db = get_plugin("database")
         
         # Continue with initialization

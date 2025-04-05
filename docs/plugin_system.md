@@ -93,7 +93,7 @@ The plugin system supports various extensions:
 ### Basic Plugin Usage
 
 ```python
-from pepperpy.plugins import create_provider_instance
+from pepperpy.plugin import create_provider_instance
 
 # Create a plugin instance
 llm = create_provider_instance("llm", "openai", api_key="your-api-key")
@@ -111,7 +111,7 @@ await llm.cleanup()
 ### Using Aliases
 
 ```python
-from pepperpy.plugins import register_plugin_alias, create_provider_instance
+from pepperpy.plugin import register_plugin_alias, create_provider_instance
 
 # Register an alias for a specific GPT-4 model
 register_plugin_alias("llm", "gpt4", "openai", {"model": "gpt-4"})
@@ -125,7 +125,7 @@ llm = create_provider_instance("llm", "gpt4", api_key="your-api-key")
 ### Context Manager Pattern
 
 ```python
-from pepperpy.plugins import auto_context, create_provider_instance
+from pepperpy.plugin import auto_context, create_provider_instance
 
 # Create a plugin instance
 llm = create_provider_instance("llm", "openai", api_key="your-api-key")
@@ -138,7 +138,7 @@ async with auto_context(llm):
 ### Plugin with Dependencies
 
 ```python
-from pepperpy.plugins import get_plugin_manager
+from pepperpy.plugin import get_plugin_manager
 
 # Get the plugin manager
 manager = get_plugin_manager()
@@ -163,7 +163,7 @@ await rag.initialize()
 
 ```python
 from typing import Dict, Any
-from pepperpy.plugins import PepperpyPlugin, register_plugin
+from pepperpy.plugin import PepperpyPlugin, register_plugin
 
 class CustomPlugin(PepperpyPlugin):
     """Custom plugin implementation."""
@@ -203,7 +203,7 @@ register_plugin("custom", "example", CustomPlugin)
 ### Resource Management
 
 ```python
-from pepperpy.plugins import ResourceMixin, PepperpyPlugin
+from pepperpy.plugin import ResourceMixin, PepperpyPlugin
 
 class ResourcePlugin(PepperpyPlugin, ResourceMixin):
     """Plugin that manages resources."""
@@ -273,8 +273,8 @@ entry_point: provider:OpenAIProvider
 
 The system automatically checks for plugins in these locations:
 
-1. Built-in plugins directory (`pepperpy/plugins`)
-2. User config directory (`~/.pepperpy/plugins`)
+1. Built-in plugins directory (`pepperpy/plugin`)
+2. User config directory (`~/.pepperpy/plugin`)
 3. Current working directory (`./plugins`)
 
 ### Manual Registration
@@ -282,7 +282,7 @@ The system automatically checks for plugins in these locations:
 Plugins can also be registered manually:
 
 ```python
-from pepperpy.plugins import register_plugin_path
+from pepperpy.plugin import register_plugin_path
 
 # Register a custom path
 register_plugin_path("/path/to/custom/plugins")
@@ -295,7 +295,7 @@ register_plugin_path("/path/to/custom/plugins")
 The system supports automatic fallbacks if a requested provider is not available:
 
 ```python
-from pepperpy.plugins import register_plugin_fallbacks
+from pepperpy.plugin import register_plugin_fallbacks
 
 # Register fallbacks for LLM providers (in order of preference)
 register_plugin_fallbacks("llm", ["openai", "anthropic", "local"])
@@ -306,7 +306,7 @@ register_plugin_fallbacks("llm", ["openai", "anthropic", "local"])
 The system supports hot reloading of plugins during development:
 
 ```python
-from pepperpy.plugins import hot_reloadable_plugin, start_hot_reload
+from pepperpy.plugin import hot_reloadable_plugin, start_hot_reload
 
 # Make a plugin hot-reloadable
 @hot_reloadable_plugin
@@ -322,7 +322,7 @@ start_hot_reload()
 Plugins can persist their state between restarts:
 
 ```python
-from pepperpy.plugins import persistent_plugin
+from pepperpy.plugin import persistent_plugin
 
 # Make a plugin state persistent
 @persistent_plugin

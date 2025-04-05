@@ -1,12 +1,15 @@
-"""Cache module for PepperPy.
+"""
+PepperPy Cache Module.
 
-This module provides caching functionality for improving performance
-by storing and reusing operation results.
+This module provides caching capabilities for PepperPy.
 """
 
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
+from pepperpy.cache.base import CacheProvider
+
+# Import the ResultCache and related functions
 from pepperpy.cache.result_cache import (
     ResultCache,
     ResultCacheError,
@@ -16,19 +19,20 @@ from pepperpy.cache.result_cache import (
 )
 
 __all__ = [
+    "CacheProvider",
     "ResultCache",
     "ResultCacheError",
     "cached",
-    "get_result_cache",
     "get_cache",
+    "get_result_cache",
     "invalidate_cache",
 ]
 
 
 def get_cache(
     namespace: str = "default",
-    cache_dir: Optional[Union[str, Path]] = None,
-    ttl: Optional[int] = None,
+    cache_dir: str | Path | None = None,
+    ttl: int | None = None,
     backend: str = "disk",
     **kwargs: Any,
 ) -> ResultCache:

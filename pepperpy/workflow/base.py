@@ -13,13 +13,13 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, cast
+from typing import Any, Generic, TypeVar, cast
 
-# Importe a classe de erro do módulo correto com a grafia correta
+# Import from the correct module structure
 from pepperpy.core import PepperpyError
 from pepperpy.core.errors import ValidationError
-from pepperpy.plugins.plugin import PepperpyPlugin
-from pepperpy.plugins.registry import create_provider_instance
+from pepperpy.plugin import create_provider_instance
+from pepperpy.plugin.provider import BasePluginProvider
 
 # Type variables for generic pipeline stages
 Input = TypeVar("Input")
@@ -31,16 +31,16 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "ComponentType",
-    "PipelineError",
-    "PipelineContext",
-    "PipelineConfig",
-    "PipelineStage",
-    "Pipeline",
-    "PipelineRegistry",
-    "WorkflowComponent",
-    "Workflow",
-    "WorkflowProvider",
     "DocumentWorkflow",
+    "Pipeline",
+    "PipelineConfig",
+    "PipelineContext",
+    "PipelineError",
+    "PipelineRegistry",
+    "PipelineStage",
+    "Workflow",
+    "WorkflowComponent",
+    "WorkflowProvider",
     "create_provider",
 ]
 
@@ -70,8 +70,8 @@ class PipelineContext:
     It provides a way to share state throughout the pipeline execution.
     """
 
-    data: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a value from the context data.
@@ -125,8 +125,8 @@ class PipelineConfig:
 
     name: str
     description: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    options: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    options: dict[str, Any] = field(default_factory=dict)
 
 
 class PipelineStage(Generic[Input, Output], ABC):
@@ -181,7 +181,7 @@ class PipelineStage(Generic[Input, Output], ABC):
         pass
 
     def __call__(
-        self, input_data: Input, context: Optional[PipelineContext] = None
+        self, input_data: Input, context: PipelineContext | None = None
     ) -> Output:
         """Call the stage's process method.
 
@@ -213,8 +213,8 @@ class Pipeline(Generic[Input, Output]):
     def __init__(
         self,
         name: str,
-        stages: Optional[List[PipelineStage]] = None,
-        config: Optional[PipelineConfig] = None,
+        stages: list[PipelineStage] | None = None,
+        config: PipelineConfig | None = None,
     ):
         """Initialize a pipeline.
 
@@ -237,7 +237,7 @@ class Pipeline(Generic[Input, Output]):
         return self._name
 
     @property
-    def stages(self) -> List[PipelineStage]:
+    def stages(self) -> list[PipelineStage]:
         """Get the stages of the pipeline.
 
         Returns:
@@ -263,7 +263,7 @@ class Pipeline(Generic[Input, Output]):
         self._stages.append(stage)
 
     def process(
-        self, input_data: Input, context: Optional[PipelineContext] = None
+        self, input_data: Input, context: PipelineContext | None = None
     ) -> Output:
         """Process data through the pipeline.
 
@@ -360,7 +360,7 @@ class PipelineRegistry:
 
         return self._pipelines[name]
 
-    def list(self) -> List[str]:
+    def list(self) -> list[str]:
         """List all registered pipeline names.
 
         Returns:
@@ -409,9 +409,7 @@ def get_pipeline(name: str) -> Pipeline:
     return _registry.get(name)
 
 
-def create_pipeline(
-    name: str, stages: Optional[List[PipelineStage]] = None
-) -> Pipeline:
+def create_pipeline(name: str, stages: list[PipelineStage] | None = None) -> Pipeline:
     """Create a new pipeline and register it.
 
     Args:
@@ -427,7 +425,7 @@ def create_pipeline(
 
 
 def execute_pipeline(
-    name: str, input_data: Any, context: Optional[PipelineContext] = None
+    name: str, input_data: Any, context: PipelineContext | None = None
 ) -> Any:
     """Execute a pipeline from the global registry.
 
@@ -455,8 +453,8 @@ class WorkflowComponent(ABC):
         component_id: str,
         name: str,
         component_type: str = ComponentType.PROCESSOR,
-        config: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Initialize workflow component.
 
@@ -502,12 +500,12 @@ class Workflow(ABC):
         """Initialize workflow."""
         self.id: str = ""
         self.name: str = ""
-        self.components: List[WorkflowComponent] = []
-        self.config: Dict[str, Any] = {}
+        self.components: list[WorkflowComponent] = []
+        self.config: dict[str, Any] = {}
         self.status: ComponentType = ComponentType.SOURCE
-        self.metadata: Dict[str, Any] = {}
+        self.metadata: dict[str, Any] = {}
 
-    def set_components(self, components: List[WorkflowComponent]) -> None:
+    def set_components(self, components: list[WorkflowComponent]) -> None:
         """Set workflow components.
 
         Args:
@@ -515,7 +513,7 @@ class Workflow(ABC):
         """
         self.components = components
 
-    def set_config(self, config: Dict[str, Any]) -> None:
+    def set_config(self, config: dict[str, Any]) -> None:
         """Set workflow configuration.
 
         Args:
@@ -523,7 +521,7 @@ class Workflow(ABC):
         """
         self.config = config
 
-    def set_metadata(self, metadata: Dict[str, Any]) -> None:
+    def set_metadata(self, metadata: dict[str, Any]) -> None:
         """Set workflow metadata.
 
         Args:
@@ -532,7 +530,7 @@ class Workflow(ABC):
         self.metadata = metadata
 
 
-class WorkflowProvider(PepperpyPlugin):
+class WorkflowProvider(BasePluginProvider):
     """Base class for workflow providers.
 
     A workflow provider is responsible for executing workflows and managing
@@ -542,26 +540,22 @@ class WorkflowProvider(PepperpyPlugin):
 
     def __init__(
         self,
-        name: str = "workflow",
-        config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize workflow provider.
 
         Args:
-            name: Provider name
-            config: Optional configuration dictionary
-            **kwargs: Additional provider-specific configuration
+            **kwargs: Provider configuration
         """
-        super().__init__(name=name, config=config, **kwargs)
-        self._workflows: Dict[str, Workflow] = {}
+        super().__init__(**kwargs)
+        self._workflows: dict[str, Workflow] = {}
 
     @abstractmethod
     async def create_workflow(
         self,
         name: str,
-        components: List[WorkflowComponent],
-        config: Optional[Dict[str, Any]] = None,
+        components: list[WorkflowComponent],
+        config: dict[str, Any] | None = None,
     ) -> Workflow:
         """Create a new workflow.
 
@@ -579,8 +573,8 @@ class WorkflowProvider(PepperpyPlugin):
     async def execute_workflow(
         self,
         workflow: Workflow,
-        input_data: Optional[Any] = None,
-        config: Optional[Dict[str, Any]] = None,
+        input_data: Any | None = None,
+        config: dict[str, Any] | None = None,
     ) -> Any:
         """Execute a workflow.
 
@@ -595,7 +589,7 @@ class WorkflowProvider(PepperpyPlugin):
         pass
 
     @abstractmethod
-    async def get_workflow(self, workflow_id: str) -> Optional[Workflow]:
+    async def get_workflow(self, workflow_id: str) -> Workflow | None:
         """Get workflow by ID.
 
         Args:
@@ -607,7 +601,7 @@ class WorkflowProvider(PepperpyPlugin):
         pass
 
     @abstractmethod
-    async def list_workflows(self) -> List[Workflow]:
+    async def list_workflows(self) -> list[Workflow]:
         """List all workflows.
 
         Returns:
@@ -642,7 +636,7 @@ def create_provider(provider_type: str = "default", **config: Any) -> WorkflowPr
 class DocumentWorkflow(Workflow):
     """Workflow for document processing."""
 
-    def __init__(self, input_data: Union[str, Path]) -> None:
+    def __init__(self, input_data: str | Path) -> None:
         """Initialize document workflow.
 
         Args:

@@ -1,20 +1,24 @@
-"""Workflow module for PepperPy.
+"""
+PepperPy Workflow Module.
 
-This module provides workflow capabilities for PepperPy, allowing
-users to create and execute document processing pipelines.
+Module for workflow orchestration in the PepperPy framework.
 """
 
-from pepperpy.workflow.base import (
+from pepperpy.workflow.result import WorkflowResult, WorkflowStepResult
+from pepperpy.workflow.tasks import (
+    LLMStep,
+    ProcessorStep,
     Workflow,
-    WorkflowComponent,
-    create_provider,
+    WorkflowStep,
 )
 
-# Importação removida - LocalExecutor agora está em um plugin
-
 __all__ = [
+    # Results
+    "WorkflowResult",
+    "WorkflowStepResult",
+    # Tasks
+    "LLMStep",
+    "ProcessorStep",
     "Workflow",
-    "WorkflowComponent",
-    "create_provider",
-    # "LocalExecutor",  # Removido - agora está em um plugin
+    "WorkflowStep",
 ]

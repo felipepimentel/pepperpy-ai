@@ -8,7 +8,7 @@ category: text_normalization
 provides:
   - normalizer
 provider_name: basic
-entry_point: pepperpy.plugins.content.text_normalization.basic.provider:BasicTextNormalizer
+entry_point: pepperpy.plugin.content.text_normalization.basic.provider:BasicTextNormalizer
 
 # Configuration schema
 config_schema:

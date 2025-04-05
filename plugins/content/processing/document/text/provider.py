@@ -5,7 +5,7 @@ from typing import Any
 
 from pepperpy.content.base import ContentProcessor, ProcessingResult
 from pepperpy.core.errors import ProviderError
-from pepperpy.plugins.plugin import ProviderPlugin
+from pepperpy.plugin.plugin import ProviderPlugin
 
 
 class TextProvider(ContentProcessor, ProviderPlugin):

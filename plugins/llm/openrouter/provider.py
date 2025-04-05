@@ -18,7 +18,7 @@ from pepperpy.llm import (
     Message,
     MessageRole,
 )
-from pepperpy.plugins.plugin import PepperpyPlugin
+from pepperpy.plugin.plugin import PepperpyPlugin
 
 
 class OpenRouterProvider(LLMProvider, PepperpyPlugin):

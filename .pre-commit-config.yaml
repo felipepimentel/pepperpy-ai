@@ -66,4 +66,11 @@ repos:
         entry: python scripts/check_duplicates.py
         language: python
         pass_filenames: false
-        always_run: true 
+        always_run: true
+      
+      - id: check-naming
+        name: Check for singular domain names
+        entry: python scripts/check_naming.py --strict
+        language: system
+        pass_filenames: false
+        types: [python] 

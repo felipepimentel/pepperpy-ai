@@ -153,7 +153,7 @@ from pepperpy import PepperPy
 
 # INCORRECT: Direct import of implementations
 from pepperpy.content.processors.text_normalization_base import TextNormalizerBase  # VIOLATION!
-from pepperpy.plugins.content.text_normalization.basic.provider import BasicTextNormalizer  # VIOLATION!
+from pepperpy.plugin.content.text_normalization.basic.provider import BasicTextNormalizer  # VIOLATION!
 ```
 
 ### 2. Dependency Inversion

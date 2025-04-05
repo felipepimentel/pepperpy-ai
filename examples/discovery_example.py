@@ -9,7 +9,7 @@ plugins, services, and content types.
 import asyncio
 import sys
 
-from pepperpy.plugins.providers.discovery.plugin_discovery import (
+from pepperpy.plugin.providers.discovery.plugin_discovery import (
     PluginDiscoveryProvider,
 )
 

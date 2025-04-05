@@ -7,7 +7,7 @@ import aiohttp
 from murf import Murf
 
 from pepperpy.core.errors import ProviderError
-from pepperpy.plugins import ProviderPlugin
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.tts.base import TTSAudio, TTSProvider, TTSProviderError, TTSVoice
 
 

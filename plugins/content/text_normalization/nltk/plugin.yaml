@@ -8,7 +8,7 @@ category: text_normalization
 provides:
 - normalizer
 provider_name: nltk
-entry_point: pepperpy.plugins.content.text_normalization.nltk.provider:NLTKTextNormalizer
+entry_point: pepperpy.plugin.content.text_normalization.nltk.provider:NLTKTextNormalizer
 
 config_schema:
   type: object

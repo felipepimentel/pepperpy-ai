@@ -29,7 +29,7 @@ Services can be registered with one of three scopes that determine which plugins
 To declare a method as a service, use the `@service` decorator:
 
 ```python
-from pepperpy.plugins import PepperpyPlugin, service, ServiceScope
+from pepperpy.plugin import PepperpyPlugin, service, ServiceScope
 
 class MyPlugin(PepperpyPlugin):
     
@@ -84,7 +84,7 @@ The decorator parameters include:
 To call a service from another plugin, use the `call_service` function:
 
 ```python
-from pepperpy.plugins import PepperpyPlugin, call_service
+from pepperpy.plugin import PepperpyPlugin, call_service
 
 class ConsumerPlugin(PepperpyPlugin):
     def calculate(self):

@@ -9,7 +9,7 @@ from pepperpy.content.processors.text_normalization_base import (
     TextNormalizerRegistry,
 )
 from pepperpy.core.logging import get_logger
-from pepperpy.plugins.plugin import PepperpyPlugin
+from pepperpy.plugin.plugin import PepperpyPlugin
 
 T = TypeVar("T", bound="BasicTextNormalizer")
 

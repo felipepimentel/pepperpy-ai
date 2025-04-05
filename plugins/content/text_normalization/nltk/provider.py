@@ -8,7 +8,7 @@ from pepperpy.content.processors.text_normalization_base import (
     TextNormalizerRegistry,
 )
 from pepperpy.core import ConfigError, ProviderError
-from pepperpy.plugins import ProviderPlugin
+from pepperpy.plugin import ProviderPlugin
 
 T = TypeVar("T", bound="NLTKTextNormalizer")
 

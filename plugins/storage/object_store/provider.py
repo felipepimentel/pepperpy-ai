@@ -28,7 +28,7 @@ import httpx
 
 from pepperpy.core import ProviderError, ValidationError
 from pepperpy.core.logging import get_logger
-from pepperpy.plugins.plugin import PepperpyPlugin
+from pepperpy.plugin.plugin import PepperpyPlugin
 
 
 class PersistenceError(ProviderError):

@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 """
-SQLite Storage Provider Example.
+Storage Provider Example.
 
-This script demonstrates how to use the SQLite storage provider in PepperPy.
+This script demonstrates how to use storage providers in PepperPy
+through the proper abstraction layer rather than direct imports.
 """
 
 import asyncio
@@ -12,9 +13,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from pepperpy.storage.base.provider import StorageContainer, StorageQuery
-from pepperpy.storage.providers.sqlite import SQLiteProvider
-from pepperpy.storage.providers.sqlite.provider import SQLiteConfig
+from pepperpy import PepperPy
+from pepperpy.storage.provider import StorageContainer, StorageQuery
 
 
 class Note(BaseModel):
@@ -36,20 +36,32 @@ async def main():
     data_dir = examples_dir / "data"
     db_path = data_dir / "notes.db"
 
-    # Create a SQLite configuration
-    config = SQLiteConfig(
-        database_path=str(db_path),
-        create_if_missing=True,
+    # Create data directory if needed
+    data_dir.mkdir(exist_ok=True)
+
+    # Create PepperPy instance with the storage provider
+    # This is the proper way to use providers - through the framework
+    pepperpy = PepperPy(
+        config={
+            "storage": {
+                "provider": "sqlite",
+                "database_path": str(db_path),
+                "create_if_missing": True,
+            }
+        }
     )
 
-    # Create a SQLite provider
-    provider = SQLiteProvider(config)
+    # Configure the storage provider using the fluent API
+    pepperpy.with_storage("sqlite", database_path=str(db_path), create_if_missing=True)
+
+    # Initialize all providers
+    await pepperpy.initialize()
+
+    # Access the storage provider through the framework
+    provider = pepperpy.storage
+    print(f"Using storage provider: {provider.name}")
 
     try:
-        # Connect to the database
-        connection = await provider.get_connection()
-        print(f"Connected to SQLite database: {config.database_path}")
-
         # Create a container for notes
         container_name = "notes"
         container = StorageContainer(
@@ -69,8 +81,8 @@ async def main():
         note = Note(
             id="note-1",
             title="Welcome to PepperPy",
-            content="This is a simple example of using the SQLite storage provider.",
-            tags=["example", "storage", "sqlite"],
+            content="This is a simple example of using storage providers properly.",
+            tags=["example", "storage", "abstraction"],
         )
 
         # Store the note
@@ -90,8 +102,8 @@ async def main():
         updated_note = Note(
             id="note-1",
             title="Updated: Welcome to PepperPy",
-            content="This note has been updated.",
-            tags=["example", "storage", "sqlite", "updated"],
+            content="This note has been updated using proper provider abstraction.",
+            tags=["example", "storage", "abstraction", "updated"],
             created_at=retrieved_note["created_at"],
         )
 
@@ -139,17 +151,10 @@ async def main():
     except Exception as e:
         print(f"Error: {e}")
     finally:
-        # Make sure to disconnect
-        if provider._connection and provider._connection.is_connected:
-            await provider._connection.disconnect()
-            print("Disconnected from database")
+        # Automatic resource management would happen here
+        pass
 
 
 if __name__ == "__main__":
-    # Make sure the data directory exists
-    examples_dir = Path(__file__).parent
-    data_dir = examples_dir / "data"
-    data_dir.mkdir(exist_ok=True)
-
     # Run the example
     asyncio.run(main())

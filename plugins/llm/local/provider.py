@@ -22,7 +22,7 @@ from pepperpy.llm import (
     Message,
     MessageRole,
 )
-from pepperpy.plugins import ProviderPlugin
+from pepperpy.plugin import ProviderPlugin
 
 
 class LocalProvider(LLMProvider, ProviderPlugin):

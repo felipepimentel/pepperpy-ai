@@ -193,31 +193,64 @@ class PepperResult:
             raise PepperResultError(f"Failed to save result: {e!s}", cause=e)
 
 
-class TextResult(PepperResult):
-    """Result containing text content."""
+class TextResult:
+    """Base class for text-based results."""
 
-    def __init__(
-        self,
-        content: str,
-        metadata: dict[str, Any] | None = None,
-        logger: Logger | None = None,
-    ):
-        """Initialize a text result.
+    def __init__(self, content: str, metadata: dict[str, Any] | None = None):
+        """Initialize text result.
 
         Args:
-            content: Text content
-            metadata: Optional metadata
-            logger: Optional logger
+            content: Result content
+            metadata: Additional metadata
         """
-        super().__init__(content, metadata, logger)
+        self.content = content
+        self.metadata = metadata or {}
 
-    def tokenize(self) -> list[str]:
-        """Split the text into tokens."""
-        return self.content.split()
+    def __str__(self) -> str:
+        """String representation of the result."""
+        return self.content
 
-    def word_count(self) -> int:
-        """Count words in the text."""
-        return len(self.tokenize())
+    def save(self, path: Path) -> Path:
+        """Save the result to a file.
+
+        Args:
+            path: Path to save the result
+
+        Returns:
+            Path to the saved file
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.content)
+        return path
+
+    def save_with_metadata(self, path: Path) -> Path:
+        """Save the result with metadata to a file.
+
+        Args:
+            path: Path to save the result
+
+        Returns:
+            Path to the saved file
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("# Result\n\n")
+            f.write(self.content)
+            f.write("\n\n# Metadata\n\n")
+            f.write(json.dumps(self.metadata, indent=2))
+        return path
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the result to a dictionary.
+
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "content": self.content,
+            "metadata": self.metadata,
+        }
 
 
 class JSONResult(PepperResult):

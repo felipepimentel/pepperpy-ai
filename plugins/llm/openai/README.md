@@ -1,6 +1,13 @@
-# PepperPy OpenAI Provider
+# PepperPy OpenAI LLM Provider
 
-OpenAI provider implementation for PepperPy.
+This plugin provides OpenAI language model integration for the PepperPy framework.
+
+## Features
+
+- Chat completions
+- Text completions
+- Streaming responses
+- Embedding generation
 
 ## Installation
 
@@ -12,99 +19,39 @@ pip install pepperpy-llm-openai
 
 ```python
 from pepperpy import PepperPy
+from pepperpy.llm import Message
 
-# Using environment variables (recommended)
-async with PepperPy().with_llm(provider_type="openai") as pepper:
-    result = await pepper.chat.with_user("Hello!").generate()
-    print(result.content)
+# Initialize PepperPy with OpenAI
+pepper = PepperPy().with_llm("openai", api_key="your_api_key")
+await pepper.initialize()
 
-# Or with explicit configuration
-async with PepperPy().with_llm(
-    provider_type="openai",
-    api_key="your-api-key",
-    model="gpt-3.5-turbo",
-    temperature=0.7,
-) as pepper:
-    result = await pepper.chat.with_user("Hello!").generate()
-    print(result.content)
+# Create messages
+messages = [
+    Message(role="system", content="You are a helpful assistant."),
+    Message(role="user", content="Hello, how are you?")
+]
+
+# Get a response
+response = await pepper.llm.chat(messages)
+print(response)
+
+# Stream a response
+async for chunk in pepper.llm.stream_chat(messages):
+    print(chunk, end="", flush=True)
+
+# Generate embeddings
+embedding = await pepper.llm.embed("This is a text to embed")
 ```
 
 ## Configuration
 
-The provider accepts the following configuration options:
+The plugin accepts the following configuration options:
 
 - `api_key`: OpenAI API key (required)
-- `model`: Model to use (default: "gpt-3.5-turbo")
-- `temperature`: Sampling temperature (default: 0.7)
-- `max_tokens`: Maximum tokens to generate (optional)
+- `model`: Model name (default: "gpt-3.5-turbo")
+- `organization`: OpenAI organization ID (optional)
 
-All configuration options can be set via environment variables (recommended) or passed directly to the constructor.
+## Requirements
 
-## Environment Variables
-
-The provider will automatically use these environment variables if set:
-
-### Primary Variables
-- `OPENAI_API_KEY`: OpenAI API key (standard OpenAI environment variable)
-
-### PepperPy-specific Variables
-- `PEPPERPY_LLM__OPENAI__API_KEY`: Alternative API key location
-- `PEPPERPY_LLM__OPENAI__MODEL`: Model to use (default: "gpt-3.5-turbo")
-- `PEPPERPY_LLM__OPENAI__TEMPERATURE`: Sampling temperature (default: 0.7)
-- `PEPPERPY_LLM__OPENAI__MAX_TOKENS`: Maximum tokens to generate
-
-Environment variables take precedence in this order:
-1. Constructor parameters
-2. PepperPy-specific variables
-3. Standard OpenAI variables
-4. Default values
-
-## Features
-
-- Full support for OpenAI's chat completion API
-- Streaming support
-- Token usage tracking
-- Proper error handling and validation
-- Automatic resource cleanup
-- Smart environment variable configuration
-
-## Examples
-
-### Using Environment Variables
-
-```bash
-# Set up environment variables
-export PEPPERPY_LLM__OPENAI__API_KEY="your-api-key"
-export PEPPERPY_LLM__OPENAI__MODEL="gpt-4"
-export PEPPERPY_LLM__OPENAI__TEMPERATURE="0.8"
-export PEPPERPY_LLM__OPENAI__MAX_TOKENS="2000"
-
-# Run your code
-python your_script.py
-```
-
-### Streaming Example
-
-```python
-async with PepperPy().with_llm(provider_type="openai") as pepper:
-    async for chunk in await (
-        pepper.chat
-        .with_system("You are a creative storyteller.")
-        .with_user("Tell me a story about a magical forest.")
-        .stream()
-    ):
-        print(chunk.content, end="", flush=True)
-```
-
-## Error Handling
-
-The provider includes proper error handling and validation:
-
-- Validates API key presence
-- Checks for valid configuration values
-- Provides clear error messages
-- Handles API errors gracefully
-
-## License
-
-MIT License 
+- Python 3.10+
+- openai >= 1.0.0 

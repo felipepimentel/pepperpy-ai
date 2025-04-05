@@ -35,7 +35,7 @@ from chromadb.config import Settings
 
 from pepperpy.core.base import Document, SearchResult
 from pepperpy.core.errors import ValidationError
-from pepperpy.plugins.plugin import PepperpyPlugin
+from pepperpy.plugin.plugin import PepperpyPlugin
 
 logger = logging.getLogger(__name__)
 

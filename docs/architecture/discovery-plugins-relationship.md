@@ -16,7 +16,7 @@ The Discovery module provides **low-level discovery mechanisms** for:
 
 This module is intentionally small and focused, providing the fundamental infrastructure for discovering components within the PepperPy ecosystem.
 
-### Plugins Module (`pepperpy.plugins`)
+### Plugins Module (`pepperpy.plugin`)
 
 The Plugins module provides **high-level plugin management** for:
 

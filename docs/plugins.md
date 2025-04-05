@@ -11,7 +11,7 @@ PepperPy automatically discovers and loads plugins from the `plugins` directory.
 To use a plugin, you can create a provider instance directly:
 
 ```python
-from pepperpy.plugins.registry import create_provider_instance
+from pepperpy.plugin.registry import create_provider_instance
 
 # Create an OpenAI LLM provider
 provider = await create_provider_instance(
