@@ -1,0 +1,166 @@
+name: workflow/data_storage
+version: 0.1.0
+description: Data storage and retrieval workflow using various storage providers
+author: PepperPy Team
+license: MIT
+type: workflow
+
+config_schema:
+  provider:
+    type: string
+    description: Storage provider to use (e.g., sqlite, postgres, memory)
+    default: "sqlite"
+  database_path:
+    type: string
+    description: Path to the database file (for file-based providers)
+    default: "./data/storage.db"
+  create_if_missing:
+    type: boolean
+    description: Whether to create the database if it doesn't exist
+    default: true
+  connection_string:
+    type: string
+    description: Connection string for database providers
+  object_serialization:
+    type: string
+    description: Method to serialize objects (json, pickle, etc.)
+    default: "json"
+    enum: [json, pickle, msgpack]
+  default_container:
+    type: string
+    description: Default container to use for operations
+    default: "default"
+
+documentation:
+  description: |
+    Data Storage Workflow provides a comprehensive interface for storing, retrieving,
+    and querying structured data, supporting:
+    
+    1. Creating/managing storage containers
+    2. Storing and retrieving objects
+    3. Updating and deleting objects
+    4. Querying and searching objects
+    5. Managing collections and relationships
+    
+    This workflow makes it easy to use various storage providers through a
+    consistent interface, with support for structured data, schemas, and queries.
+  
+  features:
+    - Object Storage: Store structured data with schema validation
+    - Querying: Query objects by attributes or full-text search
+    - CRUD Operations: Create, read, update, and delete operations
+    - Container Management: Create, list, and manage data containers
+
+  usage_examples:
+    - title: Basic Object Storage
+      python: |
+        from pepperpy.workflow import create_provider
+        
+        # Create the data storage workflow provider
+        workflow = create_provider("data_storage", 
+                                  provider="sqlite",
+                                  database_path="./data/notes.db")
+        
+        # Define an object to store
+        note = {
+            "id": "note-1",
+            "title": "Welcome to PepperPy",
+            "content": "This is a simple example of using the data storage workflow.",
+            "tags": ["example", "storage", "workflow"],
+            "created_at": "2023-08-15T12:00:00Z"
+        }
+        
+        # Store the object
+        result = await workflow.execute({
+            "task": "put_object",
+            "input": {
+                "container": "notes",
+                "object": note,
+                "create_container": True
+            }
+        })
+        
+        print(f"Stored note: {result['id']}")
+        
+    - title: Retrieve and Update Objects
+      python: |
+        # Create data storage workflow
+        workflow = create_provider("data_storage", 
+                                  provider="sqlite",
+                                  database_path="./data/notes.db")
+        
+        # Retrieve the object
+        result = await workflow.execute({
+            "task": "get_object",
+            "input": {
+                "container": "notes",
+                "id": "note-1"
+            }
+        })
+        
+        # Print the retrieved object
+        note = result["object"]
+        print(f"Retrieved note: {note['title']}")
+        
+        # Update the object
+        note["title"] = "Updated: Welcome to PepperPy"
+        note["tags"].append("updated")
+        
+        update_result = await workflow.execute({
+            "task": "put_object",
+            "input": {
+                "container": "notes",
+                "object": note
+            }
+        })
+        
+        print(f"Updated note: {update_result['id']}")
+        
+    - title: Query Objects
+      python: |
+        # Create data storage workflow
+        workflow = create_provider("data_storage", 
+                                  provider="sqlite",
+                                  database_path="./data/notes.db")
+        
+        # Query objects
+        result = await workflow.execute({
+            "task": "query_objects",
+            "input": {
+                "container": "notes",
+                "query": {
+                    "filter": {"tags": {"contains": "example"}},
+                    "limit": 10,
+                    "order_by": "created_at",
+                    "direction": "desc"
+                }
+            }
+        })
+        
+        # Print query results
+        items = result["items"]
+        print(f"Found {len(items)} notes:")
+        for item in items:
+            print(f"- {item['id']}: {item['title']}")
+        
+    - title: Command Line Interface
+      shell: |
+        # Create a container via CLI
+        python -m pepperpy.cli workflow run workflow/data_storage \
+          --params "provider=sqlite" \
+          --params "database_path=./data/notes.db" \
+          --params "task=create_container" \
+          --params "container=notes" \
+          --params "schema={'id':'string','title':'string','content':'string','tags':'array'}"
+          
+        # Store an object via CLI
+        python -m pepperpy.cli workflow run workflow/data_storage \
+          --params "provider=sqlite" \
+          --params "task=put_object" \
+          --params "container=notes" \
+          --params "object={'id':'cli-note','title':'CLI Example','content':'Created via CLI','tags':['cli','example']}"
+
+requirements:
+  - pydantic>=2.0.0
+  - jsonschema>=4.0.0
+  - jsonlines>=3.1.0 

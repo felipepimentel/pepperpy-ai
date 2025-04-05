@@ -1,0 +1,158 @@
+name: workflow/llm_interaction
+version: 0.1.0
+description: Workflow for LLM interaction including chat, completion, streaming, and embedding
+author: PepperPy Team
+license: MIT
+type: workflow
+
+config_schema:
+  provider:
+    type: string
+    description: LLM provider to use (e.g., openai, anthropic, llama)
+    default: "openai"
+  model:
+    type: string
+    description: LLM model to use
+    default: "gpt-3.5-turbo"
+  api_key:
+    type: string
+    description: API key for the LLM provider
+  temperature:
+    type: number
+    description: Temperature for text generation (0.0 to 1.0)
+    default: 0.7
+    minimum: 0.0
+    maximum: 1.0
+  max_tokens:
+    type: integer
+    description: Maximum number of tokens to generate
+    default: 1024
+  streaming:
+    type: boolean
+    description: Whether to stream responses
+    default: false
+  system_prompt:
+    type: string
+    description: System prompt to use for chat
+    default: "You are a helpful assistant powered by the PepperPy framework."
+  embedding_model:
+    type: string
+    description: Model to use for embeddings
+    default: "text-embedding-ada-002"
+  output_dir:
+    type: string
+    description: Directory to save results
+    default: "./output/llm"
+
+documentation:
+  description: |
+    LLM Interaction Workflow provides a comprehensive interface for interacting with
+    Large Language Models, supporting:
+    
+    1. Text completion
+    2. Chat conversations
+    3. Streaming responses
+    4. Text embeddings
+    
+    This workflow makes it easy to interact with various LLM providers through a
+    consistent interface, with support for conversation history management and
+    response streaming.
+  
+  features:
+    - Text Completion: Generate text completions with various models
+    - Chat Interface: Create interactive chatbots with history management
+    - Streaming: Stream responses for better UX with real-time output
+    - Embeddings: Generate text embeddings for semantic search
+
+  usage_examples:
+    - title: Basic Text Completion
+      python: |
+        from pepperpy.workflow import create_provider
+        
+        # Create the LLM interaction workflow provider
+        workflow = create_provider("llm_interaction", 
+                                  provider="openai",
+                                  model="gpt-4",
+                                  api_key="your_api_key")
+        
+        # Create input for processing
+        input_data = {
+            "task": "text_completion",
+            "input": {
+                "prompt": "Explain what PepperPy is in one paragraph.",
+            }
+        }
+        
+        # Execute workflow
+        result = await workflow.execute(input_data)
+        
+        # Print the completion
+        print(result["text"])
+        
+    - title: Interactive Chat
+      python: |
+        # Create workflow with chat configuration
+        workflow = create_provider("llm_interaction", 
+                                  provider="openai",
+                                  model="gpt-3.5-turbo",
+                                  api_key="your_api_key",
+                                  system_prompt="You are a helpful coding assistant.")
+        
+        # Send multiple messages
+        messages = [
+            {"role": "user", "content": "How can I use Python's asyncio library?"}
+        ]
+        
+        result = await workflow.execute({
+            "task": "chat",
+            "input": {"messages": messages}
+        })
+        
+        # Continue the conversation
+        messages.append({"role": "assistant", "content": result["text"]})
+        messages.append({"role": "user", "content": "Can you show me a simple example?"})
+        
+        result = await workflow.execute({
+            "task": "chat",
+            "input": {"messages": messages}
+        })
+        
+        print(result["text"])
+        
+    - title: Streaming Chat with CLI
+      shell: |
+        # Run LLM interaction workflow via CLI with streaming enabled
+        python -m pepperpy.cli workflow run workflow/llm_interaction \
+          --params "provider=openai" \
+          --params "model=gpt-4" \
+          --params "task=stream_chat" \
+          --params "prompt=Explain how LLMs work" \
+          --params "streaming=true"
+          
+    - title: Generate Embeddings
+      python: |
+        # Generate embeddings for semantic search
+        workflow = create_provider("llm_interaction", 
+                                  provider="openai",
+                                  embedding_model="text-embedding-ada-002",
+                                  api_key="your_api_key")
+        
+        # Get embeddings for multiple texts
+        result = await workflow.execute({
+            "task": "embedding",
+            "input": {
+                "texts": [
+                    "What is artificial intelligence?",
+                    "Explain machine learning algorithms.",
+                    "How do neural networks work?"
+                ]
+            }
+        })
+        
+        # Access the embeddings
+        embeddings = result["embeddings"]
+
+requirements:
+  - pydantic>=2.0.0
+  - jsonschema>=4.0.0
+  - numpy>=1.24.0 

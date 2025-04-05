@@ -1,0 +1,118 @@
+name: workflow/tts
+version: 0.1.0
+description: Text-to-Speech workflow for converting text to audio using various TTS providers
+author: PepperPy Team
+license: MIT
+type: workflow
+
+config_schema:
+  provider:
+    type: string
+    description: TTS provider to use (e.g., azure, elevenlabs, openai)
+    default: "azure"
+  api_key:
+    type: string
+    description: API key for the TTS provider
+  region:
+    type: string
+    description: Region for cloud-based TTS providers
+    default: "eastus"
+  voice_id:
+    type: string
+    description: Default voice ID to use
+    default: "en-US-AriaNeural"
+  voice_style:
+    type: string
+    description: Voice style to use (e.g., cheerful, sad, excited)
+    default: "neutral"
+  output_format:
+    type: string
+    description: Audio output format
+    default: "mp3"
+    enum: [mp3, wav, ogg]
+  save_files:
+    type: boolean
+    description: Whether to save audio files automatically
+    default: true
+  output_dir:
+    type: string
+    description: Directory to save audio files
+    default: "./output/tts"
+
+documentation:
+  description: |
+    Text-to-Speech Workflow provides a comprehensive interface for converting text to speech,
+    supporting:
+    
+    1. Converting text to audio
+    2. Streaming audio for real-time playback
+    3. Getting available voices
+    4. Customizing voice parameters
+    
+    This workflow makes it easy to interact with various TTS providers through a
+    consistent interface, with support for multiple languages, voices, and styles.
+  
+  features:
+    - Text to Audio: Convert text to high-quality speech audio
+    - Voice Selection: Choose from a wide range of voices and languages
+    - Streaming: Stream audio for real-time playback
+    - Customization: Adjust voice style, pitch, rate, and other parameters
+
+  usage_examples:
+    - title: Basic Text to Speech
+      python: |
+        from pepperpy.workflow import create_provider
+        
+        # Create the TTS workflow provider
+        workflow = create_provider("tts", 
+                                  provider="azure",
+                                  api_key="your_api_key",
+                                  region="eastus")
+        
+        # Convert text to speech
+        result = await workflow.execute({
+            "task": "convert_text",
+            "input": {
+                "text": "Hello world! This is a test of text-to-speech capabilities.",
+                "voice_id": "en-US-AriaNeural",
+                "output_file": "hello.mp3"
+            }
+        })
+        
+        # Print the result
+        print(f"Generated {result['audio_size']} bytes of audio")
+        print(f"Saved to: {result['file_path']}")
+        
+    - title: List Available Voices
+      python: |
+        # Create TTS workflow
+        workflow = create_provider("tts", 
+                                  provider="azure",
+                                  api_key="your_api_key")
+        
+        # Get all available voices
+        result = await workflow.execute({
+            "task": "get_voices",
+            "input": {
+                "language": "en-US"  # Optional filter by language
+            }
+        })
+        
+        # Print available voices
+        voices = result["voices"]
+        print(f"Found {len(voices)} voices")
+        for voice in voices:
+            print(f"- {voice['id']} ({voice['name']}, {voice['gender']})")
+        
+    - title: Stream Text via CLI
+      shell: |
+        # Run TTS workflow via CLI to generate streaming audio
+        python -m pepperpy.cli workflow run workflow/tts \
+          --params "provider=azure" \
+          --params "api_key=your_api_key" \
+          --params "task=stream_text" \
+          --params "text=This is a streaming test of the text to speech system"
+
+requirements:
+  - pydantic>=2.0.0
+  - jsonschema>=4.0.0 

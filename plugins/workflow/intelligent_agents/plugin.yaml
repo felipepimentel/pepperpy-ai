@@ -1,0 +1,116 @@
+name: workflow/intelligent_agents
+version: 0.1.0
+description: Ready-to-use workflow for intelligent agent tasks like code analysis, content generation, and data extraction
+author: PepperPy Team
+license: MIT
+plugin_type: workflow
+category: workflow
+provider_name: intelligent_agents
+entry_point: workflow.IntelligentAgentsWorkflow
+required_config_keys: []
+default_config:
+  use_capabilities: true
+  max_tokens: 1500
+  output_format: text
+  auto_save_results: true
+  style: professional
+config_schema:
+  use_capabilities:
+    description: Whether to use specialized capabilities for each task
+    required: false
+    default: true
+    type: boolean
+  max_tokens:
+    description: Maximum number of tokens to generate
+    required: false
+    default: 1500
+    type: integer
+    min: 100
+    max: 10000
+  output_format:
+    description: Format for the output
+    required: false
+    default: text
+    type: string
+    enum: [text, markdown, json, html]
+  auto_save_results:
+    description: Whether to automatically save results
+    required: false
+    default: true
+    type: boolean
+  style:
+    description: Style of content generation
+    required: false
+    default: professional
+    type: string
+    enum: [professional, casual, technical, creative]
+documentation: |
+  # Intelligent Agents Workflow
+
+  This workflow provides a complete pipeline for intelligent agent tasks such as
+  code analysis, content generation, technical writing, and data extraction.
+
+  ## Features
+
+  - Code analysis with improvement suggestions
+  - Content generation for blogs, articles, and reports
+  - Technical documentation generation
+  - Structured data extraction from unstructured text
+  - Multiple output formats
+
+  ## Configuration
+
+  - `use_capabilities`: Enable specialized capabilities (default: true)
+  - `max_tokens`: Maximum tokens to generate (default: 1500)
+  - `output_format`: Format for output (default: text)
+  - `auto_save_results`: Auto-save results (default: true)
+  - `style`: Style of content (default: professional)
+
+  ## Usage
+
+  ```python
+  from pepperpy import plugin_manager
+
+  # Create workflow
+  workflow = plugin_manager.create_provider(
+      "workflow", "intelligent_agents",
+      output_format="markdown",
+      style="technical"
+  )
+
+  # Run code analysis
+  result = await workflow.analyze_code(
+      code="def fibonacci(n):\n    if n <= 0:\n        return 0\n    elif n == 1:\n        return 1\n    else:\n        return fibonacci(n-1) + fibonacci(n-2)",
+      prompt="Analyze this code for efficiency and suggest improvements"
+  )
+  print(f"Analysis: {result['analysis']}")
+
+  # Generate content
+  result = await workflow.generate_content(
+      prompt="Write a blog post about quantum computing",
+      parameters={"max_words": 500, "style": "educational"}
+  )
+  print(f"Generated content: {result['content']}")
+
+  # Create technical documentation
+  result = await workflow.create_documentation(
+      context={"endpoints": api_endpoints},
+      prompt="Create API documentation for these endpoints"
+  )
+  print(f"Documentation: {result['documentation']}")
+
+  # Extract data
+  result = await workflow.extract_data(
+      text="Product: Smartphone X1, Price: $699.99, Features: 6.1\" display, 5G, 128GB storage",
+      schema={"product": "string", "price": "float", "features": "list of strings"}
+  )
+  print(f"Extracted data: {result['data']}")
+  ```
+
+  ## Output Format
+
+  Each task returns a dictionary with task-specific keys and these common fields:
+  - `success`: Whether the task was successful
+  - `message`: Status message or error
+  - `metadata`: Task metadata and execution information
+pepperpy_compatibility: '>=0.1.0' 

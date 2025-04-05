@@ -1,0 +1,108 @@
+name: workflow/llm_completion
+version: 0.1.0
+description: Simple workflow for LLM completions and text generation
+author: PepperPy Team
+license: MIT
+type: workflow
+
+config_schema:
+  provider:
+    type: string
+    description: LLM provider to use (e.g., openai, anthropic, llama)
+    default: "openai"
+  model:
+    type: string
+    description: LLM model to use
+    default: "gpt-3.5-turbo"
+  api_key:
+    type: string
+    description: API key for the LLM provider
+  temperature:
+    type: number
+    description: Temperature for text generation (0.0 to 1.0)
+    default: 0.7
+    minimum: 0.0
+    maximum: 1.0
+  max_tokens:
+    type: integer
+    description: Maximum number of tokens to generate
+    default: 1024
+  system_prompt:
+    type: string
+    description: System prompt to use for completions
+    default: "You are a helpful assistant powered by the PepperPy framework."
+  output_dir:
+    type: string
+    description: Directory to save results
+    default: "./output/llm"
+
+documentation:
+  description: |
+    LLM Completion Workflow provides a simple interface for generating text using
+    Large Language Models, supporting:
+    
+    1. Text completion with various prompts
+    2. Content generation with custom system instructions
+    3. Completion with basic formatting options
+    
+    This workflow makes it easy to generate text with various LLM providers through
+    a consistent interface, while keeping the API simple and focused.
+  
+  features:
+    - Text Completion: Generate completions with various models
+    - Content Generation: Create various types of content with different instructions
+    - Format Control: Control output format with system instructions
+
+  usage_examples:
+    - title: Basic Text Completion
+      python: |
+        from pepperpy.workflow import create_provider
+        
+        # Create the LLM completion workflow provider
+        workflow = create_provider("llm_completion", 
+                                  provider="openai",
+                                  model="gpt-4",
+                                  api_key="your_api_key")
+        
+        # Generate a completion
+        result = await workflow.execute({
+            "task": "complete",
+            "input": {
+                "prompt": "Explain what PepperPy is in one paragraph."
+            }
+        })
+        
+        # Print the completion
+        print(result["text"])
+        
+    - title: Content Generation
+      python: |
+        # Create workflow with custom system prompt
+        workflow = create_provider("llm_completion", 
+                                  provider="openai",
+                                  model="gpt-3.5-turbo",
+                                  system_prompt="You are a creative writer who specializes in short stories.")
+        
+        # Generate a short story
+        result = await workflow.execute({
+            "task": "complete",
+            "input": {
+                "prompt": "Write a short story about a robot learning to cook."
+            }
+        })
+        
+        # Print the story
+        print(result["text"])
+        
+    - title: Generating with CLI
+      shell: |
+        # Run LLM completion workflow via CLI
+        python -m pepperpy.cli workflow run workflow/llm_completion \
+          --params "provider=openai" \
+          --params "model=gpt-4" \
+          --params "task=complete" \
+          --params "prompt=What is the capital of France?"
+
+requirements:
+  - pydantic>=2.0.0
+  - jsonschema>=4.0.0 
