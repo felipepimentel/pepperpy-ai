@@ -11,6 +11,7 @@ This module defines the core classes that make up the pipeline framework:
 import enum
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Generic, TypeVar, cast
@@ -379,13 +380,13 @@ class PipelineRegistry:
 _registry = PipelineRegistry()
 
 
-def get_registry() -> PipelineRegistry:
+def get_pipeline_registry() -> PipelineRegistry:
     """Get the global pipeline registry.
 
     Returns:
         The global pipeline registry
     """
-    return _registry
+    return cast(PipelineRegistry, _registry)
 
 
 def register_pipeline(pipeline: Pipeline) -> None:
@@ -394,7 +395,7 @@ def register_pipeline(pipeline: Pipeline) -> None:
     Args:
         pipeline: The pipeline to register
     """
-    _registry.register(pipeline)
+    cast(PipelineRegistry, _registry).register(pipeline)
 
 
 def get_pipeline(name: str) -> Pipeline:
@@ -406,7 +407,10 @@ def get_pipeline(name: str) -> Pipeline:
     Returns:
         The pipeline with the given name
     """
-    return _registry.get(name)
+    result = cast(PipelineRegistry, _registry).get(name)
+    if not result:
+        raise KeyError(f"No pipeline registered with name '{name}'")
+    return cast(Pipeline, result)
 
 
 def create_pipeline(name: str, stages: list[PipelineStage] | None = None) -> Pipeline:
@@ -648,3 +652,275 @@ class DocumentWorkflow(Workflow):
         self.config = {"input_data": str(input_data)}
         self.status = ComponentType.SOURCE
         self.metadata = {}
+
+
+class WorkflowRegistry:
+    """Registry for workflow components.
+
+    This class manages the registration and retrieval of workflow
+    components such as stages, processors, and transformers.
+    """
+
+    _instance = None
+
+    def __new__(cls):
+        """Create a new instance or return the existing one."""
+        if cls._instance is None:
+            cls._instance = super(WorkflowRegistry, cls).__new__(cls)
+            cls._instance._components = {}
+        return cls._instance
+
+    def __init__(self):
+        """Initialize registry."""
+        if not hasattr(self, "_components"):
+            self._components = {}
+
+    def register(self, name: str, component: Any) -> None:
+        """Register a workflow component.
+
+        Args:
+            name: Component name
+            component: Component instance
+
+        Raises:
+            ValueError: If component is already registered
+        """
+        if name in self._components:
+            raise ValueError(f"Component already registered: {name}")
+        self._components[name] = component
+
+    def get(self, name: str) -> Any | None:
+        """Get a registered component.
+
+        Args:
+            name: Component name
+
+        Returns:
+            Component if found, None otherwise
+        """
+        return self._components.get(name)
+
+    def list(self) -> dict[str, Any]:
+        """List all registered components.
+
+        Returns:
+            Dictionary of component names and instances
+        """
+        return dict(self._components)
+
+    def __str__(self) -> str:
+        """Get string representation.
+
+        Returns:
+            Registry summary
+        """
+        return f"Registry({len(self._components)} components)"
+
+
+# Global registry instance
+_registry = WorkflowRegistry()
+
+
+def get_workflow_registry() -> WorkflowRegistry:
+    """Get the global workflow registry.
+
+    Returns:
+        The global workflow registry
+    """
+    return cast(WorkflowRegistry, _registry)
+
+
+def register_workflow(name: str, workflow: Any) -> None:
+    """Register a workflow in the global registry.
+
+    Args:
+        name: Workflow name
+        workflow: Workflow instance
+    """
+    cast(WorkflowRegistry, _registry).register(name=name, component=workflow)
+
+
+def get_workflow(name: str) -> Any | None:
+    """Get a workflow from the global registry.
+
+    Args:
+        name: Workflow name
+
+    Returns:
+        Workflow if found, None otherwise
+    """
+    return cast(WorkflowRegistry, _registry).get(name)
+
+
+# Pipeline Stage Implementations
+Input = TypeVar("Input")
+Output = TypeVar("Output")
+T = TypeVar("T")
+R = TypeVar("R")
+
+
+class FunctionStage(PipelineStage[Input, Output]):
+    """Function-based pipeline stage.
+
+    This stage wraps a function that processes input data and
+    produces output data. The function can be synchronous or
+    asynchronous.
+
+    Attributes:
+        name: The name of the stage
+        func: The function to execute
+        description: Optional description of the stage
+    """
+
+    def __init__(
+        self,
+        name: str,
+        func: Callable[[Input, PipelineContext], Output],
+        description: str | None = None,
+    ):
+        """Initialize a function stage.
+
+        Args:
+            name: The name of the stage
+            func: The function to execute
+            description: Optional description of the stage
+        """
+        super().__init__(name, description or "")
+        self.func = func
+
+    def process(self, input_data: Input, context: PipelineContext) -> Output:
+        """Process the input data using the wrapped function.
+
+        Args:
+            input_data: The input data to process
+            context: The pipeline context
+
+        Returns:
+            The processed output data
+        """
+        return self.func(input_data, context)
+
+
+class TransformStage(PipelineStage[Input, Output]):
+    """A pipeline stage that transforms input data using a transform object.
+
+    This stage uses a transform object that has a transform method.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        transform: Any,
+        description: str = "",
+    ):
+        """Initialize a transform stage.
+
+        Args:
+            name: The name of the stage
+            transform: The transform object to use
+            description: A description of the stage
+        """
+        super().__init__(name, description)
+        self._transform = transform
+
+    def process(self, input_data: Input, context: PipelineContext) -> Output:
+        """Process the input data using the transform.
+
+        Args:
+            input_data: The input data to process
+            context: The pipeline context
+
+        Returns:
+            The transformed output data
+        """
+        try:
+            logger.debug(f"Executing transform stage: {self.name}")
+
+            # If the transform is a string, look it up in the context
+            if isinstance(self._transform, str):
+                transform_name = self._transform
+                transforms = context.get("transforms", {})
+                if transform_name not in transforms:
+                    raise PipelineError(
+                        f"Transform '{transform_name}' not found in context"
+                    )
+                transform = transforms[transform_name]
+            else:
+                transform = self._transform
+
+            # Call the transform method
+            if hasattr(transform, "transform"):
+                return transform.transform(input_data)
+            elif callable(transform):
+                return transform(input_data)
+            else:
+                raise PipelineError(
+                    f"Invalid transform in stage {self.name}: {transform}"
+                )
+
+        except Exception as e:
+            logger.error(f"Error in transform stage {self.name}: {e!s}")
+            raise PipelineError(f"Error in transform stage {self.name}: {e!s}") from e
+
+
+class ConditionalStage(PipelineStage[Input, Output]):
+    """A pipeline stage that conditionally applies another stage.
+
+    This stage applies a condition to the input data and, if the condition is
+    met, applies another stage.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        condition: Callable[[Input, PipelineContext], bool],
+        if_true: PipelineStage[Input, Output],
+        if_false: PipelineStage[Input, Output] | None = None,
+        description: str = "",
+    ):
+        """Initialize a conditional stage.
+
+        Args:
+            name: The name of the stage
+            condition: The condition to check
+            if_true: The stage to apply if the condition is true
+            if_false: The stage to apply if the condition is false (optional)
+            description: A description of the stage
+        """
+        super().__init__(name, description)
+        self._condition = condition
+        self._if_true = if_true
+        self._if_false = if_false
+
+    def process(self, input_data: Input, context: PipelineContext) -> Output:
+        """Process the input data conditionally.
+
+        Args:
+            input_data: The input data to process
+            context: The pipeline context
+
+        Returns:
+            The processed output data
+        """
+        try:
+            logger.debug(f"Executing conditional stage: {self.name}")
+
+            # Check the condition
+            if self._condition(input_data, context):
+                logger.debug(
+                    f"Condition in stage {self.name} is true, using if_true stage"
+                )
+                return self._if_true(input_data, context)
+            elif self._if_false is not None:
+                logger.debug(
+                    f"Condition in stage {self.name} is false, using if_false stage"
+                )
+                return self._if_false(input_data, context)
+            else:
+                logger.debug(
+                    f"Condition in stage {self.name} is false, no if_false stage, returning input"
+                )
+                return cast(Output, input_data)
+        except Exception as e:
+            logger.error(f"Error in conditional stage {self.name}: {e!s}")
+            raise PipelineError(f"Error in conditional stage {self.name}: {e!s}") from e

@@ -27,5 +27,4 @@ documentation:
 category: cli
 provider_name: default
 entry_point: provider.DefaultProvider
-pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

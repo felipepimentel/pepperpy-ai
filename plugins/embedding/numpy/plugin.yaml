@@ -27,5 +27,4 @@ documentation:
 category: embeddings
 provider_name: numpy
 entry_point: provider.NumpyProvider
-pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

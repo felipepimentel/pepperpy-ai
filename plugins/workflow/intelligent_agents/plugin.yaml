@@ -113,4 +113,3 @@ documentation: |
   - `success`: Whether the task was successful
   - `message`: Status message or error
   - `metadata`: Task metadata and execution information
-pepperpy_compatibility: '>=0.1.0' 

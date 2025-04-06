@@ -103,4 +103,3 @@ documentation: |
   - CPU: Any model, but slower performance
   - CUDA: NVIDIA GPU required, recommended for better performance
   - MPS: Apple Silicon (M1/M2/M3) GPU support
-pepperpy_compatibility: '>=0.1.0'

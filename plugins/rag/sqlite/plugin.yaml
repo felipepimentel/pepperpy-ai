@@ -26,6 +26,5 @@ documentation:
 category: rag
 provider_name: sqlite
 entry_point: provider.SQLiteRAGProvider
-pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []
 plugin_type: rag

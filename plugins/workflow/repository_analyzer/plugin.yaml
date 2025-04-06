@@ -1,14 +1,11 @@
-name: workflow/repository_analyzer
+name: repository_analyzer
 version: 0.3.0
 description: Analyze code repositories and provide insights
 author: PepperPy Team
 license: MIT
 plugin_type: workflow
-category: workflow
 provider_name: repository_analyzer
 entry_point: simplified_adapter.SimpleRepositoryAnalyzerAdapter
-alternate_entry_points:
-  standalone: standalone_adapter.StandaloneAdapter
 required_config_keys: []
 default_config:
   repository_path: "."
@@ -69,7 +66,6 @@ documentation: |
   - Code quality analysis
   - Code complexity analysis
   - Git repository information
-  - Standalone mode for minimal dependency usage
 
   ## Usage
 
@@ -103,25 +99,6 @@ documentation: |
   result = await analyzer.execute({
       "task": "analyze_repository"
   })
-  ```
-
-  ## Standalone Usage
-
-  The repository analyzer also provides a standalone adapter that can be used with minimal dependencies:
-
-  ```python
-  from plugins.workflow.repository_analyzer.standalone_adapter import StandaloneAdapter
-
-  # Create standalone adapter
-  adapter = StandaloneAdapter(repository_path="/path/to/repo")
-  await adapter.initialize()
-
-  # Execute a task
-  result = await adapter.execute({"task": "analyze_structure"})
-  print(f"Found {result['total_files']} files")
-
-  # Clean up
-  await adapter.cleanup()
   ```
 
   ## CLI Usage
@@ -176,9 +153,43 @@ documentation: |
   - List of files exceeding specified size threshold
   - File sizes in KB and MB
   - Sorted by file size (largest first)
-pepperpy_compatibility: '>=0.2.0'
+  
+  ## Error Handling
+  
+  The plugin uses a robust error handling framework that provides:
+  
+  - Specialized error classes for task execution issues
+  - Detailed error messages with context
+  - Original exceptions are preserved for debugging
+  - Graceful recovery options
 
-requirements:
-  - pydantic>=2.0.0
-  - jsonschema>=4.0.0
-  - radon>=5.1.0 
+# Dependency management section
+dependencies:
+  required:
+    - pydantic>=2.0.0
+    - jsonschema>=4.0.0
+    - radon>=5.1.0
+  optional:
+    - gitpython>=3.1.0  # For Git repository analysis
+    - pygments>=2.10.0  # For syntax highlighting in reports
+    - mccabe>=0.7.0     # For code complexity analysis
+    - pylint>=2.12.0    # For code quality analysis
+  conflicts:
+    - pygments<2.0.0    # Older versions have security issues
+    - radon<5.0.0       # Older versions lack features we need
+
+# Isolation configuration
+isolation:
+  mode: "shared"  # Can be "shared" or "isolated"
+  container:
+    enabled: false  # Enable for complete isolation
+    image: "python:3.10-slim"
+    resource_limits:
+      memory: "512Mi"
+      cpu: "500m"
+  environment:
+    variables:
+      PYTHONPATH: "${PLUGIN_PATH}:${PYTHONPATH}"
+    required_modules:
+      - gitpython
+      - radon 

@@ -27,5 +27,4 @@ documentation:
 
     '
 entry_point: provider.GitHubProvider
-pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

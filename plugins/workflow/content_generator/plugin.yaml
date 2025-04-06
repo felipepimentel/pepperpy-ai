@@ -135,4 +135,3 @@ documentation: |
   - `sources`: List of research sources (if enabled)
   - `statistics`: Content statistics (word count, readability)
   - `suggestions`: Related topics and keywords
-pepperpy_compatibility: '>=0.1.0'

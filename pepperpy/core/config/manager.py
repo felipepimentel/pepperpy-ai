@@ -204,9 +204,7 @@ def get_component_config(component: str) -> dict[str, Any]:
 
 
 def get_default_provider(provider_type: str) -> str | None:
-    """Get the default provider name for a specific provider type.
-
-    This checks the "defaults" section of the config for entries like "llm_provider", "rag_provider", etc.
+    """Get the default provider for a given provider type.
 
     Args:
         provider_type: Provider type (e.g., "llm", "rag", "tts")
@@ -218,10 +216,6 @@ def get_default_provider(provider_type: str) -> str | None:
 
     # Check if we have a defaults section
     if not hasattr(config, "defaults") or config.defaults is None:
-        # Fallback to checking legacy format for provider in component config
-        component_config = get_component_config(provider_type)
-        if component_config and "provider" in component_config:
-            return cast(str, component_config["provider"])
         return None
 
     # Check for the corresponding default provider setting
@@ -400,7 +394,7 @@ def apply_environment_overrides(
     if hasattr(env_plugins, "dict") and not isinstance(env_plugins, dict):
         env_plugins_data = env_plugins.dict()
     else:
-        env_plugins_data = env_plugins
+        env_plugins_data = cast(dict[str, Any], env_plugins)
 
     # Check if the plugin type exists in environment config
     if plugin_type not in env_plugins_data:
@@ -472,7 +466,7 @@ def get_template_config(template_name: str) -> dict[str, Any]:
     if hasattr(templates, "dict") and not isinstance(templates, dict):
         templates_data = templates.dict()
     else:
-        templates_data = templates
+        templates_data = cast(dict[str, Any], templates)
 
     return templates_data.get(template_name, {})
 

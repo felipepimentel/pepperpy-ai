@@ -67,4 +67,3 @@ documentation:
 category: embeddings
 provider_name: azure
 entry_point: provider.AzureEmbeddingsProvider
-pepperpy_compatibility: '>=0.1.0'

@@ -101,4 +101,3 @@ documentation: |
   - `entities`: List of extracted named entities
   - `keywords`: List of extracted keywords
   - `summary`: Generated text summary
-pepperpy_compatibility: '>=0.1.0'

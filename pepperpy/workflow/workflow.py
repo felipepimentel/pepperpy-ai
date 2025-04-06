@@ -10,6 +10,11 @@ from functools import wraps
 from typing import Any, TypeVar, cast
 
 from pepperpy.core import get_logger
+from pepperpy.workflow.common import (
+    TaskExecutionError,
+    TaskNotFoundError,
+    WorkflowError,
+)
 
 logger = get_logger(__name__)
 
@@ -45,12 +50,12 @@ def workflow_task(name: str | None = None, description: str | None = None):
                 return result
             except Exception as e:
                 logger.error(f"Task {task_name} failed: {e}")
-                raise
+                raise TaskExecutionError(task_name, e) from e
 
-        # Store metadata as attributes (ignore linter errors for dynamic attributes)
-        wrapper.__workflow_task__ = True
-        wrapper.__task_name__ = name or func.__name__
-        wrapper.__task_description__ = description or func.__doc__
+        # Store metadata as attributes (using setattr to avoid linter errors)
+        wrapper.__workflow_task__ = True  # type: ignore
+        wrapper.__task_name__ = name or func.__name__  # type: ignore
+        wrapper.__task_description__ = description or func.__doc__  # type: ignore
 
         return wrapper
 
@@ -105,6 +110,42 @@ class SimpleWorkflow:
         self.initialized = False
         self.config = {}
 
+        # Auto-discover tasks through inspection
+        self._discover_tasks()
+
+    def _discover_tasks(self) -> None:
+        """
+        Discover workflow tasks by inspecting class methods.
+
+        This method looks for methods decorated with @workflow_task and
+        registers them as available tasks.
+        """
+        for name in dir(self):
+            if name.startswith("_"):
+                continue
+
+            attr = getattr(self, name)
+            if callable(attr) and hasattr(attr, "__workflow_task__"):
+                task_name = getattr(attr, "__task_name__", name)
+                self.register_task(task_name, attr)
+
+    def register_task(self, name: str, func: TaskFunction) -> None:
+        """
+        Explicitly register a task function.
+
+        Args:
+            name: Name of the task
+            func: Task function
+
+        Raises:
+            WorkflowError: If a task with the same name already exists
+        """
+        if name in self._tasks:
+            raise WorkflowError(f"Task '{name}' already registered")
+
+        self._tasks[name] = func
+        logger.debug(f"Registered task '{name}' in workflow '{self.name}'")
+
     def task(
         self,
         func: TaskFunction | None = None,
@@ -126,7 +167,8 @@ class SimpleWorkflow:
 
         def decorator(fn: TaskFunction) -> TaskFunction:
             task_name = name or fn.__name__
-            self._tasks[task_name] = fn
+            self.register_task(task_name, fn)
+
             if depends_on:
                 self._dependencies[task_name] = depends_on
 
@@ -146,12 +188,15 @@ class SimpleWorkflow:
 
         Returns:
             Built workflow
+
+        Raises:
+            WorkflowError: If no tasks are registered
         """
         # Lazy import to avoid circular imports
         from pepperpy.workflow.models import Task, Workflow
 
         if not self._tasks:
-            raise ValueError("No tasks registered in workflow")
+            raise WorkflowError("No tasks registered in workflow")
 
         # Create tasks
         workflow_tasks = {
@@ -163,7 +208,7 @@ class SimpleWorkflow:
         for target, sources in self._dependencies.items():
             for source in sources:
                 if source not in workflow_tasks:
-                    raise ValueError(
+                    raise WorkflowError(
                         f"Dependency '{source}' not found for task '{target}'"
                     )
                 edges.append((source, target))
@@ -197,7 +242,7 @@ class SimpleWorkflow:
             Output from the last task in the workflow
 
         Raises:
-            ValueError: If the workflow has no tasks
+            WorkflowError: If the workflow has no tasks or execution fails
         """
         # Lazy import to avoid circular imports
         from pepperpy.orchestration.orchestrator import WorkflowOrchestrator
@@ -218,7 +263,7 @@ class SimpleWorkflow:
 
         # Check execution status
         if execution is None:
-            raise RuntimeError("Workflow execution failed: execution is None")
+            raise WorkflowError("Workflow execution failed: execution is None")
 
         if execution.status is None or execution.status.value != "COMPLETED":
             error_msg = (
@@ -227,7 +272,7 @@ class SimpleWorkflow:
                 else "Unknown error"
             )
             logger.error(f"Workflow execution failed: {error_msg}")
-            raise RuntimeError(f"Workflow execution failed: {error_msg}")
+            raise WorkflowError(f"Workflow execution failed: {error_msg}")
 
         # Return results
         if execution and hasattr(execution, "outputs") and execution.outputs:
@@ -245,7 +290,9 @@ class SimpleWorkflow:
             Task execution result
 
         Raises:
-            ValueError: If task name is not provided or not found
+            ValueError: If input_data is not a dictionary
+            TaskNotFoundError: If task name is not provided or not found
+            TaskExecutionError: If task execution fails
         """
         if not isinstance(input_data, dict):
             raise ValueError("Input data must be a dictionary")
@@ -253,30 +300,35 @@ class SimpleWorkflow:
         # Get task name
         task_name = input_data.get("task")
         if not task_name:
-            raise ValueError("Task name must be provided in the input data")
+            raise TaskNotFoundError("", list(self._tasks.keys()))
 
         # Find task function
         task_func = self._tasks.get(task_name)
         if not task_func:
             available_tasks = list(self._tasks.keys())
-            raise ValueError(
-                f"Task '{task_name}' not found. Available tasks: {available_tasks}"
-            )
+            raise TaskNotFoundError(task_name, available_tasks)
 
         # Extract parameters (removing task name)
         params = {k: v for k, v in input_data.items() if k != "task"}
 
         # Execute task
         logger.info(f"Executing task '{task_name}' with parameters: {params}")
-        result = await task_func(**params)
+        try:
+            result = await task_func(**params)
 
-        # Ensure result is a dictionary
-        if result is None:
-            result = {"status": "success"}
-        elif not isinstance(result, dict):
-            result = {"result": result, "status": "success"}
+            # Ensure result is a dictionary
+            if result is None:
+                result = {"status": "success"}
+            elif not isinstance(result, dict):
+                result = {"result": result, "status": "success"}
 
-        return result
+            return result
+        except Exception as e:
+            logger.error(f"Task '{task_name}' failed: {e}")
+            # Convert to TaskExecutionError if it's not already
+            if not isinstance(e, TaskExecutionError):
+                raise TaskExecutionError(task_name, e) from e
+            raise
 
     def get_available_tasks(self) -> list[dict[str, str]]:
         """
@@ -296,13 +348,23 @@ class SimpleWorkflow:
 
     async def initialize(self) -> None:
         """Initialize the workflow. Override in subclasses if needed."""
+        if self.initialized:
+            return
+
+        logger.debug(f"Initializing workflow '{self.name}'")
         self.initialized = True
 
     async def cleanup(self) -> None:
         """Clean up resources."""
+        if not self.initialized:
+            return
+
+        logger.debug(f"Cleaning up workflow '{self.name}'")
         if self._orchestrator:
             await self._orchestrator.cleanup()
             self._orchestrator = None
+
+        self.initialized = False
 
     async def __aenter__(self):
         """Async context manager enter."""
@@ -366,8 +428,15 @@ class SimpleTask:
 
         Returns:
             Result from the last task in the chain
+
+        Raises:
+            TaskExecutionError: If task execution fails
         """
-        result = await self.func(**inputs)
+        try:
+            result = await self.func(**inputs)
+        except Exception as e:
+            task_name = getattr(self.func, "__name__", "unknown")
+            raise TaskExecutionError(task_name, e) from e
 
         if not self.next_task:
             return result
@@ -458,12 +527,17 @@ class WorkflowAdapter:
 
         Returns:
             Task execution result
+
+        Raises:
+            WorkflowError: If the workflow is not initialized
+            TaskNotFoundError: If task not found
+            TaskExecutionError: If task execution fails
         """
         if not self.initialized:
             await self.initialize()
 
         if self.workflow is None:
-            raise RuntimeError("Workflow was not properly initialized")
+            raise WorkflowError("Workflow was not properly initialized")
 
         return await self.workflow.execute(input_data)
 

@@ -6,7 +6,6 @@ plugin_type: tts
 category: tts
 provider_name: murf
 entry_point: provider.MurfTTSProvider
-pepperpy_compatibility: '>=0.1.0'
 
 config_schema:
   type: object

@@ -122,4 +122,3 @@ documentation: |
   - `language`: Detected document language
   - `pages`: Number of pages
   - `word_count`: Total word count
-pepperpy_compatibility: '>=0.1.0' 

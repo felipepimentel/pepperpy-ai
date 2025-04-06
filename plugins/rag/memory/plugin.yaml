@@ -27,5 +27,4 @@ documentation:
 category: rag
 provider_name: memory
 entry_point: provider.InMemoryProvider
-pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

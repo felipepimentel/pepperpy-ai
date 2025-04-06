@@ -1,10 +1,24 @@
 import asyncio
 import functools
 import random
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, List, Optional, Type, TypeVar, cast
+from typing import Any, TypeVar, cast
 
-from pepperpy.core.errors import APIError, RateLimitError
+
+# Define error classes for retry logic if they're not available in core.errors
+class APIError(Exception):
+    """Base class for API-related errors."""
+
+    pass
+
+
+class RateLimitError(APIError):
+    """Error raised when API rate limits are exceeded."""
+
+    pass
+
+
 from pepperpy.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -63,7 +77,7 @@ def _calculate_delay(
         jitter_factor = random.uniform(0.7, 1.3)
         return delay * jitter_factor
 
-    # Fallback para delay constante
+    # Use constant delay for other strategies
     return base_delay
 
 
@@ -72,8 +86,8 @@ def retry_async(
     retry_delay: float = 1.0,
     backoff_factor: float = 2.0,
     strategy: RetryStrategy = RetryStrategy.EXPONENTIAL_JITTER,
-    retry_on: Optional[List[Type[Exception]]] = None,
-    should_retry_cb: Optional[Callable[[Exception], bool]] = None,
+    retry_on: list[type[Exception]] | None = None,
+    should_retry_cb: Callable[[Exception], bool] | None = None,
 ) -> Callable[[F], F]:
     """Decorador para tentar novamente operações assíncronas com várias estratégias.
 
@@ -121,7 +135,7 @@ def retry_async(
                         attempt, strategy, retry_delay, backoff_factor
                     )
                     logger.warning(
-                        f"Retry {attempt+1}/{max_retries} in {delay:.2f}s: {func.__name__} failed: {e}"
+                        f"Retry {attempt + 1}/{max_retries} in {delay:.2f}s: {func.__name__} failed: {e}"
                     )
 
                     # Espera antes da próxima tentativa

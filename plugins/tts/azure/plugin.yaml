@@ -95,4 +95,3 @@ documentation: |
   - en-AU-NatashaNeural
 
   For a complete list of voices, see the Azure documentation.
-pepperpy_compatibility: '>=0.1.0'

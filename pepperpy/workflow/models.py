@@ -11,6 +11,47 @@ from enum import Enum
 from typing import Any
 
 
+class WorkflowError(Exception):
+    """Base class for all workflow-related exceptions."""
+
+    pass
+
+
+class TaskNotFoundError(WorkflowError):
+    """Raised when a task cannot be found by ID or name."""
+
+    def __init__(self, task_id: str, available_tasks: list[str]) -> None:
+        """Initialize with task ID and available tasks.
+
+        Args:
+            task_id: The task ID that wasn't found
+            available_tasks: List of available task IDs
+        """
+        self.task_id = task_id
+        self.available_tasks = available_tasks
+        super().__init__(
+            f"Task '{task_id}' not found. Available tasks: {available_tasks}"
+        )
+
+
+class TaskExecutionError(WorkflowError):
+    """Raised when a task execution fails."""
+
+    def __init__(self, task_id: str, original_error: Exception | None = None) -> None:
+        """Initialize with task ID and original error.
+
+        Args:
+            task_id: The ID of the task that failed
+            original_error: The original exception that caused the failure
+        """
+        self.task_id = task_id
+        self.original_error = original_error
+        message = f"Failed to execute task '{task_id}'"
+        if original_error:
+            message += f": {original_error!s}"
+        super().__init__(message)
+
+
 class TaskStatus(str, Enum):
     """Status of a task execution."""
 
@@ -501,3 +542,65 @@ class WorkflowExecution:
             if task_execution.task_id == task_id:
                 return task_execution
         return None
+
+
+class WorkflowResult:
+    """Result of a workflow execution."""
+
+    def __init__(
+        self,
+        content: Any,
+        step_results: list["WorkflowStepResult"],
+        workflow_name: str,
+        metadata: dict[str, Any] | None = None,
+    ):
+        """Initialize a workflow result.
+
+        Args:
+            content: Final workflow result
+            step_results: Results of individual steps
+            workflow_name: Name of the workflow
+            metadata: Optional metadata
+        """
+        self.content = content
+        self.workflow_name = workflow_name
+        self.step_results = step_results
+        self.metadata = metadata or {}
+
+    def get_step_result(self, step_name: str) -> "WorkflowStepResult | None":
+        """Get a step result by name.
+
+        Args:
+            step_name: Name of the step
+
+        Returns:
+            Step result or None if not found
+        """
+        for step in self.step_results:
+            if step.step_name == step_name:
+                return step
+        return None
+
+
+class WorkflowStepResult:
+    """Result of a workflow step execution."""
+
+    def __init__(
+        self,
+        content: Any,
+        step_name: str,
+        step_type: str,
+        metadata: dict[str, Any] | None = None,
+    ):
+        """Initialize a workflow step result.
+
+        Args:
+            content: Step result content
+            step_name: Name of the step
+            step_type: Type of step
+            metadata: Optional metadata
+        """
+        self.content = content
+        self.step_name = step_name
+        self.step_type = step_type
+        self.metadata = metadata or {}

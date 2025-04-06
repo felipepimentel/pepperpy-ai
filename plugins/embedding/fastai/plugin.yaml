@@ -27,5 +27,4 @@ documentation:
 category: embeddings
 provider_name: fastai
 entry_point: provider.FastAIEmbeddingProvider
-pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

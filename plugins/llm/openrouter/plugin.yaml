@@ -77,7 +77,6 @@ models:
   - "mistral/mistral-medium"
 documentation_url: https://openrouter.ai/docs
 category: provider
-pepperpy_compatibility: '>=0.1.0'
 
 config_schema:
   type: object

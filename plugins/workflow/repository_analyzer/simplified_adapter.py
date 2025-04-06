@@ -5,6 +5,8 @@ This module demonstrates how to use the simplified workflow base class
 with the plugin system.
 """
 
+import logging
+import os
 from typing import Any
 
 from pepperpy.workflow.simplified import SimpleWorkflow, workflow_task
@@ -22,7 +24,14 @@ class RepositoryAnalyzerSimple(SimpleWorkflow):
         Args:
             **kwargs: Configuration options
         """
-        super().__init__(**kwargs)
+        # Initialize the SimpleWorkflow with required name and description
+        super().__init__(
+            name="repository_analyzer",
+            description="Analyze code repositories and provide insights",
+        )
+
+        # Store other config parameters
+        self.config = kwargs
 
         # Configuration with defaults
         self.repository_path = self.config.get("repository_path", ".")
@@ -225,6 +234,42 @@ class RepositoryAnalyzerSimple(SimpleWorkflow):
             "complexity_analysis": analysis,
         }
 
+    @workflow_task()
+    async def count_files(
+        self, topic: str = "file count", **kwargs: Any
+    ) -> dict[str, Any]:
+        """Count files in the repository by extension.
+
+        Args:
+            topic: The topic of the analysis
+            **kwargs: Additional arguments
+
+        Returns:
+            Dict with file counts by extension
+        """
+        logging.info(f"Starting repository file count analysis: {topic}")
+
+        # Get the files
+        files = self._get_repository_files()
+
+        # Count by extension
+        extensions_count = {}
+        for file in files:
+            ext = os.path.splitext(file)[1] or "no_extension"
+            extensions_count[ext] = extensions_count.get(ext, 0) + 1
+
+        # Sort by count (descending)
+        sorted_extensions = sorted(
+            extensions_count.items(), key=lambda x: x[1], reverse=True
+        )
+
+        return {
+            "status": "success",
+            "total_files": len(files),
+            "extensions": extensions_count,
+            "top_extensions": sorted_extensions[:10],  # Top 10 extensions
+        }
+
     def _get_repository_files(self) -> list[str]:
         """Get files from repository based on include/exclude patterns.
 
@@ -344,7 +389,7 @@ class RepositoryAnalyzerSimple(SimpleWorkflow):
 class SimpleRepositoryAnalyzerAdapter:
     """Adapter for simplified repository analyzer workflow.
 
-    This adapter makes the simplified workflow compatible with the plugin system.
+    This adapter connects the simplified workflow to the plugin system.
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -369,13 +414,13 @@ class SimpleRepositoryAnalyzerAdapter:
             self.initialized = False
 
     async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
-        """Execute a workflow task.
+        """Execute a task in the workflow.
 
         Args:
-            input_data: Input data containing task and parameters
+            input_data: Dictionary with task name and parameters
 
         Returns:
-            Task execution result
+            Task execution results
         """
         if not self.initialized:
             await self.initialize()
@@ -384,23 +429,6 @@ class SimpleRepositoryAnalyzerAdapter:
         input_data["topic"] = "repository analysis"
 
         return await self.workflow.execute(input_data)
-
-    # Provider compatibility methods
-    async def create_workflow(self, *args: Any, **kwargs: Any) -> Any:
-        """Compatibility method."""
-        return None
-
-    async def execute_workflow(self, *args: Any, **kwargs: Any) -> Any:
-        """Compatibility method."""
-        return None
-
-    async def get_workflow(self, *args: Any, **kwargs: Any) -> Any:
-        """Compatibility method."""
-        return None
-
-    async def list_workflows(self, *args: Any, **kwargs: Any) -> list:
-        """Compatibility method."""
-        return []
 
 
 # Export the adapter for plugin discovery

@@ -58,4 +58,3 @@ documentation: |
   - anthropic/claude-2.1
   - openai/gpt-4-turbo
   - openai/gpt-3.5-turbo
-pepperpy_compatibility: '>=0.1.0'
