@@ -1,131 +1,182 @@
-name: repository_analyzer
-version: 0.1.0
-description: Workflow for analyzing code repositories and providing insights
+name: workflow/repository_analyzer
+version: 0.3.0
+description: Analyze code repositories and provide insights
 author: PepperPy Team
 license: MIT
 plugin_type: workflow
-category: code_analysis
+category: workflow
 provider_name: repository_analyzer
-entry_point: provider.RepositoryAnalyzerAdapter
+entry_point: simplified_adapter.SimpleRepositoryAnalyzerAdapter
+alternate_entry_points:
+  standalone: standalone_adapter.StandaloneAdapter
 required_config_keys: []
-
+default_config:
+  repository_path: "."
+  include_patterns:
+    - "**/*.py"
+    - "**/*.js"
+    - "**/*.ts"
+    - "**/*.md"
+  exclude_patterns:
+    - "**/node_modules/**"
+    - "**/__pycache__/**"
+    - "**/.git/**"
+    - "**/venv/**"
+    - "**/.env/**"
+  max_files: 1000
 config_schema:
   repository_path:
-    type: string
     description: Path to the repository to analyze
+    required: false
     default: "."
-  analysis_types:
-    type: array
-    description: Types of analysis to perform
-    default: ["code_quality", "structure", "complexity"]
-    items:
-      type: string
-      enum: ["code_quality", "structure", "complexity", "dependencies", "security", "documentation"]
+    type: string
   include_patterns:
+    description: File patterns to include in analysis
+    required: false
+    default:
+      - "**/*.py"
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.md"
     type: array
-    description: Glob patterns for files to include in analysis
-    default: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java", "**/*.c", "**/*.cpp", "**/*.go"]
     items:
       type: string
   exclude_patterns:
+    description: File patterns to exclude from analysis
+    required: false
+    default:
+      - "**/node_modules/**"
+      - "**/__pycache__/**"
+      - "**/.git/**"
+      - "**/venv/**"
+      - "**/.env/**"
     type: array
-    description: Glob patterns for files to exclude from analysis
-    default: ["**/node_modules/**", "**/__pycache__/**", "**/.git/**", "**/venv/**", "**/.env/**"]
     items:
       type: string
   max_files:
-    type: integer
     description: Maximum number of files to analyze
+    required: false
     default: 1000
-  llm_provider:
-    type: string
-    description: LLM provider to use for analysis
-    default: "openai"
-  llm_model:
-    type: string
-    description: LLM model to use for analysis
-    default: "gpt-4"
-  output_dir:
-    type: string
-    description: Directory to save analysis results
-    default: "./output/repository_analysis"
+    type: integer
+documentation: |
+  # Repository Analyzer Workflow
 
-documentation:
-  description: |
-    Repository Analyzer Workflow provides tools for analyzing code repositories
-    and generating insights, supporting:
-    
-    1. Code quality analysis
-    2. Repository structure analysis
-    3. Code complexity analysis
-    4. Dependency analysis
-    5. Security vulnerability scanning
-    6. Documentation coverage assessment
-    
-    This workflow can be used to understand repositories, identify issues,
-    and provide recommendations for improvements.
-  
-  features:
-    - Code Analysis: Analyze code quality, complexity, and structure
-    - Dependency Analysis: Identify and analyze dependencies
-    - Security Scanning: Check for security vulnerabilities
-    - Documentation Assessment: Evaluate documentation coverage
-    - Integrated Insights: Generate comprehensive reports with AI-powered insights
+  A workflow for analyzing code repositories and providing insights.
 
-  usage_examples:
-    - title: Basic Repository Analysis
-      python: |
-        from pepperpy.workflow import create_provider
-        
-        # Create the repository analyzer workflow provider
-        workflow = create_provider("repository_analyzer", 
-                                  repository_path="./my_project",
-                                  analysis_types=["code_quality", "structure"])
-        
-        # Run analysis
-        result = await workflow.execute({
-            "task": "analyze_repository",
-            "input": {
-                "output_format": "markdown"
-            }
-        })
-        
-        # Print summary
-        print(result["summary"])
-        print(f"Analysis saved to: {result['output_path']}")
-        
-    - title: Focused Analysis
-      python: |
-        # Create workflow with focused analysis
-        workflow = create_provider("repository_analyzer", 
-                                  repository_path="./my_project",
-                                  include_patterns=["**/src/**/*.py"],
-                                  exclude_patterns=["**/tests/**"],
-                                  analysis_types=["complexity"])
-        
-        # Run specific analysis
-        result = await workflow.execute({
-            "task": "analyze_complexity",
-            "input": {
-                "metrics": ["cyclomatic", "cognitive"],
-                "threshold": "medium"
-            }
-        })
-        
-        # Process results
-        issues = result["issues"]
-        print(f"Found {len(issues)} complexity issues")
-        for issue in issues:
-            print(f"- {issue['file']}: {issue['description']}")
-        
-    - title: Command Line Usage
-      shell: |
-        # Run repository analysis via CLI
-        python -m pepperpy.cli workflow run workflow/repository_analyzer \
-          --params "repository_path=./my_project" \
-          --params "analysis_types=[code_quality,documentation]" \
-          --params "task=analyze_repository" \
-          --params "output_format=markdown"
+  ## Features
+
+  - Repository structure analysis
+  - Code quality analysis
+  - Code complexity analysis
+  - Git repository information
+  - Standalone mode for minimal dependency usage
+
+  ## Usage
+
+  ```python
+  from pepperpy import workflow_manager
+
+  # Create workflow
+  analyzer = workflow_manager.create_provider(
+      "workflow", "repository_analyzer",
+      repository_path="/path/to/repo"
+  )
+
+  # Analyze repository structure
+  result = await analyzer.execute({
+      "task": "analyze_structure"
+  })
+
+  # Analyze code quality
+  result = await analyzer.execute({
+      "task": "analyze_code_quality"
+  })
+
+  # Find large files
+  result = await analyzer.execute({
+      "task": "find_large_files",
+      "min_size_kb": 500,
+      "limit": 10
+  })
+
+  # Full repository analysis
+  result = await analyzer.execute({
+      "task": "analyze_repository"
+  })
+  ```
+
+  ## Standalone Usage
+
+  The repository analyzer also provides a standalone adapter that can be used with minimal dependencies:
+
+  ```python
+  from plugins.workflow.repository_analyzer.standalone_adapter import StandaloneAdapter
+
+  # Create standalone adapter
+  adapter = StandaloneAdapter(repository_path="/path/to/repo")
+  await adapter.initialize()
+
+  # Execute a task
+  result = await adapter.execute({"task": "analyze_structure"})
+  print(f"Found {result['total_files']} files")
+
+  # Clean up
+  await adapter.cleanup()
+  ```
+
+  ## CLI Usage
+
+  ```bash
+  python -m pepperpy.cli workflow run workflow/repository_analyzer \
+      --input '{"task": "analyze_repository", "repository_path": "/path/to/repo"}'
+  ```
+
+  ## Output
+
+  The workflow returns a dictionary containing analysis results, which vary
+  depending on the task. Common fields include:
+
+  - `status`: "success" or "error"
+  - `total_files`: Number of files analyzed
+  - `structure`: Repository structure information
+  - `git_info`: Git repository information (if available)
+
+  ## Structure Analysis
+
+  The structure analysis provides:
+
+  - File count by directory
+  - File count by extension
+  - Top directories by file count
+  - Top file extensions
+  - Directory tree structure
+
+  ## Code Quality Analysis
+
+  The code quality analysis provides:
+
+  - Line counts (total, code, comments, empty)
+  - Code-to-comment ratio
+  - Documentation coverage
+  - Basic style checks
+
+  ## Complexity Analysis
+
+  The complexity analysis provides:
+
+  - Function and class counts
+  - Cyclomatic complexity metrics
+  - Import analysis
+  - Module dependencies
+
+  ## Finding Large Files
+
+  The large file analysis provides:
+
+  - List of files exceeding specified size threshold
+  - File sizes in KB and MB
+  - Sorted by file size (largest first)
+pepperpy_compatibility: '>=0.2.0'
 
 requirements:
   - pydantic>=2.0.0
