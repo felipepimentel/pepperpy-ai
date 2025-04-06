@@ -1,0 +1,39 @@
+name: spacy_semantic_processor
+version: 0.1.0
+description: Semantic processor using spaCy for NLP tasks
+author: PepperPy Team
+
+plugin_type: content
+category: semantic
+provider_name: spacy
+entry_point: provider.SpacySemanticProcessor
+
+config_schema:
+  type: object
+  properties:
+    model_name:
+      type: string
+      description: spaCy model name to use
+      default: en_core_web_sm
+    extract_relationships:
+      type: boolean
+      description: Whether to extract relationships
+      default: false
+    chunk_size:
+      type: integer
+      description: Maximum chunk size for processing
+      default: 100000
+    neuralcoref:
+      type: boolean
+      description: Whether to use neural coreference resolution
+      default: false
+
+default_config:
+  model_name: en_core_web_sm
+  extract_relationships: false
+  chunk_size: 100000
+  neuralcoref: false
+
+dependencies:
+  - spacy>=3.0.0
+  - neuralcoref>=4.0.0  # Optional, only if neuralcoref is enabled 

@@ -1,0 +1,44 @@
+name: transformers_semantic_processor
+version: 0.1.0
+description: Semantic processor using Hugging Face Transformers for NLP tasks
+author: PepperPy Team
+
+plugin_type: content
+category: semantic
+provider_name: transformers
+entry_point: provider.TransformersSemanticProcessor
+
+config_schema:
+  type: object
+  properties:
+    model_name:
+      type: string
+      description: Model name/path for NER
+      default: dslim/bert-base-NER
+    rel_model_name:
+      type: string
+      description: Model name/path for relationship extraction
+      default: Jean-Baptiste/roberta-large-ner-english
+    extract_relationships:
+      type: boolean
+      description: Whether to extract relationships
+      default: false
+    chunk_size:
+      type: integer
+      description: Maximum chunk size for processing
+      default: 100000
+    aggregation_strategy:
+      type: string
+      description: Strategy for aggregating subword tokens
+      default: simple
+      enum: [none, simple, first, average, max]
+
+default_config:
+  model_name: dslim/bert-base-NER
+  extract_relationships: false
+  chunk_size: 100000
+  aggregation_strategy: simple
+
+dependencies:
+  - transformers>=4.0.0
+  - torch>=1.0.0 

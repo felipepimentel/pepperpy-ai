@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from pepperpy.core.base import PepperpyError
 from pepperpy.plugin import PepperpyPlugin
@@ -219,3 +219,198 @@ async def create_processor(
         if isinstance(e, ContentProcessingError):
             raise
         raise ContentProcessingError(f"Error creating processor: {e}")
+
+
+class Entity:
+    """Representation of an extracted entity."""
+
+    def __init__(
+        self,
+        text: str,
+        label: str,
+        start_char: int,
+        end_char: int,
+        score: float | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        self.text = text
+        self.label = label
+        self.start_char = start_char
+        self.end_char = end_char
+        self.score = score
+        self.metadata = metadata or {}
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert entity to dictionary."""
+        result = {
+            "text": self.text,
+            "label": self.label,
+            "start": self.start_char,
+            "end": self.end_char,
+        }
+        if self.score is not None:
+            result["score"] = self.score
+        if self.metadata:
+            result["metadata"] = self.metadata
+        return result
+
+
+class Relationship:
+    """Representation of a relationship between entities."""
+
+    def __init__(
+        self,
+        source: Entity,
+        target: Entity,
+        relation_type: str,
+        score: float | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        self.source = source
+        self.target = target
+        self.relation_type = relation_type
+        self.score = score
+        self.metadata = metadata or {}
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert relationship to dictionary."""
+        result = {
+            "source": self.source.to_dict(),
+            "target": self.target.to_dict(),
+            "relation": self.relation_type,
+        }
+        if self.score is not None:
+            result["score"] = self.score
+        if self.metadata:
+            result["metadata"] = self.metadata
+        return result
+
+
+class SemanticExtractionResult:
+    """Result of semantic extraction."""
+
+    def __init__(
+        self,
+        text: str,
+        entities: list[Entity] | None = None,
+        relationships: list[Relationship] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        self.text = text
+        self.entities = entities or []
+        self.relationships = relationships or []
+        self.metadata = metadata or {}
+
+    def add_entity(self, entity: Entity) -> None:
+        """Add an entity to the result."""
+        self.entities.append(entity)
+
+    def add_relationship(self, relationship: Relationship) -> None:
+        """Add a relationship to the result."""
+        self.relationships.append(relationship)
+
+    def get_entities_by_label(self, label: str) -> list[Entity]:
+        """Get entities by label."""
+        return [e for e in self.entities if e.label == label]
+
+    def get_relationships_by_type(self, relation_type: str) -> list[Relationship]:
+        """Get relationships by type."""
+        return [r for r in self.relationships if r.relation_type == relation_type]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert extraction result to dictionary."""
+        return {
+            "entities": [e.to_dict() for e in self.entities],
+            "relationships": [r.to_dict() for r in self.relationships],
+            "metadata": self.metadata,
+        }
+
+
+class SemanticProcessor(Protocol):
+    """Protocol for semantic processors."""
+
+    async def process_text(self, text: str, **kwargs: Any) -> SemanticExtractionResult:
+        """Process text to extract semantic information.
+
+        Args:
+            text: Text to process
+            **kwargs: Additional processor-specific parameters
+
+        Returns:
+            Semantic extraction result
+        """
+        ...
+
+    async def extract_entities(self, text: str, **kwargs: Any) -> list[Entity]:
+        """Extract entities from text.
+
+        Args:
+            text: Text to process
+            **kwargs: Additional processor-specific parameters
+
+        Returns:
+            List of extracted entities
+        """
+        ...
+
+    async def extract_relationships(
+        self, text: str, **kwargs: Any
+    ) -> list[Relationship]:
+        """Extract relationships from text.
+
+        Args:
+            text: Text to process
+            **kwargs: Additional processor-specific parameters
+
+        Returns:
+            List of extracted relationships
+        """
+        ...
+
+
+class SemanticProcessorProvider(ABC):
+    """Base class for semantic processor providers."""
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize the processor."""
+        ...
+
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        ...
+
+    @abstractmethod
+    async def process_text(self, text: str, **kwargs: Any) -> SemanticExtractionResult:
+        """Process text to extract semantic information."""
+        ...
+
+    @abstractmethod
+    async def extract_entities(self, text: str, **kwargs: Any) -> list[Entity]:
+        """Extract entities from text."""
+        ...
+
+    @abstractmethod
+    async def extract_relationships(
+        self, text: str, **kwargs: Any
+    ) -> list[Relationship]:
+        """Extract relationships from text."""
+        ...
+
+
+def create_semantic_processor(
+    provider_type: str = "default", **config: Any
+) -> SemanticProcessor:
+    """Create a semantic processor instance.
+
+    Args:
+        provider_type: Type of processor to create
+        **config: Processor configuration
+
+    Returns:
+        Semantic processor instance
+    """
+    from pepperpy.plugin import create_provider_instance
+
+    return create_provider_instance("content", f"semantic.{provider_type}", **config)

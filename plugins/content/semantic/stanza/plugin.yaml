@@ -1,0 +1,39 @@
+name: stanza_semantic_processor
+description: Stanza-based semantic processor for entity and relationship extraction
+version: 0.1.0
+author: PepperPy Team
+
+provider:
+  module: provider
+  class: StanzaSemanticProcessor
+
+dependencies:
+  - stanza>=1.7.0
+
+config:
+  default:
+    # Language to use (ISO code)
+    language: en
+    # Processors to use
+    processors:
+      - tokenize
+      - pos
+      - lemma
+      - ner
+      - depparse
+    # Entity types to extract
+    entity_types:
+      - PERSON
+      - ORG
+      - LOC
+      - GPE
+      - DATE
+      - TIME
+      - MONEY
+      - PERCENT
+    # Whether to extract relationships
+    extract_relationships: false
+    # Maximum text chunk size for processing
+    chunk_size: 100000
+    # Download directory for models
+    download_dir: ~/.stanza_resources 
