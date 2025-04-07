@@ -1,6 +1,6 @@
-name: text_normalization_basic
+name: basic_text_normalizer
 version: 0.1.0
-description: Basic text normalization plugin for PepperPy
+description: Basic text normalizer with common transformations
 author: PepperPy Team
 license: MIT
 plugin_type: content
@@ -8,43 +8,34 @@ category: text_normalization
 provides:
   - normalizer
 provider_name: basic
-entry_point: pepperpy.plugin.content.text_normalization.basic.provider:BasicTextNormalizer
+entry_point: provider.BasicTextNormalizer
 
 # Configuration schema
 config_schema:
-  language:
-    description: Language code for language-specific processing
-    type: string
-    default: en
-    required: false
-  transformations:
-    description: List of transformation methods to apply
-    type: array
-    items:
+  type: object
+  properties:
+    transformations:
+      type: array
+      description: List of transformation names to apply
+      items:
+        type: string
+    custom_patterns:
+      type: object
+      description: Custom regex patterns for text cleaning
+      additionalProperties:
+        type: string
+    custom_replacements:
+      type: object
+      description: Custom character replacements
+      additionalProperties:
+        type: string
+    language:
       type: string
-      enum:
-        - strip_whitespace
-        - normalize_unicode
-        - normalize_whitespace
-        - remove_control_chars
-        - replace_chars
-        - lowercase
-        - remove_punctuation
-        - remove_numbers
-        - fix_encoding
-    required: false
-  custom_patterns:
-    description: Custom regex patterns for text cleaning
-    type: object
-    required: false
-  custom_replacements:
-    description: Custom character replacements
-    type: object
-    required: false
+      description: Language code for language-specific processing
+      default: en
 
 # Default configuration
 default_config:
-  language: en
   transformations:
     - strip_whitespace
     - normalize_unicode

@@ -1,37 +1,59 @@
-name: text_normalization_nltk
+name: nltk_text_normalizer
 version: 0.1.0
-description: NLTK-based text normalization plugin for PepperPy
+description: Text normalizer with NLTK-based advanced features
 author: PepperPy Team
-license: MIT
+
 plugin_type: content
 category: text_normalization
-provides:
-- normalizer
 provider_name: nltk
-entry_point: pepperpy.plugin.content.text_normalization.nltk.provider:NLTKTextNormalizer
+entry_point: provider.NLTKTextNormalizer
 
 config_schema:
   type: object
   properties:
+    transformations:
+      type: array
+      description: List of transformation names to apply
+      items:
+        type: string
+    custom_patterns:
+      type: object
+      description: Custom regex patterns for text cleaning
+      additionalProperties:
+        type: string
+    custom_replacements:
+      type: object
+      description: Custom character replacements
+      additionalProperties:
+        type: string
     language:
       type: string
-      description: Language code for stopwords (en, pt, es, fr, de, it, nl, ru)
-      enum: [en, pt, es, fr, de, it, nl, ru]
+      description: Language code for language-specific processing
+      default: en
     use_lemmatization:
       type: boolean
-      description: Whether to apply lemmatization to tokens
-    remove_stopwords:
+      description: Whether to use NLTK lemmatization
+      default: true
+    use_stopwords:
       type: boolean
-      description: Whether to remove stopwords from text
-    nltk_data_dir:
-      type: string
-      description: Directory to store NLTK data files
+      description: Whether to remove stopwords
+      default: true
 
 default_config:
+  transformations:
+    - strip_whitespace
+    - normalize_unicode
+    - normalize_whitespace
+    - remove_control_chars
+    - lemmatize
+    - remove_stopwords
   language: en
   use_lemmatization: true
-  remove_stopwords: true
-  nltk_data_dir: ~/.nltk_data
+  use_stopwords: true
+
+dependencies:
+  python:
+    - nltk>=3.6.0
 
 usage: |
   The NLTK text normalizer provides advanced text processing capabilities using the Natural Language Toolkit (NLTK).

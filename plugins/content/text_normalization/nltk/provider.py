@@ -1,125 +1,201 @@
-"""NLTK-based text normalization provider."""
+"""NLTK text normalizer provider.
+
+This module provides a text normalizer implementation that uses NLTK
+for advanced text processing features like lemmatization and stopword removal.
+"""
 
 import logging
-from typing import Any, TypeVar, cast
+from typing import Any
 
-# Type ignore for NLTK imports since it lacks type stubs
-import nltk  # type: ignore
-from nltk.tokenize import word_tokenize  # type: ignore
-from pepperpy.content.processors.text_normalization_base import BaseTextNormalizer
-from pepperpy.core.base import PepperpyError
-from pepperpy.core.registry import Registry
+from pepperpy.content.base import TextNormalizationError, TextNormalizer
+from pepperpy.plugin.base import PepperpyPlugin
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T", bound="NLTKTextNormalizer")
+try:
+    import nltk
+    from nltk.corpus import stopwords
+    from nltk.stem import WordNetLemmatizer
+    from nltk.tokenize import word_tokenize
+
+    NLTK_AVAILABLE = True
+except ImportError:
+    NLTK_AVAILABLE = False
 
 
-class NLTKTextNormalizer(BaseTextNormalizer):
-    """Text normalizer using NLTK."""
+class NLTKTextNormalizer(TextNormalizer, PepperpyPlugin):
+    """NLTK-based text normalizer implementation.
+
+    This normalizer extends the basic normalizer with NLTK-based features
+    like lemmatization and stopword removal.
+    """
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the normalizer.
 
         Args:
-            **kwargs: Configuration options including:
-                - language: Language code (default: en)
-                - use_lemmatization: Whether to use lemmatization (default: True)
-                - remove_stopwords: Whether to remove stopwords (default: True)
-                - transformations: List of transformations to apply
-                - custom_patterns: Custom regex patterns
-                - custom_replacements: Custom character replacements
+            **kwargs: Configuration options
         """
         super().__init__(**kwargs)
-        self._tokenizer: Any | None = None
-        self._lemmatizer: Any | None = None
-        self._stopwords: set | None = None
-        self.use_lemmatization: bool = kwargs.get("use_lemmatization", True)
-        self.remove_stopwords: bool = kwargs.get("remove_stopwords", True)
+
+        if not NLTK_AVAILABLE:
+            raise TextNormalizationError(
+                "NLTK is required but not installed. Please install nltk package."
+            )
+
+        # Get configuration
+        self.transformations = kwargs.get(
+            "transformations",
+            [
+                "strip_whitespace",
+                "normalize_unicode",
+                "normalize_whitespace",
+                "remove_control_chars",
+                "lemmatize",
+                "remove_stopwords",
+            ],
+        )
+
+        self.language = kwargs.get("language", "en")
+        self.use_lemmatization = kwargs.get("use_lemmatization", True)
+        self.use_stopwords = kwargs.get("use_stopwords", True)
+
+        # Initialize NLTK components
+        self.lemmatizer: WordNetLemmatizer | None = None
+        self.stopwords: set[str] | None = None
+        self.initialized = False
 
     async def initialize(self) -> None:
-        """Initialize NLTK resources."""
+        """Initialize the normalizer.
+
+        Downloads required NLTK data and initializes components.
+        """
+        if self.initialized:
+            return
+
         try:
             # Download required NLTK data
-            nltk.download("punkt", quiet=True)
             if self.use_lemmatization:
-                nltk.download("wordnet", quiet=True)
-            if self.remove_stopwords:
-                nltk.download("stopwords", quiet=True)
+                try:
+                    nltk.data.find("corpora/wordnet")
+                except LookupError:
+                    logger.info("Downloading WordNet...")
+                    nltk.download("wordnet", quiet=True)
 
-            # Initialize components
-            self._tokenizer = word_tokenize
-            if self.use_lemmatization:
-                from nltk.stem import WordNetLemmatizer  # type: ignore
+                self.lemmatizer = WordNetLemmatizer()
 
-                self._lemmatizer = WordNetLemmatizer()
-            if self.remove_stopwords:
-                from nltk.corpus import stopwords  # type: ignore
+            if self.use_stopwords:
+                try:
+                    nltk.data.find("corpora/stopwords")
+                except LookupError:
+                    logger.info("Downloading stopwords...")
+                    nltk.download("stopwords", quiet=True)
 
-                self._stopwords = set(stopwords.words(self.language))
+                try:
+                    self.stopwords = set(stopwords.words(self.language))
+                except OSError:
+                    logger.warning(
+                        f"No stopwords available for {self.language}. Using English."
+                    )
+                    self.stopwords = set(stopwords.words("english"))
+
+            try:
+                nltk.data.find("tokenizers/punkt")
+            except LookupError:
+                logger.info("Downloading Punkt tokenizer...")
+                nltk.download("punkt", quiet=True)
+
+            self.initialized = True
 
         except Exception as e:
-            raise PepperpyError(f"Failed to initialize NLTK resources: {e}")
+            raise TextNormalizationError(f"Failed to initialize NLTK components: {e}")
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        # No resources to clean up
+        pass
 
     def normalize(self, text: str) -> str:
-        """Apply NLTK-based normalization to text.
+        """Apply all configured normalizations to text.
 
         Args:
             text: Input text
 
         Returns:
             Normalized text
+
+        Raises:
+            TextNormalizationError: If normalization fails
         """
-        # First apply base normalizations
-        text = super().normalize(text)
+        if not text:
+            return ""
 
-        # Tokenize
-        tokens = self.transform_tokenize_words(text)
+        if not self.initialized:
+            raise TextNormalizationError("Normalizer not initialized")
 
-        # Apply NLTK-specific transformations
-        if self.use_lemmatization:
-            tokens = self.transform_lemmatize(tokens)
-        if self.remove_stopwords:
-            tokens = self.transform_remove_stopwords(tokens)
+        result = text
 
-        # Join tokens back into text
-        return self.transform_join_words(tokens)
+        # Apply transformations in order
+        for transformation in self.transformations:
+            transform_method = getattr(self, f"transform_{transformation}", None)
+            if transform_method and callable(transform_method):
+                try:
+                    result = transform_method(result)
+                except Exception as e:
+                    raise TextNormalizationError(f"Error in {transformation}: {e}")
+            else:
+                logger.warning(f"Unknown transformation: {transformation}")
 
-    def transform_tokenize_words(self, text: str) -> list[str]:
-        """Tokenize text into words using NLTK."""
-        if not self._tokenizer:
-            return text.split()
-        return cast(list[str], self._tokenizer(text))
+        return result
 
-    def transform_lemmatize(self, tokens: list[str]) -> list[str]:
-        """Lemmatize tokens using NLTK."""
-        if not self._lemmatizer or not self.use_lemmatization:
-            return tokens
-        return [self._lemmatizer.lemmatize(token) for token in tokens]
+    def transform_lemmatize(self, text: str) -> str:
+        """Lemmatize text using NLTK WordNet lemmatizer.
 
-    def transform_remove_stopwords(self, tokens: list[str]) -> list[str]:
-        """Remove stopwords using NLTK."""
-        if not self._stopwords or not self.remove_stopwords:
-            return tokens
-        return [token for token in tokens if token.lower() not in self._stopwords]
+        Args:
+            text: Input text
 
-    def transform_join_words(self, tokens: list[str]) -> str:
-        """Join tokens back into text."""
-        return " ".join(tokens)
+        Returns:
+            Lemmatized text
+        """
+        if not self.use_lemmatization or not self.lemmatizer:
+            return text
 
+        try:
+            # Tokenize
+            tokens = word_tokenize(text)
 
-# Register the plugin's normalizer in the registry
-Registry.register_provider("text_normalizer", "nltk", NLTKTextNormalizer)
+            # Lemmatize each token
+            lemmatized = [self.lemmatizer.lemmatize(word) for word in tokens]
 
+            # Join back into text
+            return " ".join(lemmatized)
 
-# Provider factory function (required by plugin system)
-def create_provider(**kwargs: Any) -> NLTKTextNormalizer:
-    """Create an NLTK text normalizer provider.
+        except Exception as e:
+            logger.warning(f"Error lemmatizing text: {e}")
+            return text
 
-    Args:
-        **kwargs: Configuration options
+    def transform_remove_stopwords(self, text: str) -> str:
+        """Remove stopwords using NLTK stopwords list.
 
-    Returns:
-        NLTKTextNormalizer instance
-    """
-    return NLTKTextNormalizer(**kwargs)
+        Args:
+            text: Input text
+
+        Returns:
+            Text with stopwords removed
+        """
+        if not self.use_stopwords or not self.stopwords:
+            return text
+
+        try:
+            # Tokenize
+            tokens = word_tokenize(text)
+
+            # Filter out stopwords
+            filtered = [word for word in tokens if word.lower() not in self.stopwords]
+
+            # Join back into text
+            return " ".join(filtered)
+
+        except Exception as e:
+            logger.warning(f"Error removing stopwords: {e}")
+            return text

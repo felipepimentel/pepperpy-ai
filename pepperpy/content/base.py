@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from pepperpy.core.base import PepperpyError
 from pepperpy.plugin import PepperpyPlugin
@@ -414,3 +414,85 @@ def create_semantic_processor(
     from pepperpy.plugin import create_provider_instance
 
     return create_provider_instance("content", f"semantic.{provider_type}", **config)
+
+
+class ContentError(PepperpyError):
+    """Base error for content processing operations."""
+
+    pass
+
+
+class TextNormalizationError(ContentError):
+    """Error raised during text normalization operations."""
+
+    pass
+
+
+@runtime_checkable
+class TextNormalizer(Protocol):
+    """Protocol for text normalizers.
+
+    This protocol defines the interface that all text normalizers must implement.
+    """
+
+    def normalize(self, text: str) -> str:
+        """Apply all configured normalizations to text.
+
+        Args:
+            text: Input text
+
+        Returns:
+            Normalized text
+        """
+        ...
+
+    async def initialize(self) -> None:
+        """Initialize the normalizer with required resources."""
+        ...
+
+    async def cleanup(self) -> None:
+        """Clean up any resources used by the normalizer."""
+        ...
+
+
+class BaseContentProvider(ABC):
+    """Base class for content providers.
+
+    This class provides common functionality for all content providers,
+    including configuration management and resource handling.
+    """
+
+    def __init__(
+        self, name: str = "base", config: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Initialize the provider.
+
+        Args:
+            name: Provider name
+            config: Optional configuration dictionary
+        """
+        self.name = name
+        self.config = config or {}
+        self.initialized = False
+
+    def get_config(self, key: str, default: Any = None) -> Any:
+        """Get configuration value.
+
+        Args:
+            key: Configuration key
+            default: Default value if key not found
+
+        Returns:
+            Configuration value
+        """
+        return self.config.get(key, default)
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize provider resources."""
+        pass
+
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        pass
