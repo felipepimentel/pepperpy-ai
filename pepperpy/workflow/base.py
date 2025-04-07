@@ -19,8 +19,7 @@ from typing import Any, Generic, TypeVar, cast
 # Import from the correct module structure
 from pepperpy.core import PepperpyError
 from pepperpy.core.errors import ValidationError
-from pepperpy.plugin import create_provider_instance
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.plugin import PepperpyPlugin, create_provider_instance
 
 # Type variables for generic pipeline stages
 Input = TypeVar("Input")
@@ -534,82 +533,80 @@ class Workflow(ABC):
         self.metadata = metadata
 
 
-class WorkflowProvider(BasePluginProvider):
+class WorkflowError(PepperpyError):
+    """Base exception for workflow errors."""
+
+    pass
+
+
+class WorkflowProvider(PepperpyPlugin, ABC):
     """Base class for workflow providers.
 
-    A workflow provider is responsible for executing workflows and managing
-    their lifecycle. It provides methods for creating, executing, and
-    monitoring workflows.
+    A workflow provider implements a specific type of workflow, such as:
+    - Repository analysis
+    - Content generation
+    - Data processing
+    - etc.
     """
 
-    def __init__(
-        self,
-        **kwargs: Any,
-    ) -> None:
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize workflow provider.
 
         Args:
-            **kwargs: Provider configuration
+            config: Optional configuration dictionary
         """
-        super().__init__(**kwargs)
-        self._workflows: dict[str, Workflow] = {}
+        super().__init__()
+        self.config = config or {}
+        self.initialized = False
+
+    async def initialize(self) -> None:
+        """Initialize workflow resources."""
+        if self.initialized:
+            return
+
+        try:
+            await self._initialize_resources()
+            self.initialized = True
+        except Exception as e:
+            raise WorkflowError(f"Failed to initialize workflow: {e}") from e
+
+    async def cleanup(self) -> None:
+        """Clean up workflow resources."""
+        if not self.initialized:
+            return
+
+        try:
+            await self._cleanup_resources()
+            self.initialized = False
+        except Exception as e:
+            raise WorkflowError(f"Failed to cleanup workflow: {e}") from e
 
     @abstractmethod
-    async def create_workflow(
-        self,
-        name: str,
-        components: list[WorkflowComponent],
-        config: dict[str, Any] | None = None,
-    ) -> Workflow:
-        """Create a new workflow.
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute the workflow.
 
         Args:
-            name: Workflow name
-            components: List of workflow components
-            config: Optional workflow configuration
+            input_data: Input data for the workflow
 
         Returns:
-            Created workflow instance
+            Workflow execution results
+
+        Raises:
+            WorkflowError: If execution fails
         """
         pass
 
-    @abstractmethod
-    async def execute_workflow(
-        self,
-        workflow: Workflow,
-        input_data: Any | None = None,
-        config: dict[str, Any] | None = None,
-    ) -> Any:
-        """Execute a workflow.
+    async def _initialize_resources(self) -> None:
+        """Initialize workflow resources.
 
-        Args:
-            workflow: Workflow to execute
-            input_data: Optional input data
-            config: Optional execution configuration
-
-        Returns:
-            Workflow execution result
+        Override this method to implement custom resource initialization.
         """
         pass
 
-    @abstractmethod
-    async def get_workflow(self, workflow_id: str) -> Workflow | None:
-        """Get workflow by ID.
+    async def _cleanup_resources(self) -> None:
+        """Clean up workflow resources.
 
-        Args:
-            workflow_id: Workflow identifier
-
-        Returns:
-            Workflow instance or None if not found
-        """
-        pass
-
-    @abstractmethod
-    async def list_workflows(self) -> list[Workflow]:
-        """List all workflows.
-
-        Returns:
-            List of workflows
+        Override this method to implement custom resource cleanup.
         """
         pass
 

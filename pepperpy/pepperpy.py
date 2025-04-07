@@ -16,6 +16,7 @@ from pepperpy.plugin.registry import plugin_registry
 from pepperpy.storage.provider import StorageProvider
 from pepperpy.tool.base import BaseToolProvider, ToolProvider
 from pepperpy.tts.base import BaseTTSProvider, TTSProvider
+from pepperpy.workflow.base import WorkflowProvider
 
 
 # Extended protocol definitions with initialize method
@@ -45,9 +46,80 @@ class PepperPy:
         self._storage_provider: StorageProvider | None = None
         self._tts_provider: TTSProvider | None = None
         self._tool_provider: ToolProvider | None = None
+        self._workflow_provider: WorkflowProvider | None = None
+
+        # Task configuration
+        self._task_config: dict[str, Any] = {}
 
         # Discover available plugins
         plugin_registry.discover_plugins()
+
+    # Task configuration methods
+    def with_task_context(self, **context: Any) -> "PepperPy":
+        """Configure task context.
+
+        Args:
+            **context: Context key-value pairs
+
+        Returns:
+            Self for method chaining
+        """
+        self._task_config["context"] = {
+            **(self._task_config.get("context", {})),
+            **context,
+        }
+        return self
+
+    def with_task_parameters(self, **parameters: Any) -> "PepperPy":
+        """Configure task parameters.
+
+        Args:
+            **parameters: Parameter key-value pairs
+
+        Returns:
+            Self for method chaining
+        """
+        self._task_config["parameters"] = {
+            **(self._task_config.get("parameters", {})),
+            **parameters,
+        }
+        return self
+
+    def with_task_capability(self, capability: str) -> "PepperPy":
+        """Set required task capability.
+
+        Args:
+            capability: Capability name
+
+        Returns:
+            Self for method chaining
+        """
+        self._task_config["capability"] = capability
+        return self
+
+    def with_task_format(self, format_type: str) -> "PepperPy":
+        """Set task output format.
+
+        Args:
+            format_type: Format type
+
+        Returns:
+            Self for method chaining
+        """
+        self._task_config["format"] = format_type
+        return self
+
+    def with_task_schema(self, schema: dict[str, Any]) -> "PepperPy":
+        """Set task data schema.
+
+        Args:
+            schema: Schema definition
+
+        Returns:
+            Self for method chaining
+        """
+        self._task_config["schema"] = schema
+        return self
 
     # Agent provider methods
     def with_agent(
@@ -70,12 +142,20 @@ class PepperPy:
                     f"Unknown agent provider: {provider}. Make sure the plugin is installed."
                 )
 
-            # Create instance
-            merged_config = {**self.config.get("agent", {}), **config}
+            # Create instance with merged config
+            merged_config = {
+                **self.config.get("agent", {}),
+                **config,
+                "task_config": self._task_config,  # Include task config
+            }
             self._agent_provider = provider_class(config=merged_config)  # type: ignore
         elif isinstance(provider, type) and issubclass(provider, BaseAgentProvider):
             # Create an instance of the provider class
-            merged_config = {**self.config.get("agent", {}), **config}
+            merged_config = {
+                **self.config.get("agent", {}),
+                **config,
+                "task_config": self._task_config,  # Include task config
+            }
             self._agent_provider = provider(config=merged_config)
         else:
             # Use the provided instance
@@ -299,6 +379,78 @@ class PepperPy:
 
         return self
 
+    # Workflow configuration methods
+    def with_workflow(
+        self, provider: str | type[WorkflowProvider] | WorkflowProvider, **config: Any
+    ) -> "PepperPy":
+        """Configure workflow provider.
+
+        Args:
+            provider: Provider name, class, or instance
+            **config: Provider-specific configuration
+
+        Returns:
+            Self for method chaining
+        """
+        if isinstance(provider, str):
+            # Get provider from registry
+            provider_class = plugin_registry.get_plugin("workflow", provider.lower())
+            if not provider_class:
+                raise ValueError(
+                    f"Unknown workflow provider: {provider}. Make sure the plugin is installed."
+                )
+
+            # Create instance with merged config
+            merged_config = {
+                **self.config.get("workflow", {}),
+                **config,
+                "task_config": self._task_config,  # Include task config
+            }
+            self._workflow_provider = provider_class(config=merged_config)  # type: ignore
+        elif isinstance(provider, type) and issubclass(provider, WorkflowProvider):
+            # Create an instance of the provider class
+            merged_config = {
+                **self.config.get("workflow", {}),
+                **config,
+                "task_config": self._task_config,  # Include task config
+            }
+            self._workflow_provider = provider(config=merged_config)
+        else:
+            # Use the provided instance
+            self._workflow_provider = cast(WorkflowProvider, provider)
+
+        return self
+
+    def with_workflow_input(self, **inputs: Any) -> "PepperPy":
+        """Configure workflow input data.
+
+        Args:
+            **inputs: Input key-value pairs
+
+        Returns:
+            Self for method chaining
+        """
+        self._task_config["workflow_inputs"] = {
+            **(self._task_config.get("workflow_inputs", {})),
+            **inputs,
+        }
+        return self
+
+    def with_workflow_options(self, **options: Any) -> "PepperPy":
+        """Configure workflow options.
+
+        Args:
+            **options: Option key-value pairs
+
+        Returns:
+            Self for method chaining
+        """
+        self._task_config["workflow_options"] = {
+            **(self._task_config.get("workflow_options", {})),
+            **options,
+        }
+        return self
+
     # Methods to access the domain providers
     @property
     def agent(self) -> AgentProvider:
@@ -402,6 +554,22 @@ class PepperPy:
             raise ValueError("No LLM provider configured. Use with_llm() first.")
         return self._llm_provider
 
+    @property
+    def workflow(self) -> WorkflowProvider:
+        """Get the workflow provider.
+
+        Returns:
+            Workflow provider
+
+        Raises:
+            ValueError: If no workflow provider is configured
+        """
+        if not self._workflow_provider:
+            raise ValueError(
+                "No workflow provider configured. Use with_workflow() first."
+            )
+        return self._workflow_provider
+
     # Global initialization
     async def initialize(self) -> "PepperPy":
         """Initialize all configured providers.
@@ -440,5 +608,10 @@ class PepperPy:
             self._tool_provider, InitializableProvider
         ):
             await self._tool_provider.initialize()
+
+        if self._workflow_provider and isinstance(
+            self._workflow_provider, InitializableProvider
+        ):
+            await self._workflow_provider.initialize()
 
         return self
