@@ -1,134 +1,222 @@
-# Repository Analyzer Workflow
+# Repository Analyzer Plugin
 
-A workflow plugin for analyzing code repositories and providing insights:
+This plugin provides repository analysis capabilities through the PepperPy framework. It can analyze code repositories, individual files, and identify patterns in codebases.
 
-1. Code quality analysis
-2. Repository structure analysis
-3. Code complexity analysis
-4. Dependency analysis
-5. Security vulnerability scanning
-6. Documentation coverage assessment
+## Basic CLI Usage
 
-## Features
+```bash
+# Run a basic repository analysis
+python -m pepperpy.cli workflow run workflow/repository_analyzer --input '{"task": "analyze_repository", "repository_path": "."}'
+```
 
-- Code Analysis: Analyze code quality, complexity, and structure
-- Dependency Analysis: Identify and analyze dependencies
-- Security Scanning: Check for security vulnerabilities
-- Documentation Assessment: Evaluate documentation coverage 
-- Integrated Insights: Generate reports with AI-powered recommendations
+## Available Tasks
+
+### Analyze Repository
+
+Performs a comprehensive analysis of a code repository.
+
+```bash
+python -m pepperpy.cli workflow run workflow/repository_analyzer --input '{
+  "task": "analyze_repository", 
+  "repository_path": "/path/to/repository"
+}'
+```
+
+**Parameters:**
+- `repository_path` (string, required): Path to the repository
+- `exclude_paths` (array, optional): Directories or files to exclude
+- `max_files` (integer, optional): Maximum number of files to analyze
+- `analysis_depth` (string, optional): Analysis depth (basic, standard, deep)
+
+### Analyze File
+
+Analyzes a specific file within a repository.
+
+```bash
+python -m pepperpy.cli workflow run workflow/repository_analyzer --input '{
+  "task": "analyze_file", 
+  "repository_path": "/path/to/repository",
+  "file_path": "src/main.py"
+}'
+```
+
+**Parameters:**
+- `repository_path` (string, required): Path to the repository
+- `file_path` (string, required): Path to the file (relative to repository)
+- `analysis_type` (string, optional): Type of analysis (code, doc, security)
+
+### Find Patterns
+
+Searches for specific patterns or code smells in the repository.
+
+```bash
+python -m pepperpy.cli workflow run workflow/repository_analyzer --input '{
+  "task": "find_patterns", 
+  "repository_path": "/path/to/repository",
+  "patterns": ["security_issue", "performance_bottleneck"]
+}'
+```
+
+**Parameters:**
+- `repository_path` (string, required): Path to the repository
+- `patterns` (array, required): List of patterns to search for
+- `include_files` (string, optional): Glob pattern for files to include
+- `exclude_files` (string, optional): Glob pattern for files to exclude
 
 ## Configuration
 
-The workflow can be configured with these options:
-
-- `repository_path`: Path to the repository to analyze (default: ".")
-- `analysis_types`: Types of analysis to perform (default: ["code_quality", "structure", "complexity"])
-- `include_patterns`: Glob patterns for files to include
-- `exclude_patterns`: Glob patterns for files to exclude
-- `max_files`: Maximum number of files to analyze (default: 1000)
-- `llm_provider`: LLM provider to use for analysis (default: "openai")
-- `llm_model`: LLM model to use for analysis (default: "gpt-4")
-- `output_dir`: Directory to save results (default: "./output/repository_analysis")
-
-## Usage
-
-### Basic Repository Analysis
-
-```python
-from pepperpy.workflow import create_provider
-
-# Create the repository analyzer workflow provider
-workflow = create_provider("repository_analyzer", 
-                         repository_path="./my_project",
-                         analysis_types=["code_quality", "structure"])
-
-# Run analysis
-result = await workflow.execute({
-    "task": "analyze_repository",
-    "input": {
-        "output_format": "markdown"
-    }
-})
-
-# Print summary
-print(result["summary"])
-print(f"Analysis saved to: {result['output_path']}")
-```
-
-### Focused Analysis
-
-```python
-# Create workflow with focused analysis
-workflow = create_provider("repository_analyzer", 
-                         repository_path="./my_project",
-                         include_patterns=["**/src/**/*.py"],
-                         exclude_patterns=["**/tests/**"],
-                         analysis_types=["complexity"])
-
-# Run specific analysis
-result = await workflow.execute({
-    "task": "analyze_complexity",
-    "input": {
-        "metrics": ["cyclomatic", "cognitive"],
-        "threshold": "medium"
-    }
-})
-
-# Process results
-issues = result["issues"]
-print(f"Found {len(issues)} complexity issues")
-for issue in issues:
-    print(f"- {issue['file']}: {issue['description']}")
-```
-
-### Code Quality Analysis
-
-```python
-# Run code quality analysis
-result = await workflow.execute({
-    "task": "analyze_code_quality",
-    "input": {
-        "linter": "pylint",
-        "min_score": 7.0
-    }
-})
-
-# Process results
-quality_report = result["report"]
-print(f"Overall code quality score: {quality_report['overall_score']}")
-print(f"Files analyzed: {quality_report['files_analyzed']}")
-```
-
-### Via CLI
+You can customize the analysis with a configuration object:
 
 ```bash
-# Run repository analysis via CLI
 python -m pepperpy.cli workflow run workflow/repository_analyzer \
-  --params "repository_path=./my_project" \
-  --params "analysis_types=[code_quality,documentation]" \
-  --params "task=analyze_repository" \
-  --params "output_format=markdown"
+  --input '{"task": "analyze_repository", "repository_path": "."}' \
+  --config '{"model": "gpt-4", "max_tokens": 2000}'
 ```
 
-## Requirements
+## Input Formats
 
-- pydantic>=2.0.0
-- jsonschema>=4.0.0
-- radon>=5.1.0
-- pylint>=2.17.0
-- gitpython>=3.1.30
+The CLI supports different formats for providing input:
 
-## Analysis Types
+### JSON String
+```bash
+--input '{"task": "analyze_repository", "repository_path": "."}'
+```
 
-The workflow supports the following analysis types:
+### JSON File
+```bash
+--input path/to/input.json
+```
 
-| Type | Description |
-|------|-------------|
-| code_quality | Analyzes code quality using linters and quality metrics |
-| structure | Analyzes the repository structure and organization |
-| complexity | Measures code complexity using metrics like cyclomatic complexity |
-| dependencies | Analyzes project dependencies and their relationships |
-| security | Scans for potential security vulnerabilities |
-| documentation | Evaluates documentation coverage and quality |
+### Command-line Parameters
+```bash
+--params task=analyze_repository repository_path=.
+```
 
-You can configure which analyses to run using the `analysis_types` parameter. 
+## Output Format
+
+The output is a JSON object with the following structure:
+
+```json
+{
+  "title": "Repository Analysis",
+  "type": "article",
+  "content": "# Repository Analysis\n\n...",
+  "references": [
+    "https://example.com/reference1",
+    "https://example.com/reference2"
+  ],
+  "refinements": [
+    "grammar",
+    "style",
+    "clarity"
+  ]
+}
+```
+
+## Save Results to File
+
+Save analysis results to a file:
+
+```bash
+python -m pepperpy.cli workflow run workflow/repository_analyzer \
+  --input '{"task": "analyze_repository", "repository_path": ".", "output_file": "analysis.json"}'
+```
+
+## Advanced Usage
+
+### Generate Report
+
+Generate a comprehensive Markdown report:
+
+```bash
+python -m pepperpy.cli workflow run workflow/repository_analyzer \
+  --input '{
+    "task": "generate_report", 
+    "repository_path": ".",
+    "report_type": "full",
+    "output_file": "report.md"
+  }'
+```
+
+### Custom Analysis Configuration
+
+Provide a custom configuration file for advanced analysis:
+
+```bash
+python -m pepperpy.cli workflow run workflow/repository_analyzer \
+  --input '{
+    "task": "analyze_repository", 
+    "repository_path": ".",
+    "config_path": "analysis_config.json"
+  }'
+```
+
+## Direct Usage in Python
+
+For programmatic use or testing:
+
+```python
+import asyncio
+from plugins.workflow.repository_analyzer.workflow import RepositoryAnalyzerWorkflow
+
+async def analyze_repo():
+    analyzer = RepositoryAnalyzerWorkflow()
+    await analyzer.initialize()
+    
+    try:
+        result = await analyzer.execute({
+            "task": "analyze_repository",
+            "repository_path": "/path/to/repo",
+            "analysis_depth": "standard"
+        })
+        print(result)
+    finally:
+        await analyzer.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(analyze_repo())
+```
+
+## Troubleshooting
+
+### Provider Not Found
+
+If you get a "Provider not found" error:
+
+1. List available workflows to check registration:
+   ```bash
+   python -m pepperpy.cli workflow list
+   ```
+
+2. Verify the correct plugin structure:
+   ```
+   plugins/
+   └── workflow/
+       └── repository_analyzer/
+           ├── plugin.yaml
+           └── workflow.py
+   ```
+
+3. Check plugin.yaml has correct fields:
+   ```yaml
+   plugin_type: workflow
+   provider_name: repository_analyzer
+   ```
+
+### Analysis Timeouts
+
+For large repositories, limit the scope:
+
+```bash
+python -m pepperpy.cli workflow run workflow/repository_analyzer \
+  --input '{
+    "task": "analyze_repository", 
+    "repository_path": ".",
+    "max_files": 100,
+    "analysis_depth": "basic"
+  }'
+```
+
+## Further Documentation
+
+For more detailed documentation, see [docs/workflows/repository_analyzer.md](../../../docs/workflows/repository_analyzer.md). 
