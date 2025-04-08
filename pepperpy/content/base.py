@@ -4,7 +4,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import (
+    Any,
+    Protocol,
+    runtime_checkable,
+)
 
 from pepperpy.core.base import PepperpyError
 from pepperpy.plugin import PepperpyPlugin
@@ -463,7 +467,7 @@ class BaseContentProvider(ABC):
     """
 
     def __init__(
-        self, name: str = "base", config: Optional[Dict[str, Any]] = None
+        self, name: str = "base", config: dict[str, Any] | None = None
     ) -> None:
         """Initialize the provider.
 

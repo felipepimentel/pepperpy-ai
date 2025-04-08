@@ -31,8 +31,8 @@ def plugin(
         # Define o nome do plugin com base no parâmetro ou nome da classe
         plugin_name = name or cls.__name__
 
-        # Se o nome não incluir o tipo/domínio, adicionar como prefixo
-        if "/" not in plugin_name:
+        # Se o nome não incluir o tipo/domínio e não for um workflow, adicionar como prefixo
+        if "/" not in plugin_name and plugin_type != "workflow":
             plugin_name = f"{plugin_type}/{plugin_name}"
 
         # Armazena metadados na própria classe
@@ -66,12 +66,32 @@ def workflow(
         description: Descrição opcional
         version: Versão do workflow
     """
-    return plugin(
-        plugin_type="workflow",
-        name=name,
-        description=description,
-        version=version,
-    )
+
+    def decorator(cls: type[T]) -> type[T]:
+        # Define o nome do plugin com base no parâmetro ou nome da classe
+        plugin_name = name or cls.__name__
+
+        # Remove any workflow prefix if present
+        if plugin_name.startswith("workflow/"):
+            plugin_name = plugin_name[len("workflow/") :]
+
+        # Armazena metadados na própria classe
+        cls.__pepperpy_plugin__ = {
+            "name": plugin_name,
+            "type": "workflow",
+            "description": description or cls.__doc__ or f"{cls.__name__} plugin",
+            "version": version,
+        }
+
+        # Registra globalmente
+        if "workflow" not in REGISTERED_PLUGINS:
+            REGISTERED_PLUGINS["workflow"] = {}
+
+        REGISTERED_PLUGINS["workflow"][plugin_name] = cls
+
+        return cls
+
+    return decorator
 
 
 def llm_provider(

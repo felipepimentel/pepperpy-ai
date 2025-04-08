@@ -588,7 +588,11 @@ async def discover_plugins() -> list[PluginInfo]:
     Returns:
         List of discovered plugin information
     """
-    from pepperpy.plugin.registry import register_plugin
+    from pepperpy.plugin.registry import get_registry
+
+    # Get singleton registry instance
+    registry = get_registry()
+    logger.info(f"Using registry with id: {id(registry)}")
 
     # Discover plugins from filesystem
     fs_plugins = await file_system_discovery.discover_plugins()
@@ -598,6 +602,11 @@ async def discover_plugins() -> list[PluginInfo]:
 
     # Combine results
     plugins = fs_plugins + pkg_plugins
+
+    # Debug print the registry BEFORE registering plugins
+    logger.info(f"DEBUG: Registry BEFORE - domains: {list(registry._plugins.keys())}")
+    for domain, domain_plugins in registry._plugins.items():
+        logger.info(f"DEBUG: Registry BEFORE - {domain}: {list(domain_plugins.keys())}")
 
     # Register discovered plugins
     for plugin_info in plugins:
@@ -612,19 +621,56 @@ async def discover_plugins() -> list[PluginInfo]:
                 continue
 
             # Register the plugin
-            register_plugin(
-                plugin_info.plugin_type,
-                plugin_info.provider_type,
-                plugin_class,
-                plugin_info.metadata,
-            )
+            if plugin_info.plugin_type == "workflow":
+                # For workflow plugins, use the name directly without any prefix
+                # First clean up any existing workflow prefixes
+                clean_name = plugin_info.name
+                if clean_name.startswith("workflow."):
+                    clean_name = clean_name[len("workflow.") :]
+                elif clean_name.startswith("workflow/"):
+                    clean_name = clean_name[len("workflow/") :]
 
-            logger.info(
-                f"Registered plugin: {plugin_info.plugin_type}.{plugin_info.provider_type}"
-            )
+                # Register with workflow/ prefix
+                workflow_name = f"workflow/{clean_name}"
+
+                # Register both formats directly into the registry's _plugins dict
+                if "workflow" not in registry._plugins:
+                    registry._plugins["workflow"] = {}
+
+                registry._plugins["workflow"][workflow_name] = {
+                    "class": plugin_class,
+                    "meta": plugin_info.metadata or {},
+                }
+                registry._plugins["workflow"][clean_name] = {
+                    "class": plugin_class,
+                    "meta": plugin_info.metadata or {},
+                }
+
+                logger.info(
+                    f"Registered workflow plugin: {clean_name} (and {workflow_name})"
+                )
+            else:
+                # For other plugins, use the type prefix
+                plugin_name = f"{plugin_info.plugin_type}.{plugin_info.name}"
+
+                # Register directly into the registry
+                if plugin_info.plugin_type not in registry._plugins:
+                    registry._plugins[plugin_info.plugin_type] = {}
+
+                registry._plugins[plugin_info.plugin_type][plugin_name] = {
+                    "class": plugin_class,
+                    "meta": plugin_info.metadata or {},
+                }
+
+                logger.info(f"Registered plugin: {plugin_name}")
 
         except Exception as e:
             logger.error(f"Error registering plugin {plugin_info.name}: {e}")
+
+    # Debug print the registry AFTER registering plugins
+    logger.info(f"DEBUG: Registry AFTER - domains: {list(registry._plugins.keys())}")
+    for domain, domain_plugins in registry._plugins.items():
+        logger.info(f"DEBUG: Registry AFTER - {domain}: {list(domain_plugins.keys())}")
 
     return plugins
 

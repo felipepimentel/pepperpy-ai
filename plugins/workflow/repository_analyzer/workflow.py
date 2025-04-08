@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Import conditionally to avoid circular imports
 if TYPE_CHECKING:
-    from pepperpy.workflow.models import Workflow, WorkflowComponent
+    from pepperpy.workflow.models import Workflow
 
 
 @workflow(
@@ -45,6 +45,9 @@ class RepositoryAnalyzerWorkflow(WorkflowProvider):
         print(f"MRO: {[c.__name__ for c in self.__class__.__mro__]}")
 
         super().__init__(**kwargs)
+
+        # Initialize workflows dictionary
+        self._workflows: dict[str, Workflow] = {}
 
         # Get configuration values
         self.config = kwargs
@@ -751,14 +754,14 @@ class RepositoryAnalyzerWorkflow(WorkflowProvider):
     async def create_workflow(
         self,
         name: str,
-        components: list["WorkflowComponent"],
+        components: list[dict[str, Any]],
         config: dict[str, Any] | None = None,
     ) -> "Workflow":
         """Create a new workflow.
 
         Args:
             name: Workflow name
-            components: List of workflow components
+            components: List of workflow component configurations
             config: Optional workflow configuration
 
         Returns:

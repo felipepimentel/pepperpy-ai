@@ -244,31 +244,49 @@ class PluginDiscoveryProtocol(Protocol):
 
 def create_provider_instance(
     domain: str, provider_type: str, **config: Any
-) -> PepperpyPlugin:
+) -> Any:
     """Create a provider instance.
 
-    This is a factory function that creates a provider instance for the
-    specified domain and type.
-
     Args:
-        domain: Provider domain (e.g., "llm", "content")
-        provider_type: Provider type (e.g., "openai", "azure")
+        domain: Provider domain (llm, tts, etc.)
+        provider_type: Provider type
         **config: Provider configuration
 
     Returns:
         Provider instance
 
     Raises:
-        PluginNotFoundError: If the provider is not found
+        PluginNotFoundError: If provider not found
     """
-    # Import here to avoid circular imports
-    from pepperpy.plugin.registry import PluginRegistry
+    from pepperpy.plugin.registry import get_plugin, get_registry
 
-    # Use registry to get the plugin class
-    registry = PluginRegistry()
-    provider_class = registry.get_plugin(domain, provider_type)
+    # For debug purposes
+    registry = get_registry()
+    logger.info(f"Creating provider instance for {domain}/{provider_type}")
+    logger.info(f"Registry ID: {id(registry)}")
+    logger.info(f"Available domains: {list(registry._plugins.keys())}")
+    if domain in registry._plugins:
+        logger.info(f"Available providers in {domain}: {list(registry._plugins[domain].keys())}")
+        
+        # Special handling for workflow domain which might be registered differently
+        if domain == "workflow" and provider_type not in registry._plugins[domain]:
+            # Try direct provider retrieval from _plugins for workflow domain
+            if "workflow/repository_analyzer" in registry._plugins[domain]:
+                logger.info(f"Found provider with direct lookup: workflow/repository_analyzer")
+                plugin_class = registry._plugins[domain]["workflow/repository_analyzer"]["class"]
+                return plugin_class(**config)
+            
+            if "repository_analyzer" in registry._plugins[domain]:
+                logger.info(f"Found provider with direct lookup: repository_analyzer")
+                plugin_class = registry._plugins[domain]["repository_analyzer"]["class"]
+                return plugin_class(**config)
 
-    if provider_class is None:
-        raise PluginNotFoundError(f"Provider not found: {domain}.{provider_type}")
+    # Get the plugin class
+    plugin_class = get_plugin(domain, provider_type)
+    if not plugin_class:
+        raise PluginNotFoundError(f"Provider not found: {domain}/{provider_type}")
 
-    return provider_class(**config)
+    # Create an instance
+    instance = plugin_class(**config)
+
+    return instance

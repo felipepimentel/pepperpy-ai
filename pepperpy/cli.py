@@ -15,7 +15,7 @@ from typing import Any, Protocol
 from pepperpy.core.errors import PepperpyError
 from pepperpy.orchestration import WorkflowOrchestrator
 from pepperpy.plugin.discovery import PluginDiscoveryProvider
-from pepperpy.plugin.registry import plugin_registry
+from pepperpy.plugin.registry import get_registry
 
 
 # Define a protocol for workflow providers
@@ -194,7 +194,7 @@ class CLI:
         # Discover plugins
         await discovery.discover_plugins()
 
-        plugins = plugin_registry.list_plugins()
+        plugins = get_registry().list_plugins()
 
         if plugin_type:
             if plugin_type not in plugins:
@@ -233,7 +233,7 @@ class CLI:
         # Discover plugins
         await discovery.discover_plugins()
 
-        plugins = plugin_registry.list_plugins()
+        plugins = get_registry().list_plugins()
 
         if plugin_type not in plugins:
             self.logger.error(f"Plugin type '{plugin_type}' not found")
@@ -357,7 +357,7 @@ class CLI:
         # Discover plugins
         await discovery.discover_plugins()
 
-        plugins = plugin_registry.list_plugins()
+        plugins = get_registry().list_plugins()
 
         workflow_plugins = plugins.get("workflow", {})
 
@@ -397,7 +397,7 @@ class CLI:
         # Discover plugins
         await discovery.discover_plugins()
 
-        plugins = plugin_registry.list_plugins()
+        plugins = get_registry().list_plugins()
 
         workflow_plugins = plugins.get("workflow", {})
 
@@ -447,14 +447,14 @@ class CLI:
         """Run a workflow.
 
         Args:
-            workflow_id: Workflow ID (<type>/<name>)
+            workflow_id: Workflow ID (<type>/<n>)
             input_data: Input data for the workflow
             config: Configuration for the workflow
         """
         try:
             workflow_type, workflow_name = workflow_id.split("/", 1)
         except ValueError:
-            self.logger.error("Invalid workflow ID format. Use <type>/<name>")
+            self.logger.error("Invalid workflow ID format. Use <type>/<n>")
             return
 
         if workflow_type != "workflow":
@@ -482,14 +482,43 @@ class CLI:
                 "options": input_data.pop("options", {}),
             }
 
+            # Debug print of the registry
+            registry = get_registry()
+            print("DEBUG: Workflow Registry Contents:")
+            workflow_plugins = registry._plugins.get("workflow", {})
+            print(f"DEBUG: Registry memory ID: {id(registry)}")
+            for key in workflow_plugins.keys():
+                print(f"  - {key}")
+
             # Get the workflow provider
             try:
+                # Print what we're looking for
+                print(
+                    f"DEBUG: Looking for provider with domain='workflow', name='{workflow_name}'"
+                )
+                print(f"DEBUG: Trying alternative name='{workflow_id}'")
+                print(f"DEBUG: Also trying name='workflow/{workflow_name}'")
+
                 # Use the protocol to type the provider correctly
                 print(f"Trying to create workflow provider: {workflow_name}")
 
-                workflow_provider = create_provider_instance(
-                    "workflow", workflow_name, **config
-                )
+                # Try with just the workflow name first
+                try:
+                    workflow_provider = create_provider_instance(
+                        "workflow", workflow_name, **config
+                    )
+                except Exception:
+                    # If that fails, try with the full path
+                    try:
+                        workflow_provider = create_provider_instance(
+                            "workflow", workflow_id, **config
+                        )
+                    except Exception:
+                        # If that fails too, try with workflow/workflow/ prefix
+                        workflow_provider = create_provider_instance(
+                            "workflow", f"workflow/{workflow_name}", **config
+                        )
+
                 workflow_provider_typed: WorkflowProviderProtocol = workflow_provider  # type: ignore
             except Exception as e:
                 self.logger.error(f"Failed to create workflow provider: {e}")

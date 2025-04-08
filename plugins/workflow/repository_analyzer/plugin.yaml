@@ -1,11 +1,11 @@
 name: repository_analyzer
-version: 0.3.0
-description: Analyze code repositories and provide insights
+version: 0.1.0
+description: Analyzes code repositories and provides insights
 author: PepperPy Team
 license: MIT
 plugin_type: workflow
 provider_name: repository_analyzer
-entry_point: simplified_adapter.SimpleRepositoryAnalyzerAdapter
+entry_point: workflow.RepositoryAnalyzerWorkflow
 required_config_keys: []
 default_config:
   repository_path: "."
