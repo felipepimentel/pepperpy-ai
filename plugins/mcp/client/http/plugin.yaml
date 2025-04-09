@@ -1,0 +1,29 @@
+name: mcp_client_http
+version: 0.1.0
+description: HTTP client implementation for MCP (Model Context Protocol)
+author: PepperPy Team
+
+plugin_type: mcp
+category: client
+provider_name: http
+entry_point: provider.HTTPClientAdapter
+
+config_schema:
+  type: object
+  properties:
+    server_url:
+      type: string
+      description: URL of the MCP server
+      default: "http://localhost:8000"
+    timeout:
+      type: integer
+      description: Request timeout in seconds
+      default: 60
+    auth_token:
+      type: string
+      description: Optional authentication token
+      default: ""
+
+default_config:
+  server_url: "http://localhost:8000"
+  timeout: 60 

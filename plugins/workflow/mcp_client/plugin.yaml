@@ -1,0 +1,87 @@
+name: workflow_mcp_client
+version: 0.1.0
+description: Workflow for running an MCP client
+author: PepperPy Team
+plugin_type: workflow
+category: mcp
+provider_name: mcp_client
+entry_point: workflow.MCPClientWorkflow
+
+config_schema:
+  type: object
+  properties:
+    url:
+      type: string
+      description: URL of the MCP server
+      default: "http://localhost:8000"
+    provider_type:
+      type: string
+      description: Type of MCP client provider
+      enum: [http, websocket, grpc]
+      default: "http"
+    timeout:
+      type: number
+      description: Timeout for requests in seconds
+      default: 30
+    retries:
+      type: integer
+      description: Number of retries for failed requests
+      default: 3
+    auth_token:
+      type: string
+      description: Authentication token for the MCP server
+      default: ""
+    model_id:
+      type: string
+      description: Default model ID to use
+      default: "gpt-3.5-turbo"
+
+default_config:
+  url: "http://localhost:8000"
+  provider_type: "http"
+  timeout: 30
+  retries: 3
+  auth_token: ""
+  model_id: "gpt-3.5-turbo"
+
+documentation: |
+  # MCP Client Workflow
+  
+  This workflow provides a client for the MCP (Model Context Protocol) server.
+  
+  ## Features
+  
+  - Connect to an MCP server
+  - Send completion, chat, and embedding requests
+  - Support for streaming responses
+  - Automatic retries for failed requests
+  
+  ## Usage
+  
+  ```python
+  from pepperpy import PepperPy
+  
+  # Create a client with configuration
+  client = PepperPy().with_workflow("mcp_client", 
+                                    url="http://localhost:8000",
+                                    provider_type="http")
+  
+  # Execute a chat completion request
+  result = await client.workflow.execute({
+      "task": "chat",
+      "messages": [
+          {"role": "system", "content": "You are a helpful assistant"},
+          {"role": "user", "content": "Tell me about PepperPy"}
+      ],
+      "model_id": "gpt-3.5-turbo"
+  })
+  
+  print(result["content"])
+  ```
+  
+  ## Tasks
+  
+  - `chat`: Send a chat completion request
+  - `completion`: Send a text completion request
+  - `embedding`: Generate embeddings for text
+  - `stream_chat`: Send a streaming chat completion request 
