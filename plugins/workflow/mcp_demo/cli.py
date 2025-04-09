@@ -1,293 +1,292 @@
-#!/usr/bin/env python
-"""
-CLI tool for interacting with the MCP demo server.
-This provides a simple interface to send requests to a running MCP server.
+#!/usr/bin/env python3
+"""CLI tool for interacting with MCP server.
+
+This provides a command-line interface for testing MCP server capabilities.
 """
 
 import argparse
 import asyncio
-import json
 import sys
 import uuid
-from dataclasses import dataclass
-from enum import Enum
+from typing import Any
 
+from pepperpy.core.logging import get_logger
 from pepperpy.mcp.client.providers.http import HTTPClientProvider
-from pepperpy.mcp.protocol import (
-    MCPOperationType,
-    MCPRequest,
-    MCPStatusCode,
-)
+from pepperpy.mcp.protocol import MCPOperationType, MCPRequest, MCPStatusCode
+
+logger = get_logger("mcp.cli")
 
 
-class MCPMessageRole(str, Enum):
-    """Role of a chat message."""
+class MCPClientCLI:
+    """Command-line interface for MCP client interactions."""
 
-    SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
-    TOOL = "tool"
-
-
-@dataclass
-class MCPChatMessage:
-    """Chat message for MCP requests."""
-
-    role: MCPMessageRole
-    content: str
-
-    def to_dict(self) -> dict[str, str]:
-        """Convert to dictionary for serialization."""
-        return {
-            "role": self.role if isinstance(self.role, str) else self.role.value,
-            "content": self.content,
-        }
-
-
-class MCPDemoCLI:
-    """Simple CLI for interacting with an MCP server."""
-
-    def __init__(self, host: str = "localhost", port: int = 8042):
-        """Initialize the CLI with server connection details.
+    def __init__(self, host: str = "localhost", port: int = 8000) -> None:
+        """Initialize the CLI.
 
         Args:
-            host: The host where the MCP server is running
-            port: The port on which the MCP server is listening
+            host: Server host
+            port: Server port
         """
         self.host = host
         self.port = port
-        self.server_url = f"http://{host}:{port}"
-        self.client = HTTPClientProvider()
-        self.history: list[MCPChatMessage] = []
+        self.client: HTTPClientProvider | None = None
+        self.history: list[dict[str, str]] = []
+        self.running = False
+        self.model_id = "gpt-3.5-turbo"  # Default model
 
-    async def connect(self) -> bool:
-        """Connect to the MCP server.
+    async def initialize(self) -> None:
+        """Initialize the client."""
+        self.client = HTTPClientProvider(url=f"http://{self.host}:{self.port}")
+        await self.client.initialize()
+        logger.info(f"Connected to MCP server at {self.host}:{self.port}")
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if self.client:
+            await self.client.cleanup()
+            self.client = None
+
+    async def chat(self, message: str) -> dict[str, Any]:
+        """Send a chat message to the server.
+
+        Args:
+            message: User message
 
         Returns:
-            True if the connection was successful, False otherwise
+            Response data
         """
-        try:
-            await self.client.initialize()
-            await self.client.connect(server_url=self.server_url)
-            return True
-        except ConnectionError:
-            print(f"Failed to connect to MCP server at {self.host}:{self.port}")
-            return False
+        if not self.client:
+            return {"status": MCPStatusCode.ERROR, "message": "Client not initialized"}
 
-    async def disconnect(self) -> None:
-        """Disconnect from the MCP server."""
-        await self.client.disconnect()
-        await self.client.cleanup()
+        # Add message to history
+        self.history.append({"role": "user", "content": message})
 
-    async def list_models(self) -> None:
-        """List available models from the server."""
-        try:
-            # Create a special request to list models - this is implementation-specific
-            # and might not be supported by the actual server
-            request = MCPRequest(
-                request_id=str(uuid.uuid4()),
-                model_id="system",
-                operation=MCPOperationType.COMPLETION,
-                parameters={"action": "list_models"},
-            )
-
-            response = await self.client.request(request)
-
-            if response.status != MCPStatusCode.SUCCESS:
-                print(f"\nError listing models: {response.error}")
-                return
-
-            # The response format depends on the server implementation
-            models = response.outputs.get("models", [])
-            print("\nAvailable models:")
-            for model in models:
-                print(f"- {model}")
-        except Exception as e:
-            print(f"Error listing models: {e}")
-            print("Note: Model listing may not be supported by this server")
-
-    async def send_chat_request(self, message: str, stream: bool = True) -> None:
-        """Send a chat request to the server.
-
-        Args:
-            message: The user message to send
-            stream: Whether to stream the response or not
-        """
-        # Add the user message to history
-        self.history.append(MCPChatMessage(role=MCPMessageRole.USER, content=message))
-
-        # Create the request
+        # Create request
         request = MCPRequest(
             request_id=str(uuid.uuid4()),
-            model_id="gpt-3.5-turbo",
+            model_id=self.model_id,
             operation=MCPOperationType.CHAT,
-            parameters={
-                "max_tokens": 1000,
-                "temperature": 0.7,
-            },
-            inputs={
-                "messages": [msg.to_dict() for msg in self.history],
-            },
+            inputs={"messages": self.history},
         )
 
-        if stream:
-            # Handle streaming response
-            try:
-                response_stream = self.client.stream(request)
-
-                assistant_message = MCPChatMessage(
-                    role=MCPMessageRole.ASSISTANT, content=""
-                )
-                print("\nAssistant: ", end="", flush=True)
-
-                async for chunk in response_stream:
-                    if chunk.status != MCPStatusCode.SUCCESS:
-                        print(f"\nError: {chunk.error}")
-                        return
-
-                    content = chunk.outputs.get("content", "")
-                    if content:
-                        assistant_message.content += content
-                        print(content, end="", flush=True)
-
-                print("\n")
-                self.history.append(assistant_message)
-
-            except Exception as e:
-                print(f"\nError during streaming: {e}")
-        else:
-            # Handle regular response
-            try:
-                response = await self.client.request(request)
-
-                if response.status != MCPStatusCode.SUCCESS:
-                    print(f"\nError: {response.error}")
-                    return
-
-                content = response.outputs.get("content", "")
-                self.history.append(
-                    MCPChatMessage(role=MCPMessageRole.ASSISTANT, content=content)
-                )
-                print(f"\nAssistant: {content}\n")
-
-            except Exception as e:
-                print(f"\nError: {e}")
-
-    async def send_tool_request(self, tool_name: str, tool_input: str) -> None:
-        """Send a tool request to the server.
-
-        Args:
-            tool_name: The name of the tool to use
-            tool_input: The input for the tool
-        """
         try:
-            # Create a message with the tool syntax
-            message = f"{tool_name}: {tool_input}"
-
-            # Create the request
-            request = MCPRequest(
-                request_id=str(uuid.uuid4()),
-                model_id=tool_name,  # Use the tool name as the model ID
-                operation=MCPOperationType.CHAT,
-                inputs={"messages": [{"role": "user", "content": message}]},
-            )
-
+            # Send request
             response = await self.client.request(request)
 
-            if response.status != MCPStatusCode.SUCCESS:
-                print(f"\nError: {response.error}")
-                return
-
-            print(f"\nTool response: {json.dumps(response.outputs, indent=2)}\n")
-
+            # Add response to history
+            if response.status == MCPStatusCode.SUCCESS:
+                content = response.outputs.get("content", "")
+                self.history.append({"role": "assistant", "content": content})
+                return {"status": response.status, "content": content}
+            else:
+                return {
+                    "status": response.status,
+                    "error": response.error or "Unknown error",
+                }
         except Exception as e:
-            print(f"\nError with tool execution: {e}")
+            logger.error(f"Error sending chat request: {e}")
+            return {"status": MCPStatusCode.ERROR, "error": str(e)}
+
+    async def use_tool(self, tool_name: str, content: str) -> dict[str, Any]:
+        """Use a specific tool.
+
+        Args:
+            tool_name: Tool name
+            content: Tool input
+
+        Returns:
+            Tool response
+        """
+        if not self.client:
+            return {"status": MCPStatusCode.ERROR, "message": "Client not initialized"}
+
+        # Format content based on tool
+        if tool_name == "calculate":
+            formatted_content = f"calculate: {content}"
+        elif tool_name == "weather":
+            formatted_content = f"get_weather: {content}"
+        elif tool_name == "translate":
+            formatted_content = f"translate: {content}"
+        else:
+            return {
+                "status": MCPStatusCode.ERROR,
+                "error": f"Unknown tool: {tool_name}",
+            }
+
+        # Create request
+        request = MCPRequest(
+            request_id=str(uuid.uuid4()),
+            model_id=tool_name,
+            operation=MCPOperationType.CHAT,
+            inputs={"messages": [{"role": "user", "content": formatted_content}]},
+        )
+
+        try:
+            # Send request
+            response = await self.client.request(request)
+            return {"status": response.status, "outputs": response.outputs}
+        except Exception as e:
+            logger.error(f"Error using tool {tool_name}: {e}")
+            return {"status": MCPStatusCode.ERROR, "error": str(e)}
 
     def print_help(self) -> None:
         """Print help information."""
         print("\nAvailable commands:")
-        print("  /help          - Show this help message")
-        print("  /quit, /exit   - Exit the CLI")
-        print("  /clear         - Clear the conversation history")
-        print("  /models        - List available models")
-        print("  /calc <expr>   - Use the calculate tool")
-        print("  /weather <loc> - Use the weather tool")
+        print("  /help              - Show this help information")
+        print("  /quit or /exit     - Exit the CLI")
+        print("  /clear             - Clear conversation history")
+        print("  /models            - List available models")
+        print("  /model <model_id>  - Change the current model")
+        print("  /calc <expression> - Use the calculate tool")
+        print("  /weather <location> - Use the weather tool")
         print("  /translate <text> to <lang> - Use the translate tool")
-        print("  Any other text will be sent as a chat message\n")
+        print("\nOr just type a message to chat with the AI.\n")
 
-    async def interactive_loop(self) -> None:
-        """Run the interactive CLI loop."""
-        self.print_help()
+    async def run(self) -> None:
+        """Run the CLI interface."""
+        try:
+            await self.initialize()
+            self.running = True
+            print("\n=== MCP Client CLI ===")
+            print(f"Connected to server at {self.host}:{self.port}")
+            self.print_help()
 
-        while True:
-            try:
-                user_input = input("You: ").strip()
+            while self.running:
+                try:
+                    user_input = input("\n> ")
+                    if not user_input.strip():
+                        continue
 
-                if not user_input:
-                    continue
+                    # Process commands
+                    if user_input.startswith("/"):
+                        await self.process_command(user_input)
+                    else:
+                        # Regular chat
+                        print("Sending message...")
+                        result = await self.chat(user_input)
+                        if result["status"] == MCPStatusCode.SUCCESS:
+                            print(f"\nAI: {result['content']}")
+                        else:
+                            print(f"\nError: {result.get('error', 'Unknown error')}")
 
-                if user_input.lower() in ["/quit", "/exit"]:
-                    break
+                except KeyboardInterrupt:
+                    print("\nExiting...")
+                    self.running = False
+                except Exception as e:
+                    print(f"Error: {e}")
 
-                elif user_input.lower() == "/help":
-                    self.print_help()
+        finally:
+            await self.cleanup()
 
-                elif user_input.lower() == "/clear":
-                    self.history = []
-                    print("Conversation history cleared.")
+    async def process_command(self, command: str) -> None:
+        """Process a command.
 
-                elif user_input.lower() == "/models":
-                    await self.list_models()
+        Args:
+            command: Command string
+        """
+        parts = command.strip().split(" ", 1)
+        cmd = parts[0].lower()
+        args = parts[1] if len(parts) > 1 else ""
 
-                elif user_input.lower().startswith("/calc "):
-                    expr = user_input[6:].strip()
-                    await self.send_tool_request("calculate", expr)
+        if cmd in ["/quit", "/exit"]:
+            print("Exiting...")
+            self.running = False
 
-                elif user_input.lower().startswith("/weather "):
-                    location = user_input[9:].strip()
-                    await self.send_tool_request("get_weather", location)
+        elif cmd == "/help":
+            self.print_help()
 
-                elif user_input.lower().startswith("/translate "):
-                    text = user_input[11:].strip()
-                    await self.send_tool_request("translate", text)
+        elif cmd == "/clear":
+            self.history = []
+            print("Conversation history cleared.")
 
+        elif cmd == "/models":
+            print("Available models:")
+            print(f"  Current: {self.model_id}")
+            print("  Supported: gpt-3.5-turbo, gpt-4 (if configured)")
+
+        elif cmd == "/model":
+            if args:
+                self.model_id = args.strip()
+                print(f"Model changed to: {self.model_id}")
+            else:
+                print(f"Current model: {self.model_id}")
+
+        elif cmd == "/calc":
+            if args:
+                print(f"Calculating: {args}")
+                result = await self.use_tool("calculate", args)
+                if result["status"] == MCPStatusCode.SUCCESS:
+                    print(f"Result: {result['outputs'].get('result', 'No result')}")
                 else:
-                    await self.send_chat_request(user_input)
+                    print(f"Error: {result.get('error', 'Unknown error')}")
+            else:
+                print("Usage: /calc <expression>")
 
-            except KeyboardInterrupt:
-                print("\nExiting...")
-                break
-            except Exception as e:
-                print(f"\nError: {e}")
+        elif cmd == "/weather":
+            if args:
+                print(f"Getting weather for: {args}")
+                result = await self.use_tool("weather", args)
+                if result["status"] == MCPStatusCode.SUCCESS:
+                    weather = result["outputs"].get("weather", {})
+                    if weather:
+                        print(f"Weather for {weather.get('location', 'Unknown')}:")
+                        print(f"  Temperature: {weather.get('temperature', 'N/A')}°C")
+                        print(f"  Condition: {weather.get('condition', 'N/A')}")
+                    else:
+                        print("No weather data returned")
+                else:
+                    print(f"Error: {result.get('error', 'Unknown error')}")
+            else:
+                print("Usage: /weather <location>")
+
+        elif cmd == "/translate":
+            if "to" in args:
+                parts = args.split(" to ", 1)
+                if len(parts) == 2:
+                    text, lang = parts
+                    print(f"Translating '{text}' to {lang}")
+                    result = await self.use_tool("translate", args)
+                    if result["status"] == MCPStatusCode.SUCCESS:
+                        print(
+                            f"Translation: {result['outputs'].get('translated_text', 'No translation')}"
+                        )
+                    else:
+                        print(f"Error: {result.get('error', 'Unknown error')}")
+                else:
+                    print("Usage: /translate <text> to <language>")
+            else:
+                print("Usage: /translate <text> to <language>")
+
+        else:
+            print(f"Unknown command: {cmd}")
 
 
-async def main() -> None:
-    """Main entry point for the CLI."""
-    parser = argparse.ArgumentParser(description="MCP Demo CLI Client")
+async def main() -> int:
+    """Run the CLI.
+
+    Returns:
+        Exit code (0 for success, 1 for error)
+    """
+    parser = argparse.ArgumentParser(description="MCP Client CLI")
     parser.add_argument(
-        "--host", type=str, default="localhost", help="Host address of the MCP server"
+        "--host", default="localhost", help="MCP server host (default: localhost)"
     )
-    parser.add_argument("--port", type=int, default=8042, help="Port of the MCP server")
-
+    parser.add_argument(
+        "--port", type=int, default=8000, help="MCP server port (default: 8000)"
+    )
     args = parser.parse_args()
-    cli = MCPDemoCLI(host=args.host, port=args.port)
-
-    print(f"Connecting to MCP server at {args.host}:{args.port}...")
-    if not await cli.connect():
-        sys.exit(1)
 
     try:
-        await cli.interactive_loop()
-    finally:
-        await cli.disconnect()
-        print("Disconnected from server. Goodbye!")
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
+        cli = MCPClientCLI(host=args.host, port=args.port)
+        await cli.run()
     except KeyboardInterrupt:
         print("\nExiting...")
     except Exception as e:
         print(f"Error: {e}")
-        sys.exit(1)
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))

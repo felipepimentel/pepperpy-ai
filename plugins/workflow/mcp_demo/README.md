@@ -1,91 +1,155 @@
 # MCP Demo Workflow
 
-This workflow demonstrates the integration of Model Context Protocol (MCP) server and client components in PepperPy.
-
-## Overview
-
-The MCP Demo Workflow provides a simplified example of how to:
-
-1. Initialize and run an MCP server
-2. Register custom tools with the server
-3. Connect an MCP client to interact with the server
-4. Send different types of requests through the MCP protocol
+This workflow demonstrates the complete integration of Model Context Protocol (MCP) server and client components.
 
 ## Features
 
-The demo includes the following functionality:
+- Start an MCP server with the specified configuration
+- Register demo tools (calculate, weather, translate)
+- Handle client requests through the MCP protocol
+- Simulate or run real client requests for demonstration
 
-- **Chat**: Basic LLM conversation via an OpenAI model
-- **Calculate**: A simple tool to evaluate mathematical expressions
-- **Weather**: A mock tool to retrieve weather information for locations
-- **Translate**: A simulated translation tool
+## Usage
 
-## Running the Demo
-
-To run the demo workflow:
+Run the workflow with:
 
 ```bash
-# Basic usage
+# Basic usage with simulated results
 python -m pepperpy.cli workflow run workflow/mcp_demo
 
-# With explicit OpenAI API key
+# Run with real client-server interaction
+python -m pepperpy.cli workflow run workflow/mcp_demo --config '{"run_real_demo": true}'
+
+# With OpenAI API key
 OPENAI_API_KEY=your_key_here python -m pepperpy.cli workflow run workflow/mcp_demo
 ```
 
 ## CLI Tool
 
-A command-line interface is provided for interactive testing with a running MCP server:
+A command-line interface is provided for interacting with a running MCP server:
 
 ```bash
-# Connect to the local MCP server (default: localhost:8042)
+# Connect to the local MCP server
 python plugins/workflow/mcp_demo/cli.py
 
-# Connect to a specific server
-python plugins/workflow/mcp_demo/cli.py --host example.com --port 443
+# Connect to a remote server
+python plugins/workflow/mcp_demo/cli.py --host api.example.com --port 443
 ```
 
-Available commands in the CLI:
+The CLI tool supports these commands:
 
 - `/help` - Show help information
 - `/quit` or `/exit` - Exit the CLI
 - `/clear` - Clear conversation history
-- `/models` - List available models (if supported by server)
+- `/models` - List available models
+- `/model <model_id>` - Change the current model
 - `/calc <expression>` - Use the calculate tool
 - `/weather <location>` - Use the weather tool
 - `/translate <text> to <language>` - Use the translate tool
 
+For any other input, the CLI will send it as a chat message to the AI.
+
+## Standalone Server
+
+A standalone server script is also provided for development and testing purposes:
+
+```bash
+# Start the server with default settings
+python plugins/workflow/mcp_demo/run_server.py
+
+# Configure host and port
+python plugins/workflow/mcp_demo/run_server.py --host localhost --port 8080
+
+# Use a specific LLM model
+python plugins/workflow/mcp_demo/run_server.py --llm-model gpt-4
+```
+
+Use this script when you want to run just the server component without the complete workflow. Combined with the CLI, you can develop and test MCP integrations easily.
+
+## Combined Command-Line Tool
+
+A unified command-line tool is also available that combines all the functionality:
+
+```bash
+# Run just the server
+python plugins/workflow/mcp_demo/mcp.py server --port 8080
+
+# Run just the client
+python plugins/workflow/mcp_demo/mcp.py client --host api.example.com
+
+# Run the complete workflow
+python plugins/workflow/mcp_demo/mcp.py workflow --llm-model gpt-4 --duration 120
+```
+
+This tool provides a convenient interface for running any component of the MCP demo.
+
 ## Configuration
 
-You can customize the workflow through environment variables or by editing the plugin.yaml file:
+You can customize the workflow with these parameters:
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `server_host` | Host address to bind the server to | "0.0.0.0" |
-| `server_port` | Port for the MCP server | 8042 |
-| `llm_provider` | LLM provider to use | "openai" |
-| `llm_model` | LLM model to use | "gpt-3.5-turbo" |
-| `openai_api_key` | OpenAI API key | Environment variable |
+```yaml
+host: "0.0.0.0"          # Host address to bind the server to
+port: 8000               # Port for the MCP server
+provider_type: "http"    # Type of MCP provider to use
+llm_provider: "openai"   # LLM provider to use
+llm_model: "gpt-3.5-turbo" # LLM model to use
+demo_duration: 60        # Duration in seconds to run the demo
+```
 
-## Tool Usage Patterns
+## Demo Tools
 
-The tools follow these request patterns:
+The workflow demonstrates these MCP tool integrations:
 
-- **Calculate**: `calculate: 2 + 2`
-- **Weather**: `get_weather: London`
-- **Translate**: `translate: Hello world to es`
+- **Chat**: Basic conversation with LLM model
+- **Calculate**: Evaluate mathematical expressions (format: `calculate: 2 + 2`)
+- **Weather**: Get weather information for a location (format: `get_weather: London`)
+- **Translate**: Translate text to another language (format: `translate: Hello world to es`)
 
-## Extending the Demo
+## Examples
 
-To add new tools to the demo:
+### Basic Chat
 
-1. Create a new handler method similar to the existing ones
-2. Register it with the server in the `_register_server_tools` method
-3. Add client request handling in the `_run_demo_client` method
+```
+> Hello, how are you?
+AI: I'm doing well, thank you for asking! I'm here to assist you. How can I help you today?
+```
 
-## Troubleshooting
+### Using Calculate Tool
 
-If you encounter connection issues:
+```
+> /calc 2 + 2 * 3
+Result: 8
+```
 
-- Ensure no other service is using port 8042 (or change the port in configuration)
-- Check that your OpenAI API key is valid if using real LLM services
-- Increase the delay time between server start and client connection if needed 
+### Using Weather Tool
+
+```
+> /weather New York
+Weather for New York:
+  Temperature: 20°C
+  Condition: sunny
+```
+
+### Using Translate Tool 
+
+```
+> /translate Hello world to es
+Translation: [es] Hola mundo
+```
+
+## Summary
+
+The MCP Demo workflow demonstrates the following key concepts:
+
+1. **Server-Client Architecture**: Implementation of both MCP server and client components
+2. **Tool Registration**: How to register custom tools with an MCP server
+3. **Multiple Interfaces**: Different ways to run and interact with MCP components:
+   - Full workflow through PepperPy CLI
+   - Standalone server for external clients
+   - Interactive client CLI for direct testing
+   - Combined command-line tool for all components
+4. **Protocol Integration**: Complete implementation of the Model Context Protocol
+5. **LLM Integration**: Integration with OpenAI or other LLM providers
+6. **Error Handling**: Proper error handling throughout the protocol stack
+
+Use this demo as a reference implementation for building your own MCP integrations or extending existing ones. 

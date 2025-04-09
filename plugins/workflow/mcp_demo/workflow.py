@@ -18,6 +18,7 @@ from pepperpy.mcp.protocol import (
     MCPStatusCode,
 )
 from pepperpy.mcp.server.providers.http import HTTPServerProvider
+from pepperpy.plugin.base import PepperpyPlugin
 from pepperpy.workflow import WorkflowProvider
 
 
@@ -84,21 +85,28 @@ class SimpleLLMAdapter:
             raise ValueError(f"Unsupported provider type: {self.provider_type}")
 
 
-class MCPDemoWorkflowProvider(WorkflowProvider):
+class MCPDemoWorkflow(WorkflowProvider, PepperpyPlugin):
     """Workflow provider that demonstrates MCP server and client integration."""
 
     # Explicitly define plugin attributes
     plugin_type = "workflow"
     provider_name = "mcp_demo"
 
-    def __init__(self, config=None) -> None:
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize MCP demo workflow."""
-        super().__init__(config=config)
+        super().__init__(config=config or {})
         self.logger = get_logger("workflow.mcp_demo")
         self.server: HTTPServerProvider | None = None
         self.client: HTTPClientProvider | None = None
         self.llm_provider = None
         self.initialized = False
+        self.demo_duration = 60
+        self.host = "0.0.0.0"
+        self.port = 8000
+        self.provider_type = "http"
+        self.llm_provider_type = "openai"
+        self.llm_model = "gpt-3.5-turbo"
+        self.tool_registry = {}
 
     async def _initialize_resources(self) -> None:
         """Initialize the workflow resources.
@@ -109,23 +117,22 @@ class MCPDemoWorkflowProvider(WorkflowProvider):
         self.logger.info("Initializing MCP demo workflow")
 
         # Configure connection parameters
-        host = config.get("server_host", "0.0.0.0")
-        port = config.get("server_port", 8042)
-        url = config.get("client_url", f"http://{host}:{port}")
+        self.host = config.get("host", self.host)
+        self.port = config.get("port", self.port)
+        self.provider_type = config.get("provider_type", self.provider_type)
+        self.llm_provider_type = config.get("llm_provider", self.llm_provider_type)
+        self.llm_model = config.get("llm_model", self.llm_model)
+        self.demo_duration = config.get("demo_duration", self.demo_duration)
 
         # Initialize server (don't start it yet)
-        self.server = HTTPServerProvider(host=host, port=port)
+        self.server = HTTPServerProvider(host=self.host, port=self.port)
         await self.server.initialize()
 
         # Initialize LLM provider
-        provider_type = config.get("llm_provider", "openai")
-        model_id = config.get("llm_model", "gpt-3.5-turbo")
-        api_key = config.get("openai_api_key")
-
         self.llm_provider = SimpleLLMAdapter(
-            provider_type=provider_type,
-            model=model_id,
-            api_key=api_key,
+            provider_type=self.llm_provider_type,
+            model=self.llm_model,
+            api_key=config.get("openai_api_key"),
         )
         await self.llm_provider.initialize()
 
@@ -133,7 +140,7 @@ class MCPDemoWorkflowProvider(WorkflowProvider):
         await self._register_server_tools()
 
         # Initialize client (don't connect yet)
-        self.client = HTTPClientProvider(url=url)
+        self.client = HTTPClientProvider(url=f"http://{self.host}:{self.port}")
         await self.client.initialize()
 
     async def _cleanup_resources(self) -> None:
@@ -185,30 +192,43 @@ class MCPDemoWorkflowProvider(WorkflowProvider):
 
             await asyncio.sleep(2)
 
-            # Skip connection check and just create some demo results
-            # This is a simplified demo to avoid connectivity issues
-            self.logger.info("Creating demo results...")
+            # Connect client to server
+            self.logger.info("Connecting client to server...")
+            await self.client.connect(f"http://{self.host}:{self.port}")
 
-            # Create simulated results
-            results = {
-                "chat": {
-                    "status": MCPStatusCode.SUCCESS,
-                    "content": "Hello! I'm an AI assistant. How can I help you today?",
-                },
-                "calculate": {"status": MCPStatusCode.SUCCESS, "result": "4"},
-                "weather": {
-                    "status": MCPStatusCode.SUCCESS,
-                    "weather": {
-                        "location": "London",
-                        "temperature": 20,
-                        "condition": "sunny",
+            # Run actual client operations
+            self.logger.info("Running demo client operations...")
+
+            # If real client demo is requested and demo_duration > 0
+            if self.demo_duration > 0 and input_data.get("run_real_demo"):
+                results = await self._run_demo_client()
+                await asyncio.sleep(
+                    self.demo_duration
+                )  # Keep server running for demo_duration
+            else:
+                # Use simulated results for quicker testing
+                self.logger.info(
+                    "Using simulated results (add 'run_real_demo': true to input_data for real demo)"
+                )
+                results = {
+                    "chat": {
+                        "status": MCPStatusCode.SUCCESS,
+                        "content": "Hello! I'm an AI assistant. How can I help you today?",
                     },
-                },
-                "translate": {
-                    "status": MCPStatusCode.SUCCESS,
-                    "translated_text": "[es] Hola mundo",
-                },
-            }
+                    "calculate": {"status": MCPStatusCode.SUCCESS, "result": "4"},
+                    "weather": {
+                        "status": MCPStatusCode.SUCCESS,
+                        "weather": {
+                            "location": "London",
+                            "temperature": 20,
+                            "condition": "sunny",
+                        },
+                    },
+                    "translate": {
+                        "status": MCPStatusCode.SUCCESS,
+                        "translated_text": "[es] Hola mundo",
+                    },
+                }
 
             return {"status": MCPStatusCode.SUCCESS, "results": results}
         except Exception as e:
@@ -230,7 +250,7 @@ class MCPDemoWorkflowProvider(WorkflowProvider):
 
         # Register the LLM provider for chat
         await self.server.register_model(
-            model_id="gpt-3.5-turbo", model=self.llm_provider
+            model_id=self.llm_model, model=self.llm_provider
         )
 
         # Register custom tool handlers
@@ -441,7 +461,7 @@ class MCPDemoWorkflowProvider(WorkflowProvider):
             # Test chat
             chat_request = MCPRequest(
                 request_id=str(uuid.uuid4()),
-                model_id="gpt-3.5-turbo",
+                model_id=self.llm_model,
                 operation=MCPOperationType.CHAT,
                 inputs={
                     "messages": [{"role": "user", "content": "Hello! How are you?"}]

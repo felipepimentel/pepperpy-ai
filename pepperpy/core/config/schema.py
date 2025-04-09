@@ -6,14 +6,29 @@ using Pydantic models to validate configuration and support environment
 variable references.
 """
 
+import json
 import os
 import re
 from typing import Any
 
 from pydantic import BaseModel, Field, root_validator, validator
 
+from pepperpy.core.errors import ValidationError
+from pepperpy.core.logging import get_logger
+
+try:
+    import jsonschema
+    from jsonschema import Draft7Validator
+    from jsonschema import ValidationError as JsonSchemaValidationError
+
+    HAS_JSONSCHEMA = True
+except ImportError:
+    HAS_JSONSCHEMA = False
+
 # Regex for environment variable references
 ENV_VAR_PATTERN = re.compile(r"\${([A-Za-z0-9_]+)(?::([^}]*))?}")
+
+logger = get_logger(__name__)
 
 
 class EnvVarReference(BaseModel):
@@ -371,3 +386,363 @@ def _resolve_env_var_in_string(value: str) -> str:
         )
 
     return result
+
+
+def load_schema_from_file(schema_path: str) -> dict[str, Any]:
+    """Load a JSON schema from a file.
+
+    Args:
+        schema_path: Path to the schema file
+
+    Returns:
+        Schema as a dictionary
+
+    Raises:
+        FileNotFoundError: If schema file not found
+        json.JSONDecodeError: If schema is invalid JSON
+    """
+    if not os.path.exists(schema_path):
+        raise FileNotFoundError(f"Schema file not found: {schema_path}")
+
+    with open(schema_path) as f:
+        return json.load(f)
+
+
+class ConfigValidator:
+    """Configuration validator using JSON Schema.
+
+    This class provides configuration validation using JSON Schema.
+    If jsonschema is not available, a basic validation is performed.
+    """
+
+    def __init__(self, schema: dict[str, Any]) -> None:
+        """Initialize with schema.
+
+        Args:
+            schema: JSON Schema for validation
+        """
+        self.schema = schema
+        self.validator = None
+
+        if HAS_JSONSCHEMA:
+            try:
+                self.validator = Draft7Validator(schema)
+            except Exception as e:
+                logger.warning(f"Invalid schema: {e}")
+
+    def validate(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Validate configuration against schema.
+
+        Args:
+            config: Configuration to validate
+
+        Returns:
+            Validated configuration with defaults
+
+        Raises:
+            ValidationError: If validation fails
+        """
+        # Use jsonschema if available
+        if self.validator:
+            try:
+                self.validator.validate(config)
+            except JsonSchemaValidationError as e:
+                path = ".".join([str(p) for p in e.path])
+                raise ValidationError(
+                    f"Configuration validation failed at {path}: {e.message}"
+                )
+            return self._apply_defaults(config)
+
+        # Basic validation if jsonschema not available
+        return self._basic_validate(config)
+
+    def _basic_validate(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Perform basic validation without jsonschema.
+
+        Args:
+            config: Configuration to validate
+
+        Returns:
+            Validated configuration with defaults
+
+        Raises:
+            ValidationError: If validation fails
+        """
+        # Check required properties
+        required = self.schema.get("required", [])
+        for prop in required:
+            if prop not in config:
+                raise ValidationError(f"Missing required property: {prop}")
+
+        # Validate property types
+        properties = self.schema.get("properties", {})
+        for prop_name, prop_value in config.items():
+            if prop_name in properties:
+                prop_schema = properties[prop_name]
+                self._validate_property(prop_name, prop_value, prop_schema)
+
+        # Apply defaults
+        return self._apply_defaults(config)
+
+    def _validate_property(
+        self, prop_name: str, prop_value: Any, prop_schema: dict[str, Any]
+    ) -> None:
+        """Validate a property against its schema.
+
+        Args:
+            prop_name: Property name
+            prop_value: Property value
+            prop_schema: Property schema
+
+        Raises:
+            ValidationError: If validation fails
+        """
+        # Check type
+        schema_type = prop_schema.get("type")
+        if schema_type == "string" and not isinstance(prop_value, str):
+            raise ValidationError(
+                f"Property {prop_name} should be a string, got {type(prop_value)}"
+            )
+        elif schema_type == "number" and not isinstance(prop_value, (int, float)):
+            raise ValidationError(
+                f"Property {prop_name} should be a number, got {type(prop_value)}"
+            )
+        elif schema_type == "integer" and not isinstance(prop_value, int):
+            raise ValidationError(
+                f"Property {prop_name} should be an integer, got {type(prop_value)}"
+            )
+        elif schema_type == "boolean" and not isinstance(prop_value, bool):
+            raise ValidationError(
+                f"Property {prop_name} should be a boolean, got {type(prop_value)}"
+            )
+        elif schema_type == "array" and not isinstance(prop_value, list):
+            raise ValidationError(
+                f"Property {prop_name} should be an array, got {type(prop_value)}"
+            )
+        elif schema_type == "object" and not isinstance(prop_value, dict):
+            raise ValidationError(
+                f"Property {prop_name} should be an object, got {type(prop_value)}"
+            )
+
+        # Check enum
+        enum_values = prop_schema.get("enum")
+        if enum_values and prop_value not in enum_values:
+            raise ValidationError(
+                f"Property {prop_name} should be one of {enum_values}, got {prop_value}"
+            )
+
+    def _apply_defaults(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Apply schema defaults to configuration.
+
+        Args:
+            config: Configuration to apply defaults to
+
+        Returns:
+            Configuration with defaults applied
+        """
+        # Make a copy to avoid modifying the original
+        result = dict(config)
+
+        # Apply defaults from schema
+        properties = self.schema.get("properties", {})
+        for prop_name, prop_schema in properties.items():
+            if "default" in prop_schema and prop_name not in result:
+                result[prop_name] = prop_schema["default"]
+
+        return result
+
+
+def validate_config(config: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
+    """Validate configuration against schema.
+
+    Args:
+        config: Configuration to validate
+        schema: JSON Schema for validation
+
+    Returns:
+        Validated configuration with defaults
+
+    Raises:
+        ValidationError: If validation fails
+    """
+    validator = ConfigValidator(schema)
+    return validator.validate(config)
+
+
+def validate_config_file(config_file: str, schema_file: str) -> dict[str, Any]:
+    """Validate configuration file against schema file.
+
+    Args:
+        config_file: Path to configuration file
+        schema_file: Path to schema file
+
+    Returns:
+        Validated configuration with defaults
+
+    Raises:
+        FileNotFoundError: If files not found
+        ValidationError: If validation fails
+    """
+    # Load schema
+    schema = load_schema_from_file(schema_file)
+
+    # Load config
+    if not os.path.exists(config_file):
+        raise FileNotFoundError(f"Configuration file not found: {config_file}")
+
+    with open(config_file) as f:
+        config = json.load(f)
+
+    # Validate
+    return validate_config(config, schema)
+
+
+def merge_configs(
+    base_config: dict[str, Any], override_config: dict[str, Any]
+) -> dict[str, Any]:
+    """Merge two configuration dictionaries.
+
+    Args:
+        base_config: Base configuration
+        override_config: Configuration to override base
+
+    Returns:
+        Merged configuration
+    """
+    # Start with a copy of the base
+    result = dict(base_config)
+
+    # Recursively merge values
+    for key, value in override_config.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            # Recursive merge for nested dictionaries
+            result[key] = merge_configs(result[key], value)
+        else:
+            # Override or add key
+            result[key] = value
+
+    return result
+
+
+class EnvVarResolver:
+    """Resolver for environment variables in configuration.
+
+    This class resolves environment variable references in configuration values.
+    The format for environment variable references is:
+
+    {
+        "api_key": {
+            "env_var": "API_KEY",
+            "required": true,
+            "default": "default_value"
+        }
+    }
+    """
+
+    def __init__(self, config: dict[str, Any], prefix: str = "PEPPERPY_") -> None:
+        """Initialize with configuration.
+
+        Args:
+            config: Configuration to resolve
+            prefix: Environment variable prefix
+        """
+        self.config = config
+        self.prefix = prefix
+
+    def resolve(self) -> dict[str, Any]:
+        """Resolve environment variables in configuration.
+
+        Returns:
+            Configuration with resolved values
+
+        Raises:
+            ValidationError: If required environment variable not found
+        """
+        # Make a copy to avoid modifying the original
+        result = dict(self.config)
+
+        # Process the configuration recursively
+        return self._process_dict(result)
+
+    def _process_dict(self, config_dict: dict[str, Any]) -> dict[str, Any]:
+        """Process a dictionary recursively.
+
+        Args:
+            config_dict: Dictionary to process
+
+        Returns:
+            Processed dictionary
+
+        Raises:
+            ValidationError: If required environment variable not found
+        """
+        result = {}
+
+        for key, value in config_dict.items():
+            if isinstance(value, dict):
+                if "env_var" in value:
+                    # This is an environment variable reference
+                    result[key] = self._resolve_env_var(value)
+                else:
+                    # Recursively process nested dictionaries
+                    result[key] = self._process_dict(value)
+            elif isinstance(value, list):
+                # Process lists
+                result[key] = [self._process_value(item) for item in value]
+            else:
+                # Primitive value, keep as is
+                result[key] = value
+
+        return result
+
+    def _process_value(self, value: Any) -> Any:
+        """Process a value.
+
+        Args:
+            value: Value to process
+
+        Returns:
+            Processed value
+        """
+        if isinstance(value, dict):
+            # Recursively process dictionaries
+            return self._process_dict(value)
+        elif isinstance(value, list):
+            # Recursively process lists
+            return [self._process_value(item) for item in value]
+        else:
+            # Primitive value, keep as is
+            return value
+
+    def _resolve_env_var(self, env_var_dict: dict[str, Any]) -> Any:
+        """Resolve an environment variable reference.
+
+        Args:
+            env_var_dict: Environment variable reference
+
+        Returns:
+            Resolved value
+
+        Raises:
+            ValidationError: If required environment variable not found
+        """
+        env_var = env_var_dict["env_var"]
+        required = env_var_dict.get("required", False)
+        default = env_var_dict.get("default")
+
+        # Try with prefix first
+        value = os.environ.get(f"{self.prefix}{env_var}")
+
+        # Try without prefix if not found
+        if value is None:
+            value = os.environ.get(env_var)
+
+        # Handle required variables
+        if value is None:
+            if required:
+                raise ValidationError(
+                    f"Required environment variable not found: {env_var}"
+                )
+            return default
+
+        return value

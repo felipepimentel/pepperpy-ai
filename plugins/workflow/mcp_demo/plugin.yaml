@@ -1,107 +1,133 @@
 name: workflow_mcp_demo
 version: 0.1.0
-description: Workflow that demonstrates full integration of MCP server and client
+description: Demonstration workflow that runs an MCP server and client together
 author: PepperPy Team
-
 plugin_type: workflow
 category: mcp
 provider_name: mcp_demo
-entry_point: workflow.MCPDemoWorkflowProvider
+entry_point: workflow.MCPDemoWorkflow
 
 config_schema:
   type: object
   properties:
-    server_host:
+    host:
       type: string
-      description: Server host to bind to
+      description: Host address for the MCP server
       default: "0.0.0.0"
-    server_port:
+    port:
       type: integer
-      description: Server port to listen on
-      default: 8042
-    client_url:
+      description: Port for the MCP server
+      default: 8000
+    provider_type:
       type: string
-      description: URL to connect to MCP server
+      description: Type of MCP provider to use
+      default: "http"
     llm_provider:
       type: string
-      description: LLM provider to use
+      description: LLM provider to use for chat
       default: "openai"
     llm_model:
       type: string
       description: LLM model to use
       default: "gpt-3.5-turbo"
-    openai_api_key:
-      type: string
-      description: OpenAI API key (required when using OpenAI)
+    demo_duration:
+      type: integer
+      description: Duration in seconds to run the demo for
+      default: 60
 
 default_config:
-  server_host: "0.0.0.0"
-  server_port: 8042
+  host: "0.0.0.0"
+  port: 8000
+  provider_type: "http"
   llm_provider: "openai"
   llm_model: "gpt-3.5-turbo"
+  demo_duration: 60
 
-documentation: |
-  # MCP Demo Workflow
+documentation:
+  description: |
+    This workflow demonstrates the integration of MCP server and client components.
+    It sets up an MCP server with registered tools, then runs a client that connects
+    to the server and uses the tools.
   
-  This workflow demonstrates the complete integration of Model Context Protocol (MCP) server and client.
+  examples:
+    - title: Basic usage
+      description: Run the MCP demo with default settings
+      code: |
+        pepperpy run workflow mcp_demo
+    
+    - title: Custom configuration
+      description: Run the MCP demo with custom settings
+      code: |
+        pepperpy run workflow mcp_demo --config '{"port": 9000, "llm_model": "gpt-4"}'
+    
+    - title: Custom duration
+      description: Run the MCP demo for a specific duration
+      code: |
+        pepperpy run workflow mcp_demo --config '{"demo_duration": 120}'
   
-  ## Features
-  
-  - Start an MCP server with the specified configuration
-  - Register demo tools (calculate, weather, translate)
-  - Simulates client requests to demonstrate usage patterns
-  
-  ## Usage
-  
-  Run the workflow with:
-  
-  ```bash
-  # Basic usage
-  python -m pepperpy.cli workflow run workflow/mcp_demo
-  
-  # With OpenAI API key
-  OPENAI_API_KEY=your_key_here python -m pepperpy.cli workflow run workflow/mcp_demo
-  ```
-  
-  ## CLI Tool
-  
-  A command-line interface is also provided for interacting with a running MCP server:
-  
-  ```bash
-  # Connect to the local MCP server
-  python plugins/workflow/mcp_demo/cli.py
-  
-  # Connect to a remote server
-  python plugins/workflow/mcp_demo/cli.py --host api.example.com --port 443
-  ```
-  
-  The CLI tool provides these commands:
-  
-  - `/help` - Show help information
-  - `/quit` or `/exit` - Exit the CLI
-  - `/clear` - Clear conversation history
-  - `/models` - List available models
-  - `/calc <expression>` - Use the calculate tool
-  - `/weather <location>` - Use the weather tool
-  - `/translate <text> to <language>` - Use the translate tool
-  
-  ## Configuration
-  
-  You can customize the workflow with these parameters:
-  
-  ```yaml
-  server_host: "0.0.0.0"     # Host address to bind the server to
-  server_port: 8042          # Port for the MCP server
-  llm_provider: "openai"     # LLM provider to use (currently only OpenAI supported)
-  llm_model: "gpt-3.5-turbo" # LLM model to use
-  openai_api_key: ""         # OpenAI API key (can also be set via OPENAI_API_KEY env var)
-  ```
-  
-  ## Demo Tools
-  
-  The workflow demonstrates these MCP tool integrations:
-  
-  - **Chat**: Basic conversation with LLM model
-  - **Calculate**: Evaluate mathematical expressions (format: `calculate: 2 + 2`)
-  - **Weather**: Get weather information for a location (format: `get_weather: London`)
-  - **Translate**: Translate text to another language (format: `translate: Hello world to es`) 
+  notes: |
+    # MCP Demo Workflow
+    
+    This workflow demonstrates the complete integration of Model Context Protocol (MCP) server and client.
+    
+    ## Features
+    
+    - Start an MCP server with the specified configuration
+    - Register demo tools (calculate, weather, translate)
+    - Simulates client requests to demonstrate usage patterns
+    
+    ## Usage
+    
+    Run the workflow with:
+    
+    ```bash
+    # Basic usage
+    python -m pepperpy.cli workflow run workflow/mcp_demo
+    
+    # With OpenAI API key
+    OPENAI_API_KEY=your_key_here python -m pepperpy.cli workflow run workflow/mcp_demo
+    ```
+    
+    ## CLI Tool
+    
+    A command-line interface is also provided for interacting with a running MCP server:
+    
+    ```bash
+    # Connect to the local MCP server
+    python plugins/workflow/mcp_demo/cli.py
+    
+    # Connect to a remote server
+    python plugins/workflow/mcp_demo/cli.py --host api.example.com --port 443
+    ```
+    
+    The CLI tool provides these commands:
+    
+    - `/help` - Show help information
+    - `/quit` or `/exit` - Exit the CLI
+    - `/clear` - Clear conversation history
+    - `/models` - List available models
+    - `/calc <expression>` - Use the calculate tool
+    - `/weather <location>` - Use the weather tool
+    - `/translate <text> to <language>` - Use the translate tool
+    
+    ## Configuration
+    
+    You can customize the workflow with these parameters:
+    
+    ```yaml
+    host: "0.0.0.0"          # Host address to bind the server to
+    port: 8000               # Port for the MCP server
+    provider_type: "http"    # Type of MCP provider to use
+    llm_provider: "openai"   # LLM provider to use
+    llm_model: "gpt-3.5-turbo" # LLM model to use
+    demo_duration: 60        # Duration in seconds to run the demo
+    ```
+    
+    ## Demo Tools
+    
+    The workflow demonstrates these MCP tool integrations:
+    
+    - **Chat**: Basic conversation with LLM model
+    - **Calculate**: Evaluate mathematical expressions (format: `calculate: 2 + 2`)
+    - **Weather**: Get weather information for a location (format: `get_weather: London`)
+    - **Translate**: Translate text to another language (format: `translate: Hello world to es`) 
