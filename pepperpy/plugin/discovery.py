@@ -19,7 +19,7 @@ import yaml
 from pepperpy.core.logging import get_logger
 from pepperpy.plugin.base import PepperpyPlugin, PluginDiscoveryProtocol, PluginInfo
 from pepperpy.plugin.provider import BasePluginProvider
-from pepperpy.plugin.registry import register_plugin_info
+from pepperpy.plugin.registry import get_plugin, register_plugin_info
 
 logger = get_logger(__name__)
 
@@ -577,6 +577,7 @@ class PluginDiscoveryProvider(PluginDiscoveryProtocol):
     ):
         """Initialize."""
         self._discovery_providers: list[PluginDiscoveryProtocol] = []
+        self.config: dict[str, Any] = {}
         if discovery_providers:
             self._discovery_providers.extend(discovery_providers)
         self._init_discovery_providers()
@@ -585,7 +586,16 @@ class PluginDiscoveryProvider(PluginDiscoveryProtocol):
         """Initialize discovery providers."""
         # Add file system discovery
         fs_discovery = FileSystemDiscovery()
-        fs_discovery.add_default_directories()
+
+        # Add default directory if no custom paths provided
+        if self.config.get("scan_paths"):
+            # Add custom paths from config
+            for path in self.config["scan_paths"]:
+                fs_discovery.add_directory(path)
+        else:
+            # Use default discovery path
+            fs_discovery.add_default_directories()
+
         self._discovery_providers.append(fs_discovery)
 
         # Add package discovery
@@ -644,3 +654,87 @@ async def discover_plugins() -> dict[str, Any]:
     """
     provider = get_discovery_provider()
     return await provider.discover_plugins()
+
+
+async def load_specific_plugin(domain: str, plugin_name: str) -> Any:
+    """Load a specific plugin by domain and name.
+
+    Args:
+        domain: The plugin domain (e.g., "workflow", "llm", etc.)
+        plugin_name: The name of the plugin to load
+
+    Returns:
+        The loaded plugin instance
+
+    Raises:
+        DiscoveryError: If the plugin cannot be found or loaded
+    """
+    logger.info(f"Loading specific plugin: {domain}/{plugin_name}")
+
+    # First, try to get it from the registry if it's already registered
+    plugin_class = await get_plugin(domain, plugin_name)
+    if plugin_class:
+        logger.info(f"Found plugin in registry: {domain}/{plugin_name}")
+        return plugin_class
+
+    # If not in registry, determine the likely plugin path
+    base_plugin_dir = Path.cwd() / "plugins"
+    plugin_dir = base_plugin_dir / domain / plugin_name
+
+    # If not found in the main plugins directory, try alternate locations
+    if not plugin_dir.exists():
+        # Try looking in domain subdirectories (some plugins might be nested)
+        for subdir in base_plugin_dir.glob(f"{domain}/*/{plugin_name}"):
+            if subdir.is_dir():
+                plugin_dir = subdir
+                break
+
+    if not plugin_dir.exists():
+        raise DiscoveryError(f"Plugin directory not found: {plugin_dir}")
+
+    # Check if plugin is disabled
+    if (plugin_dir / ".disabled").exists():
+        raise DiscoveryError(f"Plugin is disabled: {domain}/{plugin_name}")
+
+    # Check for plugin.yaml
+    plugin_config_path = plugin_dir / "plugin.yaml"
+    if not plugin_config_path.exists():
+        raise DiscoveryError(
+            f"Plugin configuration file not found: {plugin_config_path}"
+        )
+
+    try:
+        # Create a FileSystemDiscovery instance just for this plugin
+        discovery = FileSystemDiscovery([str(plugin_dir.parent)])
+
+        # Discover plugins (this will register them for lazy loading)
+        await discovery.discover_plugins()
+
+        # Now try to get the plugin from the registry again
+        plugin_class = await get_plugin(domain, plugin_name)
+        if plugin_class:
+            return plugin_class
+
+        # If still not found, try direct loading
+        # Load the plugin config
+        with open(plugin_config_path) as f:
+            plugin_config = yaml.safe_load(f)
+
+        # Create plugin info and load directly
+        plugin_info = discovery._load_plugin_info(
+            str(plugin_config_path), str(plugin_dir)
+        )
+        if not plugin_info:
+            raise DiscoveryError(
+                f"Failed to create plugin info from {plugin_config_path}"
+            )
+
+        plugin_class = await load_plugin(plugin_info)
+        if not plugin_class:
+            raise DiscoveryError(
+                f"Failed to load plugin class for {domain}/{plugin_name}"
+            )
+
+        return plugin_class
+    except Exception as e:
+        raise DiscoveryError(f"Failed to load plugin {domain}/{plugin_name}: {e}")

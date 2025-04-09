@@ -14,7 +14,7 @@ from typing import Any, Protocol
 
 from pepperpy.core.errors import PepperpyError
 from pepperpy.orchestration import WorkflowOrchestrator
-from pepperpy.plugin.discovery import PluginDiscoveryProvider
+from pepperpy.plugin.discovery import PluginDiscoveryProvider, load_specific_plugin
 from pepperpy.plugin.registry import get_registry
 
 
@@ -299,6 +299,7 @@ class CLI:
 
             # If params are provided via command line, process them
             if hasattr(args, "params") and args.params:
+                print(f"Raw params: {args.params}")
                 for param in args.params:
                     if "=" in param:
                         key, value = param.split("=", 1)
@@ -320,6 +321,7 @@ class CLI:
 
                         # Add to input data
                         input_data[key] = value
+                        print(f"Added parameter: {key}={value}")
 
             await self._run_workflow(args.workflow_id, input_data, config)
         else:
@@ -461,68 +463,39 @@ class CLI:
             self.logger.error(f"Invalid workflow type: {workflow_type}")
             return
 
-        # Initialize plugin discovery
-        discovery = PluginDiscoveryProvider()
-        discovery.config = {"scan_paths": [str(Path.cwd() / "plugins")]}
-
-        # Discover plugins
-        await discovery.discover_plugins()
-
-        # Import for plugin creation
-        from pepperpy.plugin import create_provider_instance
+        # Import the discovery module
 
         try:
             print(f"Running workflow: {workflow_id}")
             print("------------------------" + "-" * len(workflow_id))
 
             # Format input data for workflow execution
+            task = input_data.pop("task", "default")
+
+            # Structure the input data properly for the workflow
             task_input = {
-                "task": input_data.pop("task", "default"),
-                "input": input_data,
+                "task": task,
+                "input": input_data.copy(),  # Use a copy to prevent modifying the original
                 "options": input_data.pop("options", {}),
             }
 
-            # Debug print of the registry
-            registry = get_registry()
-            print("DEBUG: Workflow Registry Contents:")
-            workflow_plugins = registry._plugins.get("workflow", {})
-            print(f"DEBUG: Registry memory ID: {id(registry)}")
-            for key in workflow_plugins.keys():
-                print(f"  - {key}")
+            # Print the task input for debugging
+            print(f"Task input: {task_input}")
 
-            # Get the workflow provider
+            # Load just the specific workflow plugin we need
             try:
-                # Print what we're looking for
-                print(
-                    f"DEBUG: Looking for provider with domain='workflow', name='{workflow_name}'"
-                )
-                print(f"DEBUG: Trying alternative name='{workflow_id}'")
-                print(f"DEBUG: Also trying name='workflow/{workflow_name}'")
+                # Try to load the specific workflow plugin
+                print(f"Loading workflow plugin: {workflow_name}")
+                workflow_class = await load_specific_plugin("workflow", workflow_name)
 
-                # Use the protocol to type the provider correctly
-                print(f"Trying to create workflow provider: {workflow_name}")
-
-                # Try with just the workflow name first
-                try:
-                    workflow_provider = await create_provider_instance(
-                        "workflow", workflow_name, **config
-                    )
-                except Exception:
-                    # If that fails, try with the full path
-                    try:
-                        workflow_provider = await create_provider_instance(
-                            "workflow", workflow_id, **config
-                        )
-                    except Exception:
-                        # If that fails too, try with workflow/workflow/ prefix
-                        workflow_provider = await create_provider_instance(
-                            "workflow", f"workflow/{workflow_name}", **config
-                        )
-
-                workflow_provider_typed: WorkflowProviderProtocol = workflow_provider  # type: ignore
+                # Create an instance of the workflow provider class
+                workflow_provider = workflow_class(**config)
             except Exception as e:
-                self.logger.error(f"Failed to create workflow provider: {e}")
+                self.logger.error(f"Failed to load workflow plugin: {e}")
                 return
+
+            # Ensure the plugin implements the correct protocol
+            workflow_provider_typed: WorkflowProviderProtocol = workflow_provider  # type: ignore
 
             # Initialize the provider
             await workflow_provider_typed.initialize()
