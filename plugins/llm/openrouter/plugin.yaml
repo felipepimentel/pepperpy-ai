@@ -1,8 +1,7 @@
-# Plugin metadata
 type: llm
 provider: openrouter
-entry_point: provider:OpenRouterProvider
-description: OpenRouter LLM provider for PepperPy
+entry_point: OpenRouterProvider
+description: OpenRouter API provider for LLM interactions
 version: 0.1.0
 author: PepperPy Team
 license: MIT
@@ -30,54 +29,62 @@ config:
     default: 1024
     type: integer
     min: 1
+documentation: '# OpenRouter LLM Provider
 
-documentation: |
-  # OpenRouter LLM Provider
 
-  This plugin provides access to various LLM models through OpenRouter's API.
+  This plugin provides access to various LLM models through OpenRouter''s API.
+
 
   ## Configuration
 
+
   - `api_key`: OpenRouter API key (required)
+
   - `model`: Model to use (default: openai/gpt-4o-mini)
+
   - `temperature`: Sampling temperature (default: 0.7)
+
   - `max_tokens`: Maximum tokens to generate (default: 1024)
+
 
   ## Available Models
 
+
   - openai/gpt-4-turbo
+
   - openai/gpt-4o-mini (default)
+
   - anthropic/claude-3-opus
+
   - anthropic/claude-3-sonnet
+
   - anthropic/claude-3-haiku
+
   - google/gemini-pro
+
   - meta/llama2-70b
+
   - mistral/mistral-medium
 
+
   Note: You can also use environment variables for configuration:
+
   - `PEPPERPY_LLM__OPENROUTER_API_KEY` (recommended)
 
+  '
 name: openrouter
-version: 0.1.0
-description: OpenRouter API provider for LLM interactions
-author: PepperPy Team
-license: MIT
-type: llm
-provider: openrouter
 module: plugins.llm.openrouter.provider
-entry_point: OpenRouterProvider
 models:
-  - "openai/gpt-4o-mini"
-  - "openai/gpt-4o"
-  - "anthropic/claude-3-opus"
-  - "anthropic/claude-3-sonnet"
-  - "anthropic/claude-3-haiku"
-  - "google/gemini-pro"
-  - "meta/llama2-70b"
-  - "mistral/mistral-medium"
+- openai/gpt-4o-mini
+- openai/gpt-4o
+- anthropic/claude-3-opus
+- anthropic/claude-3-sonnet
+- anthropic/claude-3-haiku
+- google/gemini-pro
+- meta/llama2-70b
+- mistral/mistral-medium
 documentation_url: https://openrouter.ai/docs
 category: provider
-
 config_schema:
   type: object
   properties:
@@ -101,12 +108,12 @@ config_schema:
       type: integer
       description: Maximum tokens to generate
       default: 1024
-
 default_config:
   model: openai/gpt-4o-mini
   temperature: 0.7
   max_tokens: 1024
-
 metadata:
   provider_url: https://openrouter.ai/
   requires_api_key: true
+plugin_type: plugins
+provider_name: openrouter

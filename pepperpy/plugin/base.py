@@ -78,51 +78,43 @@ class PluginMetadata:
     additional: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass
 class PluginInfo:
-    """Enhanced information about a plugin."""
+    """Plugin information."""
 
-    name: str
-    version: str
-    description: str
-    plugin_type: str
-    provider_type: str
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        description: str,
+        plugin_type: str,
+        provider_name: str,
+        class_name: str | None = None,
+        module_name: str | None = None,
+        module_path: str | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize plugin information.
 
-    # Plugin metadata
-    author: str = ""
-    email: str = ""
-    license: str = ""
-
-    # Source information
-    source: PluginSource = PluginSource.FILE
-    path: str | None = None
-    module: str | None = None
-    class_name: str | None = None
-    entry_point: str | None = None
-
-    # Dependencies
-    dependencies: list[PluginDependency] = field(default_factory=list)
-    python_dependencies: list[str] = field(default_factory=list)
-    system_dependencies: list[str] = field(default_factory=list)
-
-    # Additional metadata
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    # Lazy loading
-    _loaded: bool = False
-    _plugin_class: Any = None
-
-    def is_loaded(self) -> bool:
-        """Check if the plugin class is loaded."""
-        return self._loaded
-
-    def get_class(self) -> Any:
-        """Get the plugin class (loads it if not already loaded)."""
-        if not self._loaded and self._plugin_class is None:
-            # In a real implementation, this would load the plugin class
-            # from source information
-            pass
-        return self._plugin_class
+        Args:
+            name: Plugin name
+            version: Plugin version
+            description: Plugin description
+            plugin_type: Plugin type (llm, tts, etc.)
+            provider_name: Provider name
+            class_name: Class name (optional)
+            module_name: Module name (optional)
+            module_path: Module path (optional)
+            config: Plugin configuration (optional)
+        """
+        self.name = name
+        self.version = version
+        self.description = description
+        self.plugin_type = plugin_type
+        self.provider_name = provider_name
+        self.class_name = class_name
+        self.module_name = module_name
+        self.module_path = module_path
+        self.config = config or {}
 
 
 class ResourceMixin:
@@ -218,19 +210,17 @@ class PepperpyPlugin(Protocol):
 
 @runtime_checkable
 class PluginDiscoveryProtocol(Protocol):
-    """Protocol for plugin discovery providers."""
+    """Protocol for plugin discovery."""
 
-    @abstractmethod
-    async def discover_plugins(self) -> list[PluginInfo]:
-        """Discover available plugins.
+    async def discover_plugins(self) -> dict[str, Any]:
+        """Discover plugins.
 
         Returns:
-            List of discovered plugin information
+            Dict of plugins by domain
         """
         ...
 
-    @abstractmethod
-    async def load_plugin(self, plugin_info: PluginInfo) -> Any:
+    async def load_plugin(self, plugin_info: Any) -> Any:
         """Load a plugin from its information.
 
         Args:
@@ -242,7 +232,7 @@ class PluginDiscoveryProtocol(Protocol):
         ...
 
 
-def create_provider_instance(
+async def create_provider_instance(
     domain: str, provider_type: str, **config: Any
 ) -> Any:
     """Create a provider instance.
@@ -266,23 +256,29 @@ def create_provider_instance(
     logger.info(f"Registry ID: {id(registry)}")
     logger.info(f"Available domains: {list(registry._plugins.keys())}")
     if domain in registry._plugins:
-        logger.info(f"Available providers in {domain}: {list(registry._plugins[domain].keys())}")
-        
+        logger.info(
+            f"Available providers in {domain}: {list(registry._plugins[domain].keys())}"
+        )
+
         # Special handling for workflow domain which might be registered differently
         if domain == "workflow" and provider_type not in registry._plugins[domain]:
             # Try direct provider retrieval from _plugins for workflow domain
             if "workflow/repository_analyzer" in registry._plugins[domain]:
-                logger.info(f"Found provider with direct lookup: workflow/repository_analyzer")
-                plugin_class = registry._plugins[domain]["workflow/repository_analyzer"]["class"]
+                logger.info(
+                    "Found provider with direct lookup: workflow/repository_analyzer"
+                )
+                plugin_class = registry._plugins[domain][
+                    "workflow/repository_analyzer"
+                ]["class"]
                 return plugin_class(**config)
-            
+
             if "repository_analyzer" in registry._plugins[domain]:
-                logger.info(f"Found provider with direct lookup: repository_analyzer")
+                logger.info("Found provider with direct lookup: repository_analyzer")
                 plugin_class = registry._plugins[domain]["repository_analyzer"]["class"]
                 return plugin_class(**config)
 
     # Get the plugin class
-    plugin_class = get_plugin(domain, provider_type)
+    plugin_class = await get_plugin(domain, provider_type)
     if not plugin_class:
         raise PluginNotFoundError(f"Provider not found: {domain}/{provider_type}")
 

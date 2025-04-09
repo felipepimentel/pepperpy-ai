@@ -4,7 +4,6 @@ description: Repository analysis workflow for code quality metrics and structure
 author: PepperPy Team
 license: MIT
 type: workflow
-
 config_schema:
   max_files:
     type: integer
@@ -13,20 +12,28 @@ config_schema:
   analysis_depth:
     type: string
     description: Depth of analysis to perform
-    enum: [minimal, standard, detailed]
+    enum:
+    - minimal
+    - standard
+    - detailed
     default: standard
   include_patterns:
     type: array
     description: Glob patterns for files to include
     items:
       type: string
-    default: ["**/*.py", "**/*.js"]
+    default:
+    - '**/*.py'
+    - '**/*.js'
   exclude_patterns:
     type: array
     description: Glob patterns for files to exclude
     items:
       type: string
-    default: ["**/node_modules/**", "**/.git/**", "**/__pycache__/**"]
+    default:
+    - '**/node_modules/**'
+    - '**/.git/**'
+    - '**/__pycache__/**'
   include_metrics:
     type: boolean
     description: Whether to include code quality metrics
@@ -34,87 +41,52 @@ config_schema:
   summary_format:
     type: string
     description: Format for the summary output
-    enum: [markdown, json, text]
+    enum:
+    - markdown
+    - json
+    - text
     default: markdown
-
 documentation:
-  description: |
-    Repository analysis workflow for analyzing code quality and structure of repositories.
-    
-    This workflow provides several analysis capabilities:
-    
-    - Repository structure analysis
-    - Code quality metrics 
-    - Detailed report generation
-    
-    The workflow can analyze entire repositories or specific components within repositories.
-  
+  description: "Repository analysis workflow for analyzing code quality and structure\
+    \ of repositories.\n\nThis workflow provides several analysis capabilities:\n\n\
+    - Repository structure analysis\n- Code quality metrics \n- Detailed report generation\n\
+    \nThe workflow can analyze entire repositories or specific components within repositories.\n"
   features:
-    - Structure Analysis: Analyzes repository structure including file types and directory organization
-    - Code Quality Metrics: Calculates code complexity, lines of code, and other quality metrics
-    - Customizable Reports: Generates reports in different formats (markdown, JSON, or text)
-    - Component Analysis: Ability to focus analysis on specific components or directories
-
+  - Structure Analysis: Analyzes repository structure including file types and directory
+      organization
+  - Code Quality Metrics: Calculates code complexity, lines of code, and other quality
+      metrics
+  - Customizable Reports: Generates reports in different formats (markdown, JSON,
+      or text)
+  - Component Analysis: Ability to focus analysis on specific components or directories
   usage_examples:
-    - title: Basic Repository Analysis
-      python: |
-        from pepperpy.workflow import create_provider
-        
-        # Create the repo analysis workflow provider
-        workflow = create_provider("repo_analysis", max_files=200)
-        
-        # Analyze a repository
-        result = await workflow.execute({
-            "task": "analyze_repo",
-            "input": {"repo_path": "/path/to/repo"}
-        })
-        
-        # Print the summary
-        print(result["summary"])
-        
-    - title: Component Analysis
-      python: |
-        # Create the workflow with custom configuration
-        workflow = create_provider("repo_analysis", 
-                                  analysis_depth="detailed",
-                                  summary_format="markdown")
-        
-        # Analyze a specific component
-        result = await workflow.execute({
-            "task": "analyze_component",
-            "input": {
-                "repo_path": "/path/to/repo",
-                "component_path": "src/core"
-            }
-        })
-        
-        # Access analysis results
-        structure = result["structure"]
-        metrics = result["metrics"]
-        summary = result["summary"]
-        
-    - title: Custom Analysis Configuration
-      python: |
-        # Create workflow with custom file patterns
-        workflow = create_provider("repo_analysis", 
-                                  include_patterns=["**/*.py", "**/*.ts"],
-                                  exclude_patterns=["**/tests/**", "**/node_modules/**"])
-        
-        # Execute analysis
-        result = await workflow.execute({
-            "task": "analyze_repo",
-            "input": {"repo_path": "/path/to/repo"},
-            "options": {
-                "max_files": 500,
-                "analysis_depth": "detailed"
-            }
-        })
-        
-        # Save the report to a file
-        with open("repo_analysis.md", "w") as f:
-            f.write(result["report"])
-
+  - title: Basic Repository Analysis
+    python: "from pepperpy.workflow import create_provider\n\n# Create the repo analysis\
+      \ workflow provider\nworkflow = create_provider(\"repo_analysis\", max_files=200)\n\
+      \n# Analyze a repository\nresult = await workflow.execute({\n    \"task\": \"\
+      analyze_repo\",\n    \"input\": {\"repo_path\": \"/path/to/repo\"}\n})\n\n#\
+      \ Print the summary\nprint(result[\"summary\"])\n"
+  - title: Component Analysis
+    python: "# Create the workflow with custom configuration\nworkflow = create_provider(\"\
+      repo_analysis\", \n                          analysis_depth=\"detailed\",\n\
+      \                          summary_format=\"markdown\")\n\n# Analyze a specific\
+      \ component\nresult = await workflow.execute({\n    \"task\": \"analyze_component\"\
+      ,\n    \"input\": {\n        \"repo_path\": \"/path/to/repo\",\n        \"component_path\"\
+      : \"src/core\"\n    }\n})\n\n# Access analysis results\nstructure = result[\"\
+      structure\"]\nmetrics = result[\"metrics\"]\nsummary = result[\"summary\"]\n"
+  - title: Custom Analysis Configuration
+    python: "# Create workflow with custom file patterns\nworkflow = create_provider(\"\
+      repo_analysis\", \n                          include_patterns=[\"**/*.py\",\
+      \ \"**/*.ts\"],\n                          exclude_patterns=[\"**/tests/**\"\
+      , \"**/node_modules/**\"])\n\n# Execute analysis\nresult = await workflow.execute({\n\
+      \    \"task\": \"analyze_repo\",\n    \"input\": {\"repo_path\": \"/path/to/repo\"\
+      },\n    \"options\": {\n        \"max_files\": 500,\n        \"analysis_depth\"\
+      : \"detailed\"\n    }\n})\n\n# Save the report to a file\nwith open(\"repo_analysis.md\"\
+      , \"w\") as f:\n    f.write(result[\"report\"])\n"
 requirements:
-  - radon>=5.1.0
-  - pygments>=2.15.0
-  - tabulate>=0.9.0 
+- radon>=5.1.0
+- pygments>=2.15.0
+- tabulate>=0.9.0
+plugin_type: plugins
+provider_name: repo_analysis
+entry_point: provider.Repo_analysisProvider

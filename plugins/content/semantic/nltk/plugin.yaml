@@ -2,33 +2,29 @@ name: nltk_semantic_processor
 description: NLTK-based semantic processor for entity and relationship extraction
 version: 0.1.0
 author: PepperPy Team
-
 provider:
   module: provider
   class: NLTKSemanticProcessor
-
 dependencies:
-  - nltk>=3.8.1
-
+- nltk>=3.8.1
 config:
   default:
-    # NLTK models to download
     models:
-      - punkt
-      - averaged_perceptron_tagger
-      - maxent_ne_chunker
-      - words
-    # Entity types to extract
+    - punkt
+    - averaged_perceptron_tagger
+    - maxent_ne_chunker
+    - words
     entity_types:
-      - PERSON
-      - ORGANIZATION
-      - LOCATION
-      - GPE
-      - DATE
-      - TIME
-      - MONEY
-      - PERCENT
-    # Whether to extract relationships
+    - PERSON
+    - ORGANIZATION
+    - LOCATION
+    - GPE
+    - DATE
+    - TIME
+    - MONEY
+    - PERCENT
     extract_relationships: false
-    # Maximum text chunk size for processing
-    chunk_size: 100000 
+    chunk_size: 100000
+plugin_type: content
+provider_name: nltk
+entry_point: provider.NltkProvider

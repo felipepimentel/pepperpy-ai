@@ -504,18 +504,18 @@ class CLI:
 
                 # Try with just the workflow name first
                 try:
-                    workflow_provider = create_provider_instance(
+                    workflow_provider = await create_provider_instance(
                         "workflow", workflow_name, **config
                     )
                 except Exception:
                     # If that fails, try with the full path
                     try:
-                        workflow_provider = create_provider_instance(
+                        workflow_provider = await create_provider_instance(
                             "workflow", workflow_id, **config
                         )
                     except Exception:
                         # If that fails too, try with workflow/workflow/ prefix
-                        workflow_provider = create_provider_instance(
+                        workflow_provider = await create_provider_instance(
                             "workflow", f"workflow/{workflow_name}", **config
                         )
 

@@ -4,14 +4,13 @@ description: Basic text-to-speech provider using system voices
 author: PepperPy Team
 type: tts
 provider_class: BasicTTSProvider
-
 config_schema:
   type: object
   properties:
     voice:
       type: string
       description: System voice to use (platform dependent)
-      default: "default"
+      default: default
     rate:
       type: number
       description: Speaking rate (1.0 is normal speed)
@@ -27,20 +26,21 @@ config_schema:
     format:
       type: string
       description: Output audio format
-      default: "wav"
+      default: wav
       enum:
-        - wav
-        - mp3
-        - ogg
-
+      - wav
+      - mp3
+      - ogg
 metadata:
   display_name: System TTS
   provider_url: https://github.com/pimentel/pepperpy
   requires_api_key: false
   platforms:
-    - windows
-    - macos
-    - linux
-
+  - windows
+  - macos
+  - linux
 dependencies:
-  - pyttsx3>=2.90 
+- pyttsx3>=2.90
+plugin_type: plugins
+provider_name: basic
+entry_point: provider.BasicProvider

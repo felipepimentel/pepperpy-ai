@@ -4,6 +4,8 @@ description: Content processing workflow for extraction, normalization, generati
 author: PepperPy Team
 license: MIT
 type: workflow
+plugin_type: workflow
+provider_name: content_processing
 
 config_schema:
   output_dir:

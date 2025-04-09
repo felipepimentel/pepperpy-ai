@@ -7,6 +7,7 @@ Core plugin registration and retrieval functionality.
 from typing import Any
 
 from pepperpy.core.logging import get_logger
+from pepperpy.plugin.base import PluginInfo
 
 logger = get_logger(__name__)
 
@@ -36,6 +37,10 @@ class PluginRegistry:
             "content": {},
             "embeddings": {},
             "workflow": {},
+        }
+        # Dictionary to store plugin info objects for lazy loading
+        self._plugin_info: dict[str, dict[str, PluginInfo]] = {
+            domain: {} for domain in self._plugins.keys()
         }
         self._initialized = True
 
@@ -77,8 +82,86 @@ class PluginRegistry:
         else:
             logger.info(f"Registered plugin: {domain}/{name}")
 
-    def get_plugin(self, domain: str, name: str) -> Any | None:
-        """Get a plugin class.
+    def register_plugin_info(
+        self,
+        domain: str,
+        name: str,
+        plugin_info: PluginInfo,
+    ) -> None:
+        """Register plugin information for lazy loading.
+
+        Args:
+            domain: Plugin domain (llm, tts, etc.)
+            name: Plugin name
+            plugin_info: Plugin information
+        """
+        if domain not in self._plugin_info:
+            self._plugin_info[domain] = {}
+
+        # Register the plugin info
+        self._plugin_info[domain][name] = plugin_info
+
+        # For workflow plugins, also register without the domain prefix for compatibility
+        if domain == "workflow" and "/" in name:
+            # Extract the name without the domain prefix (after the slash)
+            clean_name = name.split("/", 1)[1]
+            self._plugin_info[domain][clean_name] = plugin_info
+            logger.info(
+                f"Registered plugin info: {domain}/{name} (also as {clean_name})"
+            )
+        else:
+            logger.info(f"Registered plugin info: {domain}/{name}")
+
+    async def load_plugin_if_needed(self, domain: str, name: str) -> Any | None:
+        """Load a plugin if it hasn't been loaded yet.
+
+        Args:
+            domain: Plugin domain
+            name: Plugin name
+
+        Returns:
+            Plugin class or None if not found
+        """
+        from pepperpy.plugin.discovery import load_plugin
+
+        # Check if plugin is already loaded
+        if domain in self._plugins and name in self._plugins[domain]:
+            return self._plugins[domain][name]["class"]
+
+        # Check if we have plugin info for lazy loading
+        plugin_info = None
+        if domain in self._plugin_info and name in self._plugin_info[domain]:
+            plugin_info = self._plugin_info[domain][name]
+        elif domain == "workflow":
+            # Special handling for workflow plugins
+            if "/" in name and name.split("/", 1)[1] in self._plugin_info[domain]:
+                plugin_info = self._plugin_info[domain][name.split("/", 1)[1]]
+            elif f"workflow/{name}" in self._plugin_info[domain]:
+                plugin_info = self._plugin_info[domain][f"workflow/{name}"]
+
+        if plugin_info:
+            try:
+                # Load the plugin
+                logger.info(f"Lazily loading plugin: {domain}/{name}")
+                plugin_class = await load_plugin(plugin_info)
+
+                # Register it in the normal registry
+                self.register_plugin(
+                    domain,
+                    name,
+                    plugin_class,
+                    {"name": plugin_info.name, "description": plugin_info.description},
+                )
+
+                return plugin_class
+            except Exception as e:
+                logger.error(f"Error lazily loading plugin {domain}/{name}: {e}")
+                return None
+
+        return None
+
+    async def get_plugin(self, domain: str, name: str) -> Any | None:
+        """Get a plugin class, loading it if necessary.
 
         Args:
             domain: Plugin domain
@@ -119,6 +202,11 @@ class PluginRegistry:
                         f"Found plugin with prefixed name: {domain}/{prefixed_name}"
                     )
                     return self._plugins[domain][prefixed_name]["class"]
+
+        # Plugin not found in loaded plugins, try to load it
+        plugin_class = await self.load_plugin_if_needed(domain, name)
+        if plugin_class:
+            return plugin_class
 
         logger.warning(f"Plugin not found: {domain}/{name}")
         return None
@@ -167,9 +255,10 @@ class PluginRegistry:
 plugin_registry = PluginRegistry()
 _registry_instance = plugin_registry  # Create a separate reference
 
+
 def get_registry() -> PluginRegistry:
     """Get the global plugin registry instance.
-    
+
     Returns:
         The global plugin registry instance
     """
@@ -195,8 +284,24 @@ def register_plugin(
     registry.register_plugin(domain, name, plugin_class, meta)
 
 
-def get_plugin(domain: str, name: str) -> Any | None:
-    """Get a plugin class.
+def register_plugin_info(
+    domain: str,
+    name: str,
+    plugin_info: PluginInfo,
+) -> None:
+    """Register plugin information for lazy loading.
+
+    Args:
+        domain: Plugin domain (llm, tts, etc.)
+        name: Plugin name
+        plugin_info: Plugin information
+    """
+    registry = get_registry()
+    registry.register_plugin_info(domain, name, plugin_info)
+
+
+async def get_plugin(domain: str, name: str) -> Any | None:
+    """Get a plugin class, loading it if necessary.
 
     Args:
         domain: Plugin domain
@@ -206,7 +311,7 @@ def get_plugin(domain: str, name: str) -> Any | None:
         Plugin class or None if not found
     """
     registry = get_registry()
-    return registry.get_plugin(domain, name)
+    return await registry.get_plugin(domain, name)
 
 
 def get_plugin_metadata(domain: str, name: str) -> dict[str, Any]:

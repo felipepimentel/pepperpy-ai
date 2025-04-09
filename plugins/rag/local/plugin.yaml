@@ -4,18 +4,17 @@ description: Local RAG provider for working with documents on the filesystem
 author: PepperPy Team
 type: rag
 provider_class: LocalRAGProvider
-
 config_schema:
   type: object
   properties:
     storage_path:
       type: string
       description: Path where embeddings and documents will be stored
-      default: "./data/rag"
+      default: ./data/rag
     embedding_model:
       type: string
       description: Embedding model to use for encoding documents
-      default: "sentence-transformers/all-mpnet-base-v2"
+      default: sentence-transformers/all-mpnet-base-v2
     similarity_top_k:
       type: integer
       description: Number of top similar documents to retrieve
@@ -37,17 +36,23 @@ config_schema:
       description: File extensions to process
       items:
         type: string
-      default: ["txt", "md", "pdf", "docx", "html"]
-
+      default:
+      - txt
+      - md
+      - pdf
+      - docx
+      - html
 metadata:
   display_name: Local RAG Provider
   provider_url: https://github.com/pimentel/pepperpy
   requires_api_key: false
-
 dependencies:
-  - sentence-transformers>=2.2.2
-  - langchain>=0.0.310
-  - langchain-community>=0.0.13
-  - chromadb>=0.4.18
-  - pypdf>=3.17.1
-  - python-docx>=1.0.1 
+- sentence-transformers>=2.2.2
+- langchain>=0.0.310
+- langchain-community>=0.0.13
+- chromadb>=0.4.18
+- pypdf>=3.17.1
+- python-docx>=1.0.1
+plugin_type: plugins
+provider_name: local
+entry_point: provider.LocalProvider

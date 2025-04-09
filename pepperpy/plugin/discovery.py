@@ -1,678 +1,64 @@
 """
-Plugin discovery module.
+PepperPy Plugin Discovery.
 
-This module provides functionality for discovering plugins in the filesystem,
-installed packages, and registry entries.
+Functionality for discovering PepperPy plugins.
 """
 
-import importlib
+from __future__ import annotations
+
+import importlib.metadata
 import importlib.util
 import inspect
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
-from pepperpy.core.errors import PepperpyError
+import yaml
+
 from pepperpy.core.logging import get_logger
-from pepperpy.plugin.base import (
-    PluginDiscoveryProtocol,
-    PluginInfo,
-    PluginSource,
-)
+from pepperpy.plugin.base import PepperpyPlugin, PluginDiscoveryProtocol, PluginInfo
+from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.plugin.registry import register_plugin_info
 
 logger = get_logger(__name__)
 
-
-class DiscoveryError(PepperpyError):
-    """Error raised during plugin discovery."""
-
-    pass
-
-
-class FileSystemDiscovery:
-    """Discovers plugins in the filesystem."""
-
-    def __init__(self, plugin_directories: list[str] | None = None):
-        """Initialize the filesystem discovery.
-
-        Args:
-            plugin_directories: List of directories to scan for plugins
-        """
-        self.plugin_directories = plugin_directories or []
-
-        # Add default plugin directories
-        self._add_default_directories()
-
-    def _add_default_directories(self) -> None:
-        """Add default plugin directories."""
-        # Add the current directory's plugins folder
-        cwd_plugins = os.path.join(os.getcwd(), "plugins")
-        if os.path.isdir(cwd_plugins) and cwd_plugins not in self.plugin_directories:
-            self.plugin_directories.append(cwd_plugins)
-
-        # Add user plugins directory
-        user_plugins = os.path.expanduser("~/.pepperpy/plugins")
-        if os.path.isdir(user_plugins) and user_plugins not in self.plugin_directories:
-            self.plugin_directories.append(user_plugins)
-
-        # Add system plugins directory if available
-        sys_plugins = "/etc/pepperpy/plugins"
-        if os.path.isdir(sys_plugins) and sys_plugins not in self.plugin_directories:
-            self.plugin_directories.append(sys_plugins)
-
-    async def discover_plugins(self) -> list[PluginInfo]:
-        """Discover plugins in registered directories.
-
-        Returns:
-            List of discovered plugin information
-        """
-        results = []
-
-        for directory in self.plugin_directories:
-            if not os.path.exists(directory):
-                logger.warning(f"Plugin directory does not exist: {directory}")
-                continue
-
-            logger.debug(f"Scanning directory for plugins: {directory}")
-            directory_results = await self._scan_directory(directory)
-            results.extend(directory_results)
-
-        return results
-
-    async def _scan_directory(self, directory: str) -> list[PluginInfo]:
-        """Scan a directory for plugins.
-
-        Args:
-            directory: Directory to scan
-
-        Returns:
-            List of discovered plugin information
-        """
-        results = []
-
-        for item in os.listdir(directory):
-            item_path = os.path.join(directory, item)
-
-            if not os.path.isdir(item_path):
-                continue
-
-            # Check for plugin.yaml file
-            plugin_yaml = os.path.join(item_path, "plugin.yaml")
-            if os.path.exists(plugin_yaml):
-                plugin_info = await self._load_plugin_info(item_path, plugin_yaml)
-                if plugin_info:
-                    results.append(plugin_info)
-
-            # Recursively scan subdirectories
-            subdir_results = await self._scan_directory(item_path)
-            results.extend(subdir_results)
-
-        return results
-
-    async def _load_plugin_info(
-        self, plugin_dir: str, plugin_yaml: str
-    ) -> PluginInfo | None:
-        """Load plugin information from a plugin.yaml file.
-
-        Args:
-            plugin_dir: Plugin directory
-            plugin_yaml: Path to plugin.yaml file
-
-        Returns:
-            Plugin information or None if not valid
-        """
-        try:
-            import yaml
-
-            with open(plugin_yaml) as f:
-                data = yaml.safe_load(f)
-
-            # Basic validation
-            required_fields = [
-                "name",
-                "version",
-                "description",
-                "plugin_type",
-                "provider_name",
-            ]
-            missing_fields = [field for field in required_fields if field not in data]
-
-            if missing_fields:
-                logger.warning(
-                    f"Invalid plugin.yaml in {plugin_dir}: missing fields: {missing_fields}"
-                )
-                return None
-
-            # Create plugin info
-            plugin_info = PluginInfo(
-                name=data["name"],
-                version=data["version"],
-                description=data["description"],
-                plugin_type=data["plugin_type"],
-                provider_type=data["provider_name"],
-                author=data.get("author", ""),
-                email=data.get("email", ""),
-                license=data.get("license", ""),
-                source=PluginSource.FILE,
-                path=plugin_dir,
-                module=data.get("entry_point", "provider").split(".")[0],
-                class_name=data.get("entry_point", "provider").split(".")[-1],
-            )
-
-            return plugin_info
-
-        except Exception as e:
-            logger.error(f"Error loading plugin.yaml from {plugin_dir}: {e}")
-            return None
-
-    async def _find_plugin_class(
-        self, plugin_dir: str, plugin_info: PluginInfo
-    ) -> type:
-        """Find the plugin class automatically.
-
-        This method searches for a class that inherits from the expected base class
-        according to the plugin type.
-
-        Args:
-            plugin_dir: Plugin directory
-            plugin_info: Plugin information
-
-        Returns:
-            The plugin class
-
-        Raises:
-            DiscoveryError: If plugin class cannot be found
-        """
-        # Add plugin directory to path temporarily
-        if plugin_dir not in sys.path:
-            sys.path.insert(0, plugin_dir)
-
-        try:
-            # First try common module names
-            possible_modules = [
-                "provider",
-                "workflow",
-                plugin_info.provider_type.lower(),
-            ]
-
-            # If entry_point is specified, use that module first
-            entry_point = plugin_info.module
-            if entry_point and entry_point not in possible_modules:
-                possible_modules.insert(0, entry_point)
-
-            # Attempt to import each possible module
-            for module_name in possible_modules:
-                try:
-                    module = importlib.import_module(module_name)
-
-                    # Look for classes with __pepperpy_plugin__ attribute first
-                    for attr_name in dir(module):
-                        attr = getattr(module, attr_name)
-
-                        # Check if it's a class with plugin metadata
-                        if not inspect.isclass(attr):
-                            continue
-
-                        # Check if class has plugin metadata
-                        if hasattr(attr, "__pepperpy_plugin__"):
-                            plugin_meta = attr.__pepperpy_plugin__
-                            # Check if plugin type matches
-                            if plugin_meta.get("type") == plugin_info.plugin_type:
-                                return attr
-
-                    # If no decorated class found, look for matching class names
-                    for attr_name in dir(module):
-                        attr = getattr(module, attr_name)
-
-                        # Check if it's a class and matches the provider type
-                        if not inspect.isclass(attr):
-                            continue
-
-                        # Match by class name pattern
-                        if (
-                            plugin_info.provider_type in attr_name
-                            or plugin_info.plugin_type.capitalize() in attr_name
-                            or "Provider" in attr_name
-                        ):
-                            # Additional validation could be done here
-                            # For example, check if it inherits from proper base class
-
-                            return attr
-
-                except ImportError:
-                    # This module doesn't exist, try the next one
-                    continue
-                except Exception as e:
-                    logger.warning(f"Error examining module {module_name}: {e}")
-                    continue
-
-            # If we reach here, we couldn't find a suitable class
-            # Try scanning all Python files
-            for root, _, files in os.walk(plugin_dir):
-                for file in files:
-                    if not file.endswith(".py"):
-                        continue
-
-                    try:
-                        file_path = os.path.join(root, file)
-                        module_name = os.path.splitext(os.path.basename(file))[0]
-
-                        # Skip __init__.py
-                        if module_name == "__init__":
-                            continue
-
-                        # Try to import via spec
-                        spec = importlib.util.spec_from_file_location(
-                            module_name, file_path
-                        )
-                        if spec and spec.loader:
-                            module = importlib.util.module_from_spec(spec)
-                            spec.loader.exec_module(module)
-
-                            # Look for classes with __pepperpy_plugin__ attribute first
-                            for attr_name in dir(module):
-                                attr = getattr(module, attr_name)
-
-                                if not inspect.isclass(attr):
-                                    continue
-
-                                # Check if class has plugin metadata
-                                if hasattr(attr, "__pepperpy_plugin__"):
-                                    plugin_meta = attr.__pepperpy_plugin__
-                                    # Check if plugin type matches
-                                    if (
-                                        plugin_meta.get("type")
-                                        == plugin_info.plugin_type
-                                    ):
-                                        return attr
-
-                            # If no decorated class found, look for matching class names
-                            for attr_name in dir(module):
-                                attr = getattr(module, attr_name)
-
-                                if not inspect.isclass(attr):
-                                    continue
-
-                                # Match by class name pattern
-                                if (
-                                    plugin_info.provider_type in attr_name
-                                    or plugin_info.plugin_type.capitalize() in attr_name
-                                    or "Provider" in attr_name
-                                    or "Workflow" in attr_name
-                                ):
-                                    return attr
-                    except Exception as e:
-                        logger.warning(f"Error examining file {file_path}: {e}")
-                        continue
-
-            # If no class found, fallback to default name based on provider_type
-            provider_class_name = f"{plugin_info.provider_type.capitalize()}Provider"
-            if plugin_info.plugin_type == "workflow":
-                provider_class_name = (
-                    f"{plugin_info.provider_type.capitalize()}Workflow"
-                )
-
-            # Try various modules with this class name
-            for module_name in possible_modules:
-                try:
-                    module = importlib.import_module(module_name)
-                    if hasattr(module, provider_class_name):
-                        return getattr(module, provider_class_name)
-                except (ImportError, AttributeError):
-                    pass
-
-            raise DiscoveryError(
-                f"Cannot find provider class for plugin {plugin_info.name}"
-            )
-
-        finally:
-            # Remove plugin directory from path
-            if plugin_dir in sys.path:
-                sys.path.remove(plugin_dir)
-
-    async def load_plugin(self, plugin_info: PluginInfo) -> Any:
-        """Load a plugin from its information.
-
-        Args:
-            plugin_info: Plugin information
-
-        Returns:
-            Loaded plugin class
-
-        Raises:
-            DiscoveryError: If the plugin cannot be loaded
-        """
-        if plugin_info.source != PluginSource.FILE:
-            raise DiscoveryError(
-                f"Cannot load plugin with source {plugin_info.source} using FileSystemDiscovery"
-            )
-
-        try:
-            # Add plugin path to Python path temporarily
-            if plugin_info.path and plugin_info.path not in sys.path:
-                sys.path.insert(0, plugin_info.path)
-
-            try:
-                # First check if class is already loaded
-                if plugin_info.is_loaded():
-                    return plugin_info.get_class()
-
-                # Import the module
-                module_name = plugin_info.module or "provider"
-                class_name = plugin_info.class_name or "Provider"
-
-                try:
-                    # Try normal import first
-                    module = importlib.import_module(module_name)
-
-                    # Try to get the class
-                    if hasattr(module, class_name):
-                        plugin_class = getattr(module, class_name)
-                    # If class not found in module, try auto-discovery
-                    elif plugin_info.path:
-                        plugin_class = await self._find_plugin_class(
-                            plugin_info.path, plugin_info
-                        )
-                    else:
-                        raise DiscoveryError(
-                            f"No path specified for plugin {plugin_info.name}"
-                        )
-
-                except ImportError:
-                    try:
-                        # Try with parent directory as the package
-                        parent_dir = os.path.basename(
-                            os.path.dirname(plugin_info.path or "")
-                        )
-                        module = importlib.import_module(f"{parent_dir}.{module_name}")
-
-                        # Try to get the class
-                        if hasattr(module, class_name):
-                            plugin_class = getattr(module, class_name)
-                        # If class not found in module, try auto-discovery
-                        elif plugin_info.path:
-                            plugin_class = await self._find_plugin_class(
-                                plugin_info.path, plugin_info
-                            )
-                        else:
-                            raise DiscoveryError(
-                                f"No path specified for plugin {plugin_info.name}"
-                            )
-                    except ImportError:
-                        # If still failing, try auto-discovery
-                        if plugin_info.path:
-                            plugin_class = await self._find_plugin_class(
-                                plugin_info.path, plugin_info
-                            )
-                        else:
-                            raise DiscoveryError(
-                                f"No path specified for plugin {plugin_info.name}"
-                            )
-
-                # Set the class in plugin info
-                plugin_info._plugin_class = plugin_class
-                plugin_info._loaded = True
-
-                return plugin_class
-
-            finally:
-                # Remove from path
-                if plugin_info.path and plugin_info.path in sys.path:
-                    sys.path.remove(plugin_info.path)
-
-        except (ImportError, AttributeError) as e:
-            raise DiscoveryError(f"Failed to load plugin {plugin_info.name}: {e}")
-
-
-class PackageDiscovery:
-    """Discovers plugins from installed Python packages."""
-
-    async def discover_plugins(self) -> list[PluginInfo]:
-        """Discover plugins from installed packages.
-
-        Returns:
-            List of discovered plugin information
-        """
-        results = []
-
-        # Look for entry points in group 'pepperpy.plugins'
-        try:
-            import importlib.metadata
-
-            entry_points = importlib.metadata.entry_points()
-
-            # Handle different versions of importlib.metadata
-            if hasattr(entry_points, "select"):
-                # Python 3.10+
-                plugin_entries = entry_points.select(group="pepperpy.plugins")
-            elif hasattr(entry_points, "get"):
-                # Python < 3.10
-                plugin_entries = entry_points.get("pepperpy.plugins", [])
-            else:
-                logger.warning(
-                    "Cannot discover plugins from entry points: unsupported importlib.metadata"
-                )
-                return []
-
-            for entry_point in plugin_entries:
-                try:
-                    # Load the entry point
-                    plugin_info = await self._load_entry_point(entry_point)
-                    if plugin_info:
-                        results.append(plugin_info)
-                except Exception as e:
-                    logger.error(f"Error loading entry point {entry_point.name}: {e}")
-
-        except (ImportError, AttributeError) as e:
-            logger.warning(f"Cannot discover plugins from entry points: {e}")
-
-        return results
-
-    async def _load_entry_point(self, entry_point: Any) -> PluginInfo | None:
-        """Load plugin information from an entry point.
-
-        Args:
-            entry_point: Entry point
-
-        Returns:
-            Plugin information or None if not valid
-        """
-        try:
-            # Load the entry point
-            plugin_class = entry_point.load()
-
-            # Extract plugin info from the class
-            if not hasattr(plugin_class, "plugin_info"):
-                logger.warning(
-                    f"Entry point {entry_point.name} does not define plugin_info"
-                )
-                return None
-
-            info = plugin_class.plugin_info
-
-            # Create plugin info
-            plugin_info = PluginInfo(
-                name=info.get("name", entry_point.name),
-                version=info.get("version", "0.1.0"),
-                description=info.get("description", ""),
-                plugin_type=info.get("plugin_type", "unknown"),
-                provider_type=info.get("provider_type", entry_point.name),
-                author=info.get("author", ""),
-                email=info.get("email", ""),
-                license=info.get("license", ""),
-                source=PluginSource.ENTRY_POINT,
-                entry_point=entry_point.name,
-                module=entry_point.value.split(":")[0],
-                class_name=entry_point.value.split(":")[-1],
-            )
-
-            # Set the class
-            plugin_info._plugin_class = plugin_class
-            plugin_info._loaded = True
-
-            return plugin_info
-
-        except Exception as e:
-            logger.error(f"Error loading entry point {entry_point.name}: {e}")
-            return None
-
-    async def load_plugin(self, plugin_info: PluginInfo) -> Any:
-        """Load a plugin from its information.
-
-        Args:
-            plugin_info: Plugin information
-
-        Returns:
-            Loaded plugin class
-
-        Raises:
-            DiscoveryError: If the plugin cannot be loaded
-        """
-        if plugin_info.source != PluginSource.ENTRY_POINT:
-            raise DiscoveryError(
-                f"Cannot load plugin with source {plugin_info.source} using PackageDiscovery"
-            )
-
-        if plugin_info.is_loaded():
-            return plugin_info.get_class()
-
-        try:
-            import importlib.metadata
-
-            # Get entry points
-            entry_points = importlib.metadata.entry_points()
-
-            # Handle different versions
-            if hasattr(entry_points, "select"):
-                # Python 3.10+
-                plugin_entries = entry_points.select(group="pepperpy.plugins")
-            elif hasattr(entry_points, "get"):
-                # Python < 3.10
-                plugin_entries = entry_points.get("pepperpy.plugins", [])
-            else:
-                raise DiscoveryError("Unsupported importlib.metadata")
-
-            # Find the entry point
-            entry_point = None
-            for ep in plugin_entries:
-                if ep.name == plugin_info.entry_point:
-                    entry_point = ep
-                    break
-
-            if not entry_point:
-                raise DiscoveryError(
-                    f"Entry point not found: {plugin_info.entry_point}"
-                )
-
-            # Load the entry point
-            plugin_class = entry_point.load()
-
-            # Set the class
-            plugin_info._plugin_class = plugin_class
-            plugin_info._loaded = True
-
-            return plugin_class
-
-        except Exception as e:
-            raise DiscoveryError(f"Failed to load plugin {plugin_info.name}: {e}")
-
-
-# Create discovery providers
-file_system_discovery = FileSystemDiscovery()
-package_discovery = PackageDiscovery()
-
-
-async def discover_plugins() -> list[PluginInfo]:
-    """Discover available plugins.
-
-    Returns:
-        List of discovered plugin information
-    """
-    from pepperpy.plugin.registry import get_registry
-
-    # Get singleton registry instance
-    registry = get_registry()
-    logger.info(f"Using registry with id: {id(registry)}")
-
-    # Discover plugins from filesystem
-    fs_plugins = await file_system_discovery.discover_plugins()
-
-    # Discover plugins from packages
-    pkg_plugins = await package_discovery.discover_plugins()
-
-    # Combine results
-    plugins = fs_plugins + pkg_plugins
-
-    # Debug print the registry BEFORE registering plugins
-    logger.info(f"DEBUG: Registry BEFORE - domains: {list(registry._plugins.keys())}")
-    for domain, domain_plugins in registry._plugins.items():
-        logger.info(f"DEBUG: Registry BEFORE - {domain}: {list(domain_plugins.keys())}")
-
-    # Register discovered plugins
-    for plugin_info in plugins:
-        try:
-            # Load the plugin class
-            if plugin_info.source == PluginSource.FILE:
-                plugin_class = await file_system_discovery.load_plugin(plugin_info)
-            elif plugin_info.source == PluginSource.ENTRY_POINT:
-                plugin_class = await package_discovery.load_plugin(plugin_info)
-            else:
-                logger.warning(f"Unsupported plugin source: {plugin_info.source}")
-                continue
-
-            # Register the plugin
-            if plugin_info.plugin_type == "workflow":
-                # For workflow plugins, use the name directly without any prefix
-                # First clean up any existing workflow prefixes
-                clean_name = plugin_info.name
-                if clean_name.startswith("workflow."):
-                    clean_name = clean_name[len("workflow.") :]
-                elif clean_name.startswith("workflow/"):
-                    clean_name = clean_name[len("workflow/") :]
-
-                # Register with workflow/ prefix
-                workflow_name = f"workflow/{clean_name}"
-
-                # Register both formats directly into the registry's _plugins dict
-                if "workflow" not in registry._plugins:
-                    registry._plugins["workflow"] = {}
-
-                registry._plugins["workflow"][workflow_name] = {
-                    "class": plugin_class,
-                    "meta": plugin_info.metadata or {},
-                }
-                registry._plugins["workflow"][clean_name] = {
-                    "class": plugin_class,
-                    "meta": plugin_info.metadata or {},
-                }
-
-                logger.info(
-                    f"Registered workflow plugin: {clean_name} (and {workflow_name})"
-                )
-            else:
-                # For other plugins, use the type prefix
-                plugin_name = f"{plugin_info.plugin_type}.{plugin_info.name}"
-
-                # Register directly into the registry
-                if plugin_info.plugin_type not in registry._plugins:
-                    registry._plugins[plugin_info.plugin_type] = {}
-
-                registry._plugins[plugin_info.plugin_type][plugin_name] = {
-                    "class": plugin_class,
-                    "meta": plugin_info.metadata or {},
-                }
-
-                logger.info(f"Registered plugin: {plugin_name}")
-
-        except Exception as e:
-            logger.error(f"Error registering plugin {plugin_info.name}: {e}")
-
-    # Debug print the registry AFTER registering plugins
-    logger.info(f"DEBUG: Registry AFTER - domains: {list(registry._plugins.keys())}")
-    for domain, domain_plugins in registry._plugins.items():
-        logger.info(f"DEBUG: Registry AFTER - {domain}: {list(domain_plugins.keys())}")
-
-    return plugins
+# Known discovery providers
+_discovery_providers: dict[str, Any] = {}
+
+DEFAULT_PLUGIN_TYPES = [
+    "llm",
+    "tts",
+    "agent",
+    "tool",
+    "cache",
+    "discovery",
+    "storage",
+    "rag",
+    "content",
+    "embeddings",
+    "workflow",
+]
+
+PROVIDER_PLUGIN_MAP = {
+    "llm": "LLMProvider",
+    "tts": "TTSProvider",
+    "agent": "AgentProvider",
+    "tool": "ToolProvider",
+    "cache": "CacheProvider",
+    "storage": "StorageProvider",
+    "rag": "RAGProvider",
+    "content": "ContentProvider",
+    "embeddings": "EmbeddingsProvider",
+    "workflow": "WorkflowProvider",
+}
+
+# Global flag to track if we've already set the environment variable
+_set_modules_env = False
+
+
+class DiscoveryError(Exception):
+    """Error during plugin discovery."""
 
 
 async def load_plugin(plugin_info: PluginInfo) -> Any:
@@ -682,40 +68,87 @@ async def load_plugin(plugin_info: PluginInfo) -> Any:
         plugin_info: Plugin information
 
     Returns:
-        Loaded plugin class
+        Plugin class
 
     Raises:
-        DiscoveryError: If the plugin cannot be loaded
+        DiscoveryError: If plugin cannot be loaded
     """
-    if plugin_info.is_loaded():
-        return plugin_info.get_class()
+    plugin_class = None
 
-    if plugin_info.source == PluginSource.FILE:
-        return await file_system_discovery.load_plugin(plugin_info)
-    elif plugin_info.source == PluginSource.ENTRY_POINT:
-        return await package_discovery.load_plugin(plugin_info)
-    else:
-        raise DiscoveryError(f"Unsupported plugin source: {plugin_info.source}")
+    # Check if the plugin is already loaded
+    if plugin_info.module_path and plugin_info.module_name:
+        # Import the module
+        try:
+            logger.info(f"Loading plugin from {plugin_info.module_path}")
+            spec = importlib.util.spec_from_file_location(
+                plugin_info.module_name, plugin_info.module_path
+            )
+
+            if not spec or not spec.loader:
+                raise DiscoveryError(
+                    f"Cannot load module spec for {plugin_info.module_path}"
+                )
+
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[plugin_info.module_name] = module
+            spec.loader.exec_module(module)
+
+            # Find the plugin class
+            plugin_type = plugin_info.plugin_type
+            provider_name = plugin_info.provider_name
+
+            if not plugin_type or not provider_name:
+                raise DiscoveryError(
+                    f"Missing plugin_type or provider_name in {plugin_info.module_path}"
+                )
+
+            plugin_class = _find_plugin_class(
+                module, plugin_type, provider_name, plugin_info
+            )
+
+        except Exception as e:
+            logger.exception(
+                f"Error loading plugin from {plugin_info.module_path}: {e}"
+            )
+            raise DiscoveryError(f"Error loading plugin: {e}")
+
+    return plugin_class
 
 
-class PluginDiscoveryProvider(PluginDiscoveryProtocol):
-    """Default implementation of the PluginDiscoveryProtocol."""
+class FileSystemDiscovery(PluginDiscoveryProtocol):
+    """Discovery provider for plugins in the filesystem."""
 
-    def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """Initialize the discovery provider.
+    def __init__(self, plugin_directories: list[str] | None = None):
+        """Initialize."""
+        self._dirs: set[str] = set()
+        self._plugins: dict[str, Any] = {}
+        if plugin_directories:
+            for directory in plugin_directories:
+                self.add_directory(directory)
+
+    def add_directory(self, directory: str | Path) -> None:
+        """Add a directory to scan for plugins.
 
         Args:
-            config: Provider configuration
+            directory: Directory path
         """
-        self.config = config or {}
+        directory_str = str(directory)
+        self._dirs.add(directory_str)
 
-    async def discover_plugins(self) -> list[PluginInfo]:
-        """Discover available plugins.
+    def add_default_directories(self) -> None:
+        """Add default directories to scan."""
+        # Add the "plugins" directory in the current working directory
+        self.add_directory(os.path.join(os.getcwd(), "plugins"))
+
+    async def discover_plugins(self) -> dict[str, Any]:
+        """Discover plugins.
 
         Returns:
-            List of discovered plugin information
+            Dict of plugins by domain
         """
-        return await discover_plugins()
+        for directory in self._dirs:
+            self._scan_directory(directory)
+        return self._plugins
 
     async def load_plugin(self, plugin_info: PluginInfo) -> Any:
         """Load a plugin from its information.
@@ -728,7 +161,486 @@ class PluginDiscoveryProvider(PluginDiscoveryProtocol):
         """
         return await load_plugin(plugin_info)
 
-    async def cleanup(self) -> None:
-        """Clean up any resources."""
-        # Currently no resources to clean up
-        pass
+    def _scan_directory(self, directory: str, recursion_depth: int = 0) -> None:
+        """Scan a directory for plugins.
+
+        Args:
+            directory: Directory path
+            recursion_depth: Recursion depth
+        """
+        max_recursion_depth = 2  # Limit recursion to 2 levels
+
+        logger.info(f"Scanning directory: {directory}")
+
+        if not os.path.exists(directory):
+            logger.warning(f"Directory does not exist: {directory}")
+            return
+
+        # List all items in the directory
+        try:
+            items = os.listdir(directory)
+        except OSError as e:
+            logger.error(f"Error listing directory {directory}: {e}")
+            return
+
+        for item in items:
+            item_path = os.path.join(directory, item)
+
+            # Check if the item is a directory
+            if os.path.isdir(item_path):
+                # Skip directories with a .disabled file
+                if os.path.exists(os.path.join(item_path, ".disabled")):
+                    logger.info(f"Skipping disabled plugin in directory: {item_path}")
+                    continue
+
+                # Check if plugin.yaml exists in the directory
+                plugin_yaml = os.path.join(item_path, "plugin.yaml")
+                if os.path.exists(plugin_yaml):
+                    # Load plugin information
+                    plugin_info = self._load_plugin_info(plugin_yaml, item_path)
+
+                    if plugin_info:
+                        # Register plugin info for lazy loading instead of loading it immediately
+                        domain = plugin_info.plugin_type
+                        name = (
+                            f"{domain}/{plugin_info.provider_name}"
+                            if domain != "discovery"
+                            else plugin_info.provider_name
+                        )
+
+                        register_plugin_info(domain, name, plugin_info)
+                        logger.debug(f"Registered plugin info: {domain}/{name}")
+
+                        # Add to the local plugins dict for compatibility
+                        if domain not in self._plugins:
+                            self._plugins[domain] = {}
+                        self._plugins[domain][name] = plugin_info
+                # Recurse into subdirectories up to max_recursion_depth
+                elif recursion_depth < max_recursion_depth:
+                    self._scan_directory(item_path, recursion_depth + 1)
+
+    def _load_plugin_info(self, yaml_file: str, plugin_dir: str) -> PluginInfo | None:
+        """Load plugin information from a yaml file.
+
+        Args:
+            yaml_file: Path to plugin.yaml file
+            plugin_dir: Plugin directory
+
+        Returns:
+            Plugin information or None
+        """
+        try:
+            with open(yaml_file, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+
+            # Check required fields
+            required_fields = [
+                "name",
+                "version",
+                "description",
+                "plugin_type",
+                "provider_name",
+            ]
+            for field in required_fields:
+                if field not in data:
+                    logger.warning(f"Missing required field '{field}' in {yaml_file}")
+                    return None
+
+            plugin_type = data["plugin_type"]
+            provider_name = data["provider_name"]
+
+            # Look for the plugin implementation
+            if plugin_type in [
+                "llm",
+                "tts",
+                "agent",
+                "tool",
+                "cache",
+                "storage",
+                "rag",
+                "content",
+                "embeddings",
+                "workflow",
+            ]:
+                # Look for <plugin_type>_provider.py or provider.py
+                provider_file = os.path.join(plugin_dir, f"{plugin_type}_provider.py")
+                if not os.path.exists(provider_file):
+                    provider_file = os.path.join(plugin_dir, "provider.py")
+
+                if not os.path.exists(provider_file):
+                    # Look for <provider_name>.py
+                    provider_file = os.path.join(plugin_dir, f"{provider_name}.py")
+
+                # For workflow plugins, also check for workflow.py
+                if not os.path.exists(provider_file) and plugin_type == "workflow":
+                    workflow_file = os.path.join(plugin_dir, "workflow.py")
+                    if os.path.exists(workflow_file):
+                        provider_file = workflow_file
+
+                if not os.path.exists(provider_file):
+                    logger.warning(
+                        f"Cannot find provider implementation in {plugin_dir}"
+                    )
+                    return None
+
+                # Create a unique module name based on plugin directory path
+                module_name = f"pepperpy_plugin_{plugin_type}_{provider_name}_{hash(plugin_dir) & 0xFFFFFFFF}"
+
+                return PluginInfo(
+                    name=data["name"],
+                    version=data["version"],
+                    description=data["description"],
+                    provider_name=provider_name,
+                    plugin_type=plugin_type,
+                    module_path=provider_file,
+                    module_name=module_name,
+                    class_name=None,  # Will be discovered during loading
+                    config=data.get("config", {}),
+                )
+            else:
+                logger.warning(f"Unknown plugin type '{plugin_type}' in {yaml_file}")
+                return None
+
+        except Exception as e:
+            logger.exception(f"Error loading plugin info from {yaml_file}: {e}")
+            return None
+
+        return None
+
+
+def _find_plugin_class(
+    module: Any, plugin_type: str, provider_name: str, plugin_info: PluginInfo
+) -> Any:
+    """Find the plugin class in the given module.
+
+    Args:
+        module: Module to search
+        plugin_type: Plugin type (llm, tts, etc.)
+        provider_name: Provider name
+        plugin_info: Plugin information
+
+    Returns:
+        Plugin class or None
+
+    Raises:
+        DiscoveryError: If plugin class cannot be found
+    """
+    # Check if there's a class with the expected name pattern
+    provider_class_name = PROVIDER_PLUGIN_MAP.get(plugin_type)
+    if not provider_class_name:
+        raise DiscoveryError(
+            f"No provider class mapping for plugin type: {plugin_type}"
+        )
+
+    logger.debug(
+        f"Looking for provider class {provider_class_name} in {module.__name__}"
+    )
+
+    # Store all potential matches to prioritize them later
+    potential_matches = []
+
+    # First pass - collect all potential classes
+    for name, obj in inspect.getmembers(module):
+        if not inspect.isclass(obj):
+            continue
+
+        # Skip abstract classes - this is the key fix
+        if inspect.isabstract(obj):
+            logger.debug(f"Skipping abstract class: {name}")
+            continue
+
+        # If the class name is already known, it's a strong match
+        if plugin_info.class_name and name == plugin_info.class_name:
+            return obj
+
+        # Check if this class inherits from ProviderPlugin
+        if _is_provider_plugin(obj, plugin_type):
+            logger.info(f"Found provider class: {name}")
+            potential_matches.append((obj, 100))  # Highest priority
+            continue
+
+        # Check for exact match with provider class name
+        if name == provider_class_name:
+            potential_matches.append((obj, 90))
+            continue
+
+        # Check for name that ends with the provider class name
+        if name.endswith(provider_class_name):
+            potential_matches.append((obj, 80))
+            continue
+
+        # Check for any *Provider class
+        if "Provider" in name:
+            potential_matches.append((obj, 70))
+            continue
+
+        # Finally, check for any class that inherits from Plugin
+        if _is_plugin(obj):
+            potential_matches.append((obj, 60))
+            continue
+
+    # Sort by priority (highest first) and return the best match
+    if potential_matches:
+        potential_matches.sort(key=lambda x: x[1], reverse=True)
+        logger.info(f"Selected provider class: {potential_matches[0][0].__name__}")
+        return potential_matches[0][0]
+
+    # If we couldn't find a non-abstract class, we can look for the best abstract class as fallback
+    for name, obj in inspect.getmembers(module):
+        if not inspect.isclass(obj) or not inspect.isabstract(obj):
+            continue
+
+        if _is_plugin(obj):
+            logger.warning(
+                f"Found only abstract plugin class: {name}, this may cause instantiation errors"
+            )
+            return obj
+
+    raise DiscoveryError(
+        f"Cannot find provider class for {plugin_type}/{provider_name} in {module.__name__}"
+    )
+
+
+def _is_plugin(obj: Any) -> bool:
+    """Check if the given object is a Plugin.
+
+    Args:
+        obj: Object to check
+
+    Returns:
+        True if the object is a Plugin
+    """
+    return inspect.isclass(obj) and issubclass(obj, PepperpyPlugin)
+
+
+def _is_provider_plugin(obj: Any, plugin_type: str) -> bool:
+    """Check if the given object is a ProviderPlugin of the specified type.
+
+    Args:
+        obj: Object to check
+        plugin_type: Plugin type (llm, tts, etc.)
+
+    Returns:
+        True if the object is a ProviderPlugin of the specified type
+    """
+    if not inspect.isclass(obj) or not issubclass(obj, BasePluginProvider):
+        return False
+
+    # Check if plugin_type is defined in the class attributes or via class annotation
+    # For BasePluginProvider, we need to check attributes more carefully
+    try:
+        # Try direct attribute access safely without triggering the linter
+        plugin_type_value = getattr(obj, "plugin_type", None)
+        if plugin_type_value is not None and plugin_type_value == plugin_type:
+            return True
+
+        # Check class annotations or attributes
+        class_annotations = getattr(obj, "__annotations__", {})
+        if "plugin_type" in class_annotations:
+            return True
+
+        return False
+    except Exception:
+        return False
+
+
+class PackageDiscovery(PluginDiscoveryProtocol):
+    """Discovery provider for plugins in installed packages."""
+
+    def __init__(self) -> None:
+        """Initialize."""
+        self._plugins: dict[str, Any] = {}
+
+    async def discover_plugins(self) -> dict[str, Any]:
+        """Discover plugins.
+
+        Returns:
+            Dict of plugins by domain
+        """
+        try:
+            # Look for entry points in the group "pepperpy.plugins"
+            # Handle different versions of importlib.metadata
+            try:
+                # Python 3.10+
+                entry_points = importlib.metadata.entry_points(group="pepperpy.plugins")
+                # Convert to list for compatibility with both versions
+                entry_points_list = list(entry_points)
+            except TypeError:
+                # Python < 3.10
+                entry_points = importlib.metadata.entry_points()
+                # Filter entry points manually for older Python versions
+                entry_points_list = [
+                    ep for ep in entry_points if ep.group == "pepperpy.plugins"
+                ]
+
+            for entry_point in entry_points_list:
+                plugin_info = self._load_entry_point(entry_point)
+                if plugin_info:
+                    # Register plugin info for lazy loading
+                    domain = plugin_info.plugin_type
+                    name = (
+                        f"{domain}/{plugin_info.provider_name}"
+                        if domain != "discovery"
+                        else plugin_info.provider_name
+                    )
+
+                    register_plugin_info(domain, name, plugin_info)
+                    logger.debug(
+                        f"Registered plugin info from entry point: {domain}/{name}"
+                    )
+
+                    # Add to the local plugins dict for compatibility
+                    if domain not in self._plugins:
+                        self._plugins[domain] = {}
+                    self._plugins[domain][name] = plugin_info
+
+        except Exception as e:
+            logger.exception(f"Error discovering plugins from packages: {e}")
+
+        return self._plugins
+
+    async def load_plugin(self, plugin_info: PluginInfo) -> Any:
+        """Load a plugin from its information.
+
+        Args:
+            plugin_info: Plugin information
+
+        Returns:
+            Loaded plugin class
+        """
+        return await load_plugin(plugin_info)
+
+    def _load_entry_point(self, entry_point: Any) -> PluginInfo | None:
+        """Load plugin information from an entry point.
+
+        Args:
+            entry_point: Entry point
+
+        Returns:
+            Plugin information or None
+        """
+        try:
+            # Load the entry point
+            plugin_class = entry_point.load()
+
+            # Check if it's a Plugin
+            if not _is_plugin(plugin_class):
+                logger.warning(
+                    f"Entry point {entry_point.name} does not provide a Plugin"
+                )
+                return None
+
+            # Extract plugin information
+            name = getattr(plugin_class, "name", entry_point.name)
+            version = getattr(plugin_class, "version", "0.0.0")
+            description = getattr(plugin_class, "description", "")
+            plugin_type = getattr(plugin_class, "plugin_type", None)
+            provider_name = getattr(plugin_class, "provider_name", None)
+
+            if not plugin_type:
+                logger.warning(
+                    f"Entry point {entry_point.name} does not specify a plugin_type"
+                )
+                return None
+
+            if not provider_name:
+                logger.warning(
+                    f"Entry point {entry_point.name} does not specify a provider_name"
+                )
+                return None
+
+            # Create plugin info
+            plugin_info = PluginInfo(
+                name=name,
+                version=version,
+                description=description,
+                provider_name=provider_name,
+                plugin_type=plugin_type,
+                class_name=plugin_class.__name__,
+                module_name=plugin_class.__module__,
+                module_path=None,  # Not applicable for entry points
+                config={},
+            )
+
+            return plugin_info
+
+        except Exception as e:
+            logger.exception(f"Error loading entry point {entry_point.name}: {e}")
+            return None
+
+
+class PluginDiscoveryProvider(PluginDiscoveryProtocol):
+    """Plugin discovery provider."""
+
+    def __init__(
+        self, discovery_providers: list[PluginDiscoveryProtocol] | None = None
+    ):
+        """Initialize."""
+        self._discovery_providers: list[PluginDiscoveryProtocol] = []
+        if discovery_providers:
+            self._discovery_providers.extend(discovery_providers)
+        self._init_discovery_providers()
+
+    def _init_discovery_providers(self) -> None:
+        """Initialize discovery providers."""
+        # Add file system discovery
+        fs_discovery = FileSystemDiscovery()
+        fs_discovery.add_default_directories()
+        self._discovery_providers.append(fs_discovery)
+
+        # Add package discovery
+        package_discovery = PackageDiscovery()
+        self._discovery_providers.append(package_discovery)
+
+    async def discover_plugins(self) -> dict[str, Any]:
+        """Discover plugins.
+
+        Returns:
+            Dict of plugins by domain
+        """
+        all_plugins: dict[str, dict[str, Any]] = {}
+
+        for provider in self._discovery_providers:
+            plugins = await provider.discover_plugins()
+
+            # Merge plugins
+            for domain, domain_plugins in plugins.items():
+                if domain not in all_plugins:
+                    all_plugins[domain] = {}
+                all_plugins[domain].update(domain_plugins)
+
+        return all_plugins
+
+    async def load_plugin(self, plugin_info: PluginInfo) -> Any:
+        """Load a plugin from its information.
+
+        Args:
+            plugin_info: Plugin information
+
+        Returns:
+            Loaded plugin class
+        """
+        return await load_plugin(plugin_info)
+
+
+_discovery_provider = PluginDiscoveryProvider()
+
+
+def get_discovery_provider() -> PluginDiscoveryProtocol:
+    """Get the default discovery provider.
+
+    Returns:
+        The default discovery provider
+    """
+    global _discovery_provider
+    return _discovery_provider
+
+
+async def discover_plugins() -> dict[str, Any]:
+    """Discover plugins.
+
+    Returns:
+        Dict of plugins by domain
+    """
+    provider = get_discovery_provider()
+    return await provider.discover_plugins()
