@@ -1,0 +1,308 @@
+name: agentic_mesh
+version: 0.1.0
+description: "A composable agent orchestration system for collaborative AI workflows"
+type: workflow
+author: "PepperPy Team"
+license: MIT
+
+entrypoint: workflow.py:AgenticMeshWorkflow
+
+dependencies:
+  - agent
+  - communication
+  - knowledge
+
+parameters:
+  workflow_name:
+    type: string
+    description: "Name of this agentic mesh workflow instance"
+    required: true
+  components:
+    type: object
+    description: "Components used by the mesh"
+    required: true
+    properties:
+      agent_registry:
+        type: string
+        description: "Provider ID for the agent registry (e.g., agent/registry)"
+        required: true
+      knowledge_provider:
+        type: string
+        description: "Provider ID for the knowledge store (e.g., knowledge/shared_memory)"
+        required: true
+      communication_provider:
+        type: string
+        description: "Provider ID for inter-agent communication (e.g., communication/pubsub)"
+        required: true
+  agents:
+    type: array
+    description: "List of agents in the mesh"
+    required: true
+    items:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          description: "Unique identifier for the agent"
+          required: true
+        agent_type:
+          type: string
+          description: "Type of agent (analytical, decision, conversion, execution)"
+          enum: ["analytical", "decision", "conversion", "execution"]
+          required: true
+        provider_type:
+          type: string
+          description: "Provider type for the agent implementation"
+          required: true
+        parameters:
+          type: object
+          description: "Configuration parameters for the agent"
+          required: false
+  default_routing:
+    type: object
+    description: "Default routing rules for task types"
+    required: false
+  log_level:
+    type: string
+    description: "Logging level for the mesh"
+    enum: ["DEBUG", "INFO", "WARNING", "ERROR"]
+    default: "INFO"
+    required: false
+
+input_schema:
+  type: object
+  properties:
+    action:
+      type: string
+      description: "Action to perform"
+      enum: ["run_task", "broadcast_message", "direct_message", "status", "add_agent", "remove_agent"]
+      required: true
+    task:
+      type: string
+      description: "Task description or instruction"
+      required: false
+    target_agent:
+      type: string
+      description: "Target agent ID for direct messages"
+      required: false
+    message:
+      type: object
+      description: "Message to broadcast or send directly"
+      required: false
+    parameters:
+      type: object
+      description: "Additional parameters for the action"
+      required: false
+    detailed:
+      type: boolean
+      description: "Whether to include detailed information in status reports"
+      default: false
+      required: false
+
+output_schema:
+  type: object
+  properties:
+    status:
+      type: string
+      description: "Status of the operation"
+      enum: ["success", "error", "pending"]
+    result:
+      type: object
+      description: "Result data from the operation"
+      required: false
+    error:
+      type: string
+      description: "Error message if status is 'error'"
+      required: false
+    agents:
+      type: array
+      description: "List of agent details when requesting status"
+      required: false
+    messages:
+      type: array
+      description: "List of messages when relevant to the operation"
+      required: false
+
+config_schema:
+  type: object
+  properties:
+    workflow_name:
+      type: string
+      description: Nome identificador do workflow
+      default: default_mesh
+    components:
+      type: object
+      description: Componentes do Agentic Mesh
+      properties:
+        agent_registry:
+          type: string
+          description: Provedor para o registro de agentes (plugin_type/provider_name)
+        knowledge_provider:
+          type: string
+          description: Provedor para a base de conhecimento (plugin_type/provider_name)
+        communication_provider:
+          type: string
+          description: Provedor para comunicação entre agentes (plugin_type/provider_name)
+      required: ["agent_registry", "communication_provider"]
+    agents:
+      type: array
+      description: Lista de agentes a serem criados no mesh
+      items:
+        type: object
+        properties:
+          agent_id:
+            type: string
+            description: Identificador único do agente
+          agent_type:
+            type: string
+            description: Tipo do agente (analytical, decision, conversion, execution)
+          provider_type:
+            type: string
+            description: Provedor para o agente (plugin_type/provider_name)
+          config:
+            type: object
+            description: Configuração específica do agente
+        required: ["agent_id", "agent_type", "provider_type"]
+
+default_config:
+  workflow_name: default_mesh
+  components:
+    agent_registry: registry/in_memory
+    communication_provider: communication/pubsub
+  agents: []
+
+documentation:
+  summary: |
+    O Agentic Mesh é uma arquitetura que organiza múltiplos agentes de IA em um sistema conectado
+    e colaborativo. Cada agente possui uma especialidade e trabalha em conjunto com outros agentes
+    para resolver problemas complexos.
+    
+    Este workflow orquestra a criação, configuração e comunicação entre os agentes, utilizando
+    plugins independentes para cada capacidade.
+  
+  usage: |
+    Este workflow permite criar uma rede de agentes especializados que trabalham em conjunto.
+    Você pode definir diferentes tipos de agentes (analíticos, de decisão, de conversão e de execução)
+    e configurar como eles se comunicam entre si.
+    
+    Cada componente do Agentic Mesh é fornecido por um plugin independente, seguindo
+    a filosofia composable da PepperPy.
+  
+  examples:
+    - title: Mesh Básico
+      code: |
+        from pepperpy import PepperPy
+        
+        async def run_basic_mesh():
+            pp = PepperPy()
+            
+            # Carregar o workflow
+            agentic_mesh = await pp.get_provider(
+                "workflow", 
+                "agentic_mesh", 
+                workflow_name="basic_mesh",
+                components={
+                    "agent_registry": "registry/in_memory",
+                    "communication_provider": "communication/pubsub"
+                },
+                agents=[
+                    {
+                        "agent_id": "analyzer",
+                        "agent_type": "analytical",
+                        "provider_type": "agent/openai"
+                    },
+                    {
+                        "agent_id": "executor",
+                        "agent_type": "execution",
+                        "provider_type": "agent/local_tools"
+                    }
+                ]
+            )
+            
+            # Inicializar o mesh
+            await agentic_mesh.initialize()
+            
+            # Executar uma tarefa no mesh
+            result = await agentic_mesh.execute({
+                "action": "run_task",
+                "task": "Analyze the market data and generate a report"
+            })
+            
+            print(result)
+            
+            # Limpar recursos
+            await agentic_mesh.cleanup()
+    
+    - title: Mesh Customizado
+      code: |
+        from pepperpy import PepperPy
+        
+        async def run_custom_mesh():
+            pp = PepperPy()
+            
+            # Carregar o workflow
+            agentic_mesh = await pp.get_provider(
+                "workflow", 
+                "agentic_mesh", 
+                workflow_name="custom_analysis_mesh",
+                components={
+                    "agent_registry": "registry/redis",
+                    "knowledge_provider": "knowledge/vector_db",
+                    "communication_provider": "communication/kafka"
+                },
+                agents=[
+                    {
+                        "agent_id": "data_analyzer",
+                        "agent_type": "analytical",
+                        "provider_type": "agent/openai",
+                        "config": {
+                            "model": "gpt-4",
+                            "skills": ["data_analysis", "visualization"]
+                        }
+                    },
+                    {
+                        "agent_id": "decision_maker",
+                        "agent_type": "decision",
+                        "provider_type": "agent/anthropic",
+                        "config": {
+                            "model": "claude-3-opus",
+                            "skills": ["reasoning", "planning"]
+                        }
+                    },
+                    {
+                        "agent_id": "translator",
+                        "agent_type": "conversion",
+                        "provider_type": "agent/google",
+                        "config": {
+                            "model": "gemini-pro",
+                            "skills": ["translation", "summarization"]
+                        }
+                    },
+                    {
+                        "agent_id": "action_taker",
+                        "agent_type": "execution",
+                        "provider_type": "agent/local_tools",
+                        "config": {
+                            "allowed_tools": ["database", "api_call", "email"]
+                        }
+                    }
+                ]
+            )
+            
+            # Inicializar o mesh
+            await agentic_mesh.initialize()
+            
+            # Executar uma tarefa complexa no mesh
+            result = await agentic_mesh.execute({
+                "action": "run_workflow",
+                "workflow": "market_analysis",
+                "input_data": {
+                    "market": "technology",
+                    "timeframe": "q2_2024"
+                }
+            })
+            
+            print(result)
+            
+            # Limpar recursos
+            await agentic_mesh.cleanup() 

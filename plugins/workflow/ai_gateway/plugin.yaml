@@ -1,0 +1,152 @@
+name: ai_gateway
+version: 0.1.0
+description: "Workflow para orquestrar uma arquitetura de AI Gateway composable"
+author: "PepperPy Team"
+
+# Categorization
+plugin_type: workflow
+category: ai_infra
+provider_name: ai_gateway
+entry_point: workflow.AIGatewayWorkflow
+
+# Configuration schema
+config_schema:
+  type: object
+  properties:
+    workflow_name:
+      type: string
+      description: "Nome identificador deste workflow"
+      default: "default_gateway"
+    host:
+      type: string
+      description: "Host para o servidor gateway"
+      default: "0.0.0.0"
+    port:
+      type: integer
+      description: "Porta para o servidor gateway"
+      default: 8080
+    components:
+      type: object
+      description: "Componentes a serem utilizados neste gateway"
+      properties:
+        auth_provider:
+          type: string
+          description: "Provedor de autenticação a ser usado (e.g., 'auth/jwt_provider')"
+          default: "auth/jwt_provider"
+        routing_provider:
+          type: string
+          description: "Provedor de roteamento a ser usado (e.g., 'routing/service_mesh_provider')"
+          default: "routing/service_mesh_provider"
+        observability_provider:
+          type: string
+          description: "Provedor de observabilidade a ser usado (e.g., 'observability/opentelemetry_provider')"
+          default: "observability/opentelemetry_provider"
+        governance_provider:
+          type: string
+          description: "Provedor de governança a ser usado (e.g., 'governance/policy_provider')"
+          default: "governance/policy_provider"
+    ai_providers:
+      type: array
+      description: "Lista de provedores de AI para registrar no gateway"
+      items:
+        type: object
+        properties:
+          provider_type:
+            type: string
+            description: "Tipo do provedor (e.g., 'llm/openai')"
+          config:
+            type: object
+            description: "Configuração específica do provedor"
+      default: []
+
+# Default configuration
+default_config:
+  workflow_name: "default_gateway"
+  host: "0.0.0.0"
+  port: 8080
+  components:
+    auth_provider: "auth/jwt_provider"
+    routing_provider: "routing/service_mesh_provider"
+    observability_provider: "observability/opentelemetry_provider"
+    governance_provider: "governance/policy_provider"
+  ai_providers: []
+
+# Documentation
+documentation:
+  description: |
+    O workflow AI Gateway orquestra múltiplos componentes independentes para criar
+    uma gateway centralizado para serviços de AI, seguindo a filosofia composable
+    da PepperPy, onde cada capacidade é implementada como um plugin especializado.
+    
+    Este workflow não implementa funcionalidades diretamente, mas orquestra e compõe
+    os componentes necessários para uma arquitetura de gateway completa.
+  
+  usage: |
+    O AI Gateway workflow pode ser usado para:
+    
+    1. Compor uma arquitetura de gateway com componentes especializados
+    2. Criar diferentes configurações de gateway reutilizando os mesmos componentes
+    3. Facilitar a substituição de componentes individuais sem afetar o sistema todo
+    4. Permitir atualizações incrementais da arquitetura
+  
+  examples:
+    - title: "Gateway Básico"
+      description: "Criar um gateway com componentes padrão"
+      code: |
+        from pepperpy import PepperPy
+        
+        # Inicializar PepperPy com os componentes necessários
+        pepper = (PepperPy()
+          .with_plugin("auth/jwt_provider")
+          .with_plugin("routing/service_mesh_provider")
+          .with_plugin("observability/opentelemetry_provider")
+          .with_plugin("governance/policy_provider")
+          .with_workflow("ai_gateway"))
+        
+        # Executar o workflow para orquestrar os componentes
+        result = await pepper.workflow.execute("ai_gateway", {
+            "action": "start"
+        })
+    
+    - title: "Gateway Customizado"
+      description: "Criar um gateway com componentes personalizados"
+      code: |
+        from pepperpy import PepperPy
+        
+        # Inicializar PepperPy com componentes alternativos
+        pepper = (PepperPy()
+          .with_plugin("auth/oauth_provider")
+          .with_plugin("routing/load_balancer_provider")
+          .with_plugin("observability/prometheus_provider")
+          .with_plugin("governance/ethical_ai_provider")
+          .with_workflow("ai_gateway"))
+        
+        # Executar com configuração personalizada
+        result = await pepper.workflow.execute("ai_gateway", {
+            "action": "start",
+            "config": {
+                "workflow_name": "custom_gateway",
+                "host": "127.0.0.1",
+                "port": 9000,
+                "components": {
+                    "auth_provider": "auth/oauth_provider",
+                    "routing_provider": "routing/load_balancer_provider",
+                    "observability_provider": "observability/prometheus_provider",
+                    "governance_provider": "governance/ethical_ai_provider"
+                },
+                "ai_providers": [
+                    {
+                        "provider_type": "llm/openai",
+                        "config": {
+                            "api_key": "${OPENAI_API_KEY}"
+                        }
+                    },
+                    {
+                        "provider_type": "llm/anthropic",
+                        "config": {
+                            "api_key": "${ANTHROPIC_API_KEY}"
+                        }
+                    }
+                ]
+            }
+        }) 

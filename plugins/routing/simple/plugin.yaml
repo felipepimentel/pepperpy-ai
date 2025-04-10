@@ -1,0 +1,57 @@
+name: routing_simple
+version: 0.1.0
+description: Simple HTTP routing provider for AI Gateway
+author: PepperPy Team
+
+plugin_type: routing
+category: provider
+provider_name: simple
+entry_point: provider.SimpleRoutingProvider
+
+config_schema:
+  type: object
+  properties:
+    host:
+      type: string
+      description: Host to bind the server to
+      default: "0.0.0.0"
+    port:
+      type: integer
+      description: Port to listen on
+      default: 8080
+
+default_config:
+  host: "0.0.0.0"
+  port: 8080
+
+documentation:
+  summary: |
+    Simple HTTP routing provider for AI Gateway that handles REST API requests
+    and routes them to appropriate backend providers.
+  
+  usage: |
+    This provider creates a HTTP server with REST API endpoints for interacting with
+    AI services. It supports dynamic backend registration, authentication integration,
+    and basic request routing.
+  
+  examples:
+    - title: Basic Setup
+      code: |
+        from pepperpy import PepperPy
+        
+        # Initialize with routing provider
+        pepper = (PepperPy()
+          .with_plugin("routing/simple")
+          .with_workflow("ai_gateway"))
+        
+        # Start gateway with routing
+        result = await pepper.workflow.execute("ai_gateway", {
+            "action": "start",
+            "config": {
+                "host": "127.0.0.1",
+                "port": 8000,
+                "components": {
+                    "routing_provider": "routing/simple"
+                }
+            }
+        }) 

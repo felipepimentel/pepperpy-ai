@@ -1,6 +1,6 @@
 name: workflow_mcp_demo
-version: 0.1.0
-description: Demonstration workflow that runs an MCP server and client together
+version: 0.2.0
+description: Demonstration workflow that runs an MCP server and client together with agent orchestration
 author: PepperPy Team
 plugin_type: workflow
 category: mcp
@@ -34,6 +34,22 @@ config_schema:
       type: integer
       description: Duration in seconds to run the demo for
       default: 60
+    enable_agent_orchestration:
+      type: boolean
+      description: Whether to enable agent orchestration
+      default: true
+    planner_model:
+      type: string
+      description: Model to use for planning agent
+      default: "gpt-4"
+    executor_model:
+      type: string
+      description: Model to use for execution agent
+      default: "gpt-3.5-turbo"
+    critic_model:
+      type: string
+      description: Model to use for critic agent
+      default: "gpt-3.5-turbo"
 
 default_config:
   host: "0.0.0.0"
@@ -42,12 +58,16 @@ default_config:
   llm_provider: "openai"
   llm_model: "gpt-3.5-turbo"
   demo_duration: 60
+  enable_agent_orchestration: true
+  planner_model: "gpt-4"
+  executor_model: "gpt-3.5-turbo"
+  critic_model: "gpt-3.5-turbo"
 
 documentation:
   description: |
-    This workflow demonstrates the integration of MCP server and client components.
-    It sets up an MCP server with registered tools, then runs a client that connects
-    to the server and uses the tools.
+    This workflow demonstrates the integration of MCP server and client components
+    with agent orchestration capabilities. It sets up an MCP server with registered tools,
+    then can run either a simple client or a multi-agent workflow using these tools.
   
   examples:
     - title: Basic usage
@@ -60,21 +80,27 @@ documentation:
       code: |
         pepperpy run workflow mcp_demo --config '{"port": 9000, "llm_model": "gpt-4"}'
     
-    - title: Custom duration
-      description: Run the MCP demo for a specific duration
+    - title: Agent workflow
+      description: Run the MCP demo with agent orchestration
       code: |
-        pepperpy run workflow mcp_demo --config '{"demo_duration": 120}'
+        pepperpy run workflow mcp_demo --input '{"workflow_type": "agent", "task": "Create a marketing plan for a new eco-friendly product"}'
+    
+    - title: Custom agent workflow
+      description: Run the MCP demo with custom agent sequence
+      code: |
+        pepperpy run workflow mcp_demo --input '{"workflow_type": "agent", "task": "Research top 5 competitors for our product", "workflow": ["planner", "executor"]}'
   
   notes: |
     # MCP Demo Workflow
     
-    This workflow demonstrates the complete integration of Model Context Protocol (MCP) server and client.
+    This workflow demonstrates the complete integration of Model Context Protocol (MCP) server and client with agent orchestration capabilities.
     
     ## Features
     
     - Start an MCP server with the specified configuration
     - Register demo tools (calculate, weather, translate)
-    - Simulates client requests to demonstrate usage patterns
+    - Run client requests to demonstrate usage patterns
+    - Execute multi-agent workflows for complex tasks
     
     ## Usage
     
@@ -86,11 +112,14 @@ documentation:
     
     # With OpenAI API key
     OPENAI_API_KEY=your_key_here python -m pepperpy.cli workflow run workflow/mcp_demo
+    
+    # Run with agent orchestration
+    python -m pepperpy.cli workflow run workflow/mcp_demo --input '{"workflow_type": "agent", "task": "Create a report on renewable energy trends"}'
     ```
     
     ## CLI Tool
     
-    A command-line interface is also provided for interacting with a running MCP server:
+    A command-line interface is provided for interacting with a running MCP server:
     
     ```bash
     # Connect to the local MCP server
@@ -110,17 +139,43 @@ documentation:
     - `/weather <location>` - Use the weather tool
     - `/translate <text> to <language>` - Use the translate tool
     
+    ## Agent Orchestration
+    
+    The workflow includes agent orchestration for complex tasks:
+    
+    ### Default Agents
+    
+    - **Planner**: Decomposes tasks into smaller steps (uses gpt-4 by default)
+    - **Executor**: Executes individual steps using tools (uses gpt-3.5-turbo by default)
+    - **Critic**: Reviews outputs and suggests improvements (uses gpt-3.5-turbo by default)
+    
+    ### Usage
+    
+    To execute a task using agent orchestration:
+    
+    ```bash
+    python -m pepperpy.cli workflow run workflow/mcp_demo --input '{
+      "workflow_type": "agent",
+      "task": "Research and summarize the top 3 trends in renewable energy",
+      "workflow": ["planner", "executor", "critic"]
+    }'
+    ```
+    
     ## Configuration
     
     You can customize the workflow with these parameters:
     
     ```yaml
-    host: "0.0.0.0"          # Host address to bind the server to
-    port: 8000               # Port for the MCP server
-    provider_type: "http"    # Type of MCP provider to use
-    llm_provider: "openai"   # LLM provider to use
-    llm_model: "gpt-3.5-turbo" # LLM model to use
-    demo_duration: 60        # Duration in seconds to run the demo
+    host: "0.0.0.0"           # Host address to bind the server to
+    port: 8000                # Port for the MCP server
+    provider_type: "http"     # Type of MCP provider to use
+    llm_provider: "openai"    # LLM provider to use
+    llm_model: "gpt-3.5-turbo" # Default LLM model
+    demo_duration: 60         # Duration in seconds to run the demo
+    enable_agent_orchestration: true # Enable agent orchestration
+    planner_model: "gpt-4"    # Model for planning agent
+    executor_model: "gpt-3.5-turbo" # Model for execution agent
+    critic_model: "gpt-3.5-turbo" # Model for critic agent
     ```
     
     ## Demo Tools
@@ -130,4 +185,13 @@ documentation:
     - **Chat**: Basic conversation with LLM model
     - **Calculate**: Evaluate mathematical expressions (format: `calculate: 2 + 2`)
     - **Weather**: Get weather information for a location (format: `get_weather: London`)
-    - **Translate**: Translate text to another language (format: `translate: Hello world to es`) 
+    - **Translate**: Translate text to another language (format: `translate: Hello world to es`)
+    
+    ## Agent Tools
+    
+    Additional tools available to the agents:
+    
+    - **analyze_task**: Analyze a task to determine required steps
+    - **create_plan**: Create a step-by-step plan to complete a task
+    - **analyze_output**: Analyze output for correctness and completeness
+    - **suggest_improvements**: Suggest improvements to output 

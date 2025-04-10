@@ -1,0 +1,52 @@
+name: auth_basic
+version: 0.1.0
+description: Basic authentication provider for AI Gateway
+author: PepperPy Team
+
+plugin_type: auth
+category: basic
+provider_name: basic
+entry_point: provider.BasicAuthProvider
+
+config_schema:
+  type: object
+  properties:
+    api_key_header:
+      type: string
+      description: HTTP header to use for API key authentication
+      default: "X-API-Key"
+    api_keys:
+      type: object
+      description: Map of API keys to user IDs
+      additionalProperties:
+        type: string
+    require_auth:
+      type: boolean
+      description: Whether to require authentication for all requests
+      default: true
+
+default_config:
+  api_key_header: "X-API-Key"
+  api_keys: {}
+  require_auth: true
+
+documentation:
+  summary: |
+    Basic authentication provider for AI Gateway that supports API key authentication.
+  
+  usage: |
+    This provider implements a simple API key authentication scheme for the AI Gateway.
+    Configure it with a list of valid API keys mapped to user IDs.
+  
+  examples:
+    - title: Basic Configuration
+      code: |
+        # Configure with API keys
+        auth_provider = await pp.get_provider(
+            "auth", 
+            "basic",
+            api_keys={
+                "test-key-1": "user1",
+                "test-key-2": "user2"
+            }
+        ) 

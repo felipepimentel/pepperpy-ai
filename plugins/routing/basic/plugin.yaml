@@ -1,0 +1,56 @@
+name: routing_basic
+version: 0.1.0
+description: Basic routing provider for AI Gateway
+author: PepperPy Team
+
+plugin_type: routing
+category: basic
+provider_name: basic
+entry_point: provider.BasicRoutingProvider
+
+config_schema:
+  type: object
+  properties:
+    host:
+      type: string
+      description: Host to bind the server to
+      default: "0.0.0.0"
+    port:
+      type: integer
+      description: Port to listen on
+      default: 8080
+    cors_origins:
+      type: array
+      description: List of allowed CORS origins
+      items:
+        type: string
+      default: ["*"]
+    log_requests:
+      type: boolean
+      description: Whether to log all requests
+      default: true
+
+default_config:
+  host: "0.0.0.0"
+  port: 8080
+  cors_origins: ["*"]
+  log_requests: true
+
+documentation:
+  summary: |
+    Basic routing provider for AI Gateway that handles HTTP routing and backend management.
+  
+  usage: |
+    This provider implements a simple HTTP routing system for the AI Gateway.
+    It manages backend AI providers and routes requests to the appropriate provider.
+  
+  examples:
+    - title: Basic Configuration
+      code: |
+        # Initialize the routing provider
+        routing_provider = await pp.get_provider(
+            "routing", 
+            "basic",
+            host="127.0.0.1",
+            port=8000
+        ) 

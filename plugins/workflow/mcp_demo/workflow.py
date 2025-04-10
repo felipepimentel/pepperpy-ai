@@ -21,6 +21,9 @@ from pepperpy.mcp.server.providers.http import HTTPServerProvider
 from pepperpy.plugin.base import PepperpyPlugin
 from pepperpy.workflow import WorkflowProvider
 
+# Use absolute import for agent_orchestration
+from plugins.workflow.mcp_demo.agent_orchestration import AgentOrchestrator
+
 
 class SimpleLLMAdapter:
     """Simple adapter for LLM providers."""
@@ -99,6 +102,7 @@ class MCPDemoWorkflow(WorkflowProvider, PepperpyPlugin):
         self.server: HTTPServerProvider | None = None
         self.client: HTTPClientProvider | None = None
         self.llm_provider = None
+        self.orchestrator: AgentOrchestrator | None = None
         self.initialized = False
         self.demo_duration = 60
         self.host = "0.0.0.0"
@@ -143,18 +147,32 @@ class MCPDemoWorkflow(WorkflowProvider, PepperpyPlugin):
         self.client = HTTPClientProvider(url=f"http://{self.host}:{self.port}")
         await self.client.initialize()
 
+        # Initialize agent orchestrator
+        # Use type ignore to handle the client type incompatibility
+        from typing import Any, cast
+
+        self.orchestrator = AgentOrchestrator(client=cast(Any, self.client))
+        await self.orchestrator.initialize()
+
     async def _cleanup_resources(self) -> None:
         """Clean up resources used by the workflow.
 
         This method is called by the parent cleanup() method.
         """
         self.logger.info("Cleaning up MCP demo workflow")
+
+        if self.orchestrator:
+            await self.orchestrator.cleanup()
+            self.orchestrator = None
+
         if self.server:
             await self.server.cleanup()
             self.server = None
+
         if self.client:
             await self.client.cleanup()
             self.client = None
+
         if self.llm_provider:
             await self.llm_provider.cleanup()
             self.llm_provider = None
@@ -177,6 +195,9 @@ class MCPDemoWorkflow(WorkflowProvider, PepperpyPlugin):
         if not self.server or not self.client:
             raise ValueError("Server or client not initialized")
 
+        # Get workflow type from input
+        workflow_type = input_data.get("workflow_type", "default")
+
         try:
             # Ensure server is not already running
             if hasattr(self.server, "running") and self.server.running:
@@ -196,52 +217,55 @@ class MCPDemoWorkflow(WorkflowProvider, PepperpyPlugin):
             self.logger.info("Connecting client to server...")
             await self.client.connect(f"http://{self.host}:{self.port}")
 
-            # Run actual client operations
-            self.logger.info("Running demo client operations...")
-
-            # If real client demo is requested and demo_duration > 0
-            if self.demo_duration > 0 and input_data.get("run_real_demo"):
-                results = await self._run_demo_client()
-                await asyncio.sleep(
-                    self.demo_duration
-                )  # Keep server running for demo_duration
+            # Execute the requested workflow type
+            if workflow_type == "agent":
+                return await self._run_agent_workflow(input_data)
             else:
-                # Use simulated results for quicker testing
-                self.logger.info(
-                    "Using simulated results (add 'run_real_demo': true to input_data for real demo)"
-                )
-                results = {
-                    "chat": {
-                        "status": MCPStatusCode.SUCCESS,
-                        "content": "Hello! I'm an AI assistant. How can I help you today?",
-                    },
-                    "calculate": {"status": MCPStatusCode.SUCCESS, "result": "4"},
-                    "weather": {
-                        "status": MCPStatusCode.SUCCESS,
-                        "weather": {
-                            "location": "London",
-                            "temperature": 20,
-                            "condition": "sunny",
-                        },
-                    },
-                    "translate": {
-                        "status": MCPStatusCode.SUCCESS,
-                        "translated_text": "[es] Hola mundo",
-                    },
-                }
+                # Run the default client operations
+                self.logger.info("Running demo client operations...")
+                return await self._run_demo_client()
 
-            return {"status": MCPStatusCode.SUCCESS, "results": results}
         except Exception as e:
-            self.logger.error(f"Error executing MCP demo workflow: {e}")
-            return {"status": MCPStatusCode.ERROR, "message": str(e)}
+            self.logger.error(f"Workflow execution failed: {e}")
+            import traceback
+
+            self.logger.error(traceback.format_exc())
+            return {"status": "error", "message": str(e)}
         finally:
-            # Ensure server is stopped even if there's an error
-            try:
-                if hasattr(self.server, "running") and self.server.running:
-                    self.logger.info("Stopping MCP server...")
-                    await self.server.stop()
-            except Exception as e:
-                self.logger.error(f"Error stopping server: {e}")
+            # Stop the server
+            if self.server and hasattr(self.server, "running") and self.server.running:
+                self.logger.info("Stopping MCP server...")
+                await self.server.stop()
+
+    async def _run_agent_workflow(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Run an agent-based workflow.
+
+        Args:
+            input_data: Input data for the workflow, should contain 'task' and optionally 'workflow'
+
+        Returns:
+            Agent workflow execution results
+        """
+        if not self.orchestrator:
+            return {"status": "error", "message": "Agent orchestrator not initialized"}
+
+        task = input_data.get("task")
+        if not task:
+            return {"status": "error", "message": "No task provided for agent workflow"}
+
+        # Get optional workflow sequence
+        workflow = input_data.get("workflow")
+
+        # Execute the workflow
+        self.logger.info(f"Executing agent workflow for task: {task}")
+        result = await self.orchestrator.execute_workflow(task, workflow)
+
+        return {
+            "status": "success" if result.get("status") == "success" else "error",
+            "workflow_type": "agent",
+            "agents_used": workflow or ["planner", "executor", "critic"],
+            "result": result,
+        }
 
     async def _register_server_tools(self) -> None:
         """Register custom tools with the server."""
@@ -454,7 +478,7 @@ class MCPDemoWorkflow(WorkflowProvider, PepperpyPlugin):
             Results from demo operations.
         """
         if not self.client:
-            return {"status": MCPStatusCode.ERROR, "message": "Client not initialized"}
+            return {"status": "error", "message": "Client not initialized"}
 
         results = {}
         try:
@@ -523,4 +547,4 @@ class MCPDemoWorkflow(WorkflowProvider, PepperpyPlugin):
             return results
         except Exception as e:
             self.logger.error(f"Error running demo client operations: {e}")
-            return {"status": MCPStatusCode.ERROR, "message": str(e)}
+            return {"status": "error", "message": str(e)}

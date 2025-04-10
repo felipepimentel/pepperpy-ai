@@ -1,99 +1,202 @@
 # MCP Demo Workflow
 
-This workflow demonstrates the complete integration of Model Context Protocol (MCP) server and client components.
+## Overview
+
+This workflow demonstrates the complete integration of Model Context Protocol (MCP) server and client with agent orchestration capabilities. It provides a unified interface for:
+
+1. Running an MCP server with registered tools
+2. Connecting a client to the server
+3. Coordinating multiple agents to perform complex tasks
 
 ## Features
 
-- Start an MCP server with the specified configuration
-- Register demo tools (calculate, weather, translate)
-- Handle client requests through the MCP protocol
-- Simulate or run real client requests for demonstration
+- **MCP Server**: Hosts LLM models and tools
+- **MCP Client**: Connects to the server and uses its capabilities
+- **Agent Orchestration**: Coordinates multiple agents to perform complex tasks
+- **Built-in Tools**: Calculate, weather, translate, and more
+- **Extensible**: Easy to add new agents and tools
 
-## Usage
+## Architecture
 
-Run the workflow with:
+The MCP demo consists of these main components:
+
+```
+┌──────────────────┐       ┌──────────────────┐
+│                  │       │                  │
+│    MCP Server    │◄──────┤   MCP Client     │
+│                  │       │                  │
+└────────┬─────────┘       └──────────────────┘
+         │
+         │
+         ▼
+┌────────────────────────────────────────┐
+│                                        │
+│          Agent Orchestrator            │
+│                                        │
+│  ┌─────────┐   ┌─────────┐  ┌────────┐ │
+│  │         │   │         │  │        │ │
+│  │ Planner │──►│Executor │─►│ Critic │ │
+│  │         │   │         │  │        │ │
+│  └─────────┘   └─────────┘  └────────┘ │
+│                                        │
+└────────────────────────────────────────┘
+```
+
+## Quick Start
+
+### Running the Server
 
 ```bash
-# Basic usage with simulated results
-python -m pepperpy.cli workflow run workflow/mcp_demo
+# Start the MCP server
+python mcp.py server
 
-# Run with real client-server interaction
-python -m pepperpy.cli workflow run workflow/mcp_demo --config '{"run_real_demo": true}'
-
-# With OpenAI API key
-OPENAI_API_KEY=your_key_here python -m pepperpy.cli workflow run workflow/mcp_demo
+# With custom host and port
+python mcp.py server --host 127.0.0.1 --port 9000
 ```
+
+### Connecting a Client
+
+```bash
+# Connect to the local server
+python mcp.py client
+
+# Connect to a remote server
+python mcp.py client --host api.example.com --port 443
+```
+
+### Using Agent Orchestration
+
+```bash
+# Run an agent workflow for a specific task
+python mcp.py agent "Create a marketing plan for a new eco-friendly product"
+
+# With custom agent sequence
+python mcp.py agent "Research top 5 competitors" --workflow "planner,executor"
+```
+
+### Using the Full Workflow
+
+```bash
+# Run the complete workflow
+python mcp.py workflow
+
+# With custom duration
+python mcp.py workflow --duration 120
+```
+
+## Agent Orchestration
+
+The agent orchestration layer coordinates multiple specialized agents to perform complex tasks.
+
+### Default Agents
+
+- **Planner**: Decomposes complex tasks into smaller steps (uses gpt-4)
+- **Executor**: Executes individual tasks using available tools (uses gpt-3.5-turbo)
+- **Critic**: Reviews outputs and suggests improvements (uses gpt-3.5-turbo)
+
+### Tool Registry
+
+All agents have access to tools based on their permissions:
+
+- **Planning Tools**: analyze_task, create_plan
+- **Execution Tools**: calculate, get_weather, translate
+- **Review Tools**: analyze_output, suggest_improvements
+
+### Memory System
+
+Agents maintain memory across interactions:
+
+- Short-term memory for current conversation
+- Tool execution history for tracking actions
+- Key-value store for arbitrary data
 
 ## CLI Tool
 
-A command-line interface is provided for interacting with a running MCP server:
+A command-line interface is provided for direct interaction with the MCP server:
 
 ```bash
-# Connect to the local MCP server
-python plugins/workflow/mcp_demo/cli.py
-
-# Connect to a remote server
-python plugins/workflow/mcp_demo/cli.py --host api.example.com --port 443
+# Start the CLI
+python cli.py
 ```
 
-The CLI tool supports these commands:
+Available commands:
 
 - `/help` - Show help information
 - `/quit` or `/exit` - Exit the CLI
 - `/clear` - Clear conversation history
 - `/models` - List available models
-- `/model <model_id>` - Change the current model
+- `/model <model_id>` - Switch to a different model
 - `/calc <expression>` - Use the calculate tool
 - `/weather <location>` - Use the weather tool
 - `/translate <text> to <language>` - Use the translate tool
 
-For any other input, the CLI will send it as a chat message to the AI.
-
-## Standalone Server
-
-A standalone server script is also provided for development and testing purposes:
-
-```bash
-# Start the server with default settings
-python plugins/workflow/mcp_demo/run_server.py
-
-# Configure host and port
-python plugins/workflow/mcp_demo/run_server.py --host localhost --port 8080
-
-# Use a specific LLM model
-python plugins/workflow/mcp_demo/run_server.py --llm-model gpt-4
-```
-
-Use this script when you want to run just the server component without the complete workflow. Combined with the CLI, you can develop and test MCP integrations easily.
-
-## Combined Command-Line Tool
-
-A unified command-line tool is also available that combines all the functionality:
-
-```bash
-# Run just the server
-python plugins/workflow/mcp_demo/mcp.py server --port 8080
-
-# Run just the client
-python plugins/workflow/mcp_demo/mcp.py client --host api.example.com
-
-# Run the complete workflow
-python plugins/workflow/mcp_demo/mcp.py workflow --llm-model gpt-4 --duration 120
-```
-
-This tool provides a convenient interface for running any component of the MCP demo.
-
 ## Configuration
 
-You can customize the workflow with these parameters:
+The workflow can be customized through the `plugin.yaml` file:
 
 ```yaml
-host: "0.0.0.0"          # Host address to bind the server to
-port: 8000               # Port for the MCP server
-provider_type: "http"    # Type of MCP provider to use
-llm_provider: "openai"   # LLM provider to use
-llm_model: "gpt-3.5-turbo" # LLM model to use
-demo_duration: 60        # Duration in seconds to run the demo
+host: "0.0.0.0"           # Host address
+port: 8000                # Port number
+provider_type: "http"     # MCP provider type
+llm_provider: "openai"    # LLM provider
+llm_model: "gpt-3.5-turbo" # Default LLM model
+demo_duration: 60         # Duration in seconds
+enable_agent_orchestration: true # Enable agent orchestration
+planner_model: "gpt-4"    # Model for planning agent
+executor_model: "gpt-3.5-turbo" # Model for execution agent
+critic_model: "gpt-3.5-turbo" # Model for critic agent
+```
+
+## Running Through PepperPy CLI
+
+```bash
+# Basic usage
+python -m pepperpy.cli workflow run workflow/mcp_demo
+
+# With OpenAI API key
+OPENAI_API_KEY=your_key_here python -m pepperpy.cli workflow run workflow/mcp_demo
+
+# Run with agent orchestration
+python -m pepperpy.cli workflow run workflow/mcp_demo --input '{
+  "workflow_type": "agent",
+  "task": "Create a report on renewable energy trends"
+}'
+```
+
+## Example Output
+
+When running an agent workflow, you'll get output like:
+
+```json
+{
+  "status": "success",
+  "workflow_type": "agent",
+  "agents_used": ["planner", "executor", "critic"],
+  "result": {
+    "status": "success",
+    "results": [
+      {
+        "status": "success",
+        "agent": "planner",
+        "response": "Step 1: Research current renewable energy trends\nStep 2: Analyze data\nStep 3: Create report structure",
+        "tools_used": ["analyze_task", "create_plan"]
+      },
+      {
+        "status": "success",
+        "agent": "executor",
+        "response": "Based on my research, the top 3 renewable energy trends are...",
+        "tools_used": ["calculate", "search"]
+      },
+      {
+        "status": "success",
+        "agent": "critic",
+        "response": "The report is comprehensive but could be improved by adding more recent statistics.",
+        "tools_used": ["analyze_output", "suggest_improvements"]
+      }
+    ],
+    "final_output": "The report is comprehensive but could be improved by adding more recent statistics."
+  }
+}
 ```
 
 ## Demo Tools
