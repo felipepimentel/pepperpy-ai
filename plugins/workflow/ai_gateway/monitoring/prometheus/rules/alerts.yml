@@ -1,0 +1,83 @@
+groups:
+  - name: ai_gateway_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: ai_gateway:error_rate > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High error rate detected
+          description: Error rate is above 5% for 5 minutes
+
+      - alert: HighLatency
+        expr: ai_gateway:latency_p95 > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High latency detected
+          description: P95 latency is above 10s for 5 minutes
+
+      - alert: LowSuccessRate
+        expr: ai_gateway:request_success_rate < 0.95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Low success rate detected
+          description: Success rate is below 95% for the last 5 minutes
+
+      - alert: HighTokenUsage
+        expr: rate(ai_gateway:token_usage_per_hour[1h]) > 100000
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: High token usage detected
+          description: Token usage rate is above 100k per hour for the last 15 minutes
+
+      - alert: EndpointErrors
+        expr: sum(rate(ai_gateway:errors_by_type[5m])) by (endpoint) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High error count for endpoint
+          description: More than 10 errors per minute detected for {{ $labels.endpoint }}
+
+      - alert: ServiceDown
+        expr: up{job="ai_gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: AI Gateway service is down
+          description: The AI Gateway service has been down for more than 1 minute
+
+      - alert: TokenUsageSpike
+        expr: rate(ai_gateway:token_usage_per_hour[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Unusual token usage detected
+          description: Token usage rate is unusually high
+
+      - alert: EndpointDown
+        expr: sum(rate(ai_gateway:requests_by_endpoint[5m])) by (endpoint) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Endpoint is down
+          description: No requests received on {{ $labels.endpoint }} for 5 minutes
+
+      - alert: HighErrorTypeRate
+        expr: rate(ai_gateway:errors_by_type[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High rate of specific error type
+          description: Error type {{ $labels.error_type }} on {{ $labels.endpoint }} is occurring frequently 

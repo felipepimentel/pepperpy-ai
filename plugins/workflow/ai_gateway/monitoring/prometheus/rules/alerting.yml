@@ -1,0 +1,279 @@
+groups:
+  - name: ai_gateway_alerts
+    rules:
+      - alert: AIGatewayHighErrorRate
+        expr: ai_gateway:error_rate > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5m"
+
+      - alert: AIGatewayHighLatency
+        expr: ai_gateway:latency_p95 > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is {{ $value }}s"
+
+      - alert: AIGatewayTokenUsageSpike
+        expr: ai_gateway:token_usage_per_hour > avg_over_time(ai_gateway:token_usage_per_hour[24h]) * 2
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Token usage spike detected"
+          description: "Token usage is {{ $value | humanize }} per hour"
+
+      - alert: AIGatewayEndpointDown
+        expr: up{job="ai_gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI Gateway endpoint is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute"
+
+      - alert: AIGatewayHighRateLimit
+        expr: rate(ai_gateway_rate_limit_exceeded_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of rate limit errors"
+          description: "Rate limit exceeded {{ $value | humanize }} times in 5m"
+
+      - alert: AIGatewayHighTokenCost
+        expr: ai_gateway:token_cost_per_hour > avg_over_time(ai_gateway:token_cost_per_hour[24h]) * 1.5
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High token cost detected"
+          description: "Token cost is {{ $value | humanizeCurrency }} per hour"
+
+      - alert: AIGatewayLowCacheHitRatio
+        expr: ai_gateway:cache_hit_ratio < 0.5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low cache hit ratio"
+          description: "Cache hit ratio is {{ $value | humanizePercentage }}"
+
+      - alert: AIGatewayHighModelErrors
+        expr: ai_gateway:model_error_rate > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High model error rate"
+          description: "Model {{ $labels.model }} has {{ $value | humanizePercentage }} error rate"
+
+      # New market trend alerts
+      - alert: AIGatewayFeatureAdoptionDrop
+        expr: ai_gateway:feature_adoption_rate < 0.1
+        for: 24h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low feature adoption detected"
+          description: "Feature {{ $labels.feature_name }} has low adoption rate of {{ $value | humanizePercentage }}"
+
+      - alert: AIGatewayFeatureRetentionDrop
+        expr: ai_gateway:feature_retention_rate < 0.7
+        for: 24h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low feature retention detected"
+          description: "Feature {{ $labels.feature_name }} retention dropped to {{ $value | humanizePercentage }}"
+
+      - alert: AIGatewayFeatureGrowthDecline
+        expr: ai_gateway:feature_growth_rate < 0.8
+        for: 24h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Feature growth decline detected"
+          description: "Feature {{ $labels.feature_name }} growth rate is {{ $value | humanizePercentage }}"
+
+      - alert: AIGatewayRAGEffectivenessLow
+        expr: ai_gateway:rag_effectiveness < 0.8
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low RAG effectiveness"
+          description: "RAG success rate is {{ $value | humanizePercentage }}"
+
+      - alert: AIGatewayGuardrailsViolationSpike
+        expr: rate(ai_gateway_guardrails_violations_total[5m]) > 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High guardrails violation rate"
+          description: "Guardrails violations increased to {{ $value }} per minute"
+
+      - alert: AIGatewayHighCostPerRequest
+        expr: ai_gateway:cost_per_request > avg_over_time(ai_gateway:cost_per_request[7d]) * 1.5
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "High cost per request"
+          description: "Cost per request is {{ $value | humanizeCurrency }}"
+
+      - alert: AIGatewayFederationImbalance
+        expr: max(ai_gateway:federation_distribution) by (deployment_type) > 0.8
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Federation distribution imbalance"
+          description: "Deployment type {{ $labels.deployment_type }} handling {{ $value | humanizePercentage }} of requests"
+
+      # Performance Alerts
+      - alert: AIGatewayHighQueueLatency
+        expr: ai_gateway:queue_latency > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High queue latency"
+          description: "Queue latency is {{ $value }}s at 95th percentile"
+
+      - alert: AIGatewayConcurrentRequestsSpike
+        expr: ai_gateway:concurrent_requests > avg_over_time(ai_gateway:concurrent_requests[24h]) * 1.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Concurrent requests spike"
+          description: "Concurrent requests increased to {{ $value }}"
+
+      # Security Alerts
+      - alert: AIGatewayHighAuthFailures
+        expr: ai_gateway:auth_failure_rate > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Auth failure rate is {{ $value | humanizePercentage }}"
+
+      - alert: AIGatewayAbnormalAPIUsage
+        expr: ai_gateway:api_key_usage > avg_over_time(ai_gateway:api_key_usage[24h]) * 3
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Abnormal API key usage"
+          description: "API key {{ $labels.api_key_hash }} shows unusual activity"
+
+      - alert: AIGatewayContentFilterSpike
+        expr: sum(rate(ai_gateway_content_filter_blocks_total[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Content filter blocks spike"
+          description: "Content filter blocks increased to {{ $value }} per minute"
+
+      # Business Alerts
+      - alert: AIGatewayLowUserSatisfaction
+        expr: ai_gateway:user_satisfaction < 0.7
+        for: 24h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low user satisfaction"
+          description: "User satisfaction score dropped to {{ $value | humanizePercentage }}"
+
+      - alert: AIGatewayLowFeatureConversion
+        expr: ai_gateway:feature_conversion < 0.2
+        for: 24h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low feature conversion"
+          description: "Feature {{ $labels.feature_name }} has low conversion rate of {{ $value | humanizePercentage }}"
+
+      - alert: AIGatewayRevenueDecline
+        expr: ai_gateway:revenue_per_user < avg_over_time(ai_gateway:revenue_per_user[7d]) * 0.8
+        for: 24h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Revenue decline detected"
+          description: "Revenue for {{ $labels.user_tier }} tier dropped by {{ $value | humanizePercentage }}"
+
+      # Resource Alerts
+      - alert: AIGatewayHighMemoryUsage
+        expr: ai_gateway:memory_usage_per_request > 512 * 1024 * 1024  # 512MB
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage per request"
+          description: "Memory usage is {{ $value | humanizeBytes }} per request"
+
+      - alert: AIGatewayHighCPUUsage
+        expr: ai_gateway:cpu_usage_per_request > 0.2  # 20% CPU
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage per request"
+          description: "CPU usage is {{ $value | humanizePercentage }} per request"
+
+      # Integration Alerts
+      - alert: AIGatewayHighPluginErrors
+        expr: ai_gateway:plugin_error_rate > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High plugin error rate"
+          description: "Plugin {{ $labels.plugin_name }} has {{ $value | humanizePercentage }} error rate"
+
+      - alert: AIGatewayIntegrationLatency
+        expr: ai_gateway:integration_latency > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High integration latency"
+          description: "Integration {{ $labels.integration_name }} latency is {{ $value }}s"
+
+      # Advanced Analytics Alerts
+      - alert: AIGatewayHighPromptComplexity
+        expr: ai_gateway:prompt_complexity > avg_over_time(ai_gateway:prompt_complexity[7d]) * 1.5
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "High prompt complexity"
+          description: "Endpoint {{ $labels.endpoint }} shows {{ $value }} tokens per request"
+
+      - alert: AIGatewayLowCompletionEfficiency
+        expr: ai_gateway:completion_efficiency < 0.5
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low completion efficiency"
+          description: "Model {{ $labels.model }} shows low token efficiency of {{ $value | humanizePercentage }}"
+
+      - alert: AIGatewayErrorTrend
+        expr: ai_gateway:error_prediction > 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Increasing error trend detected"
+          description: "Predicted error rate in 1h is {{ $value | humanizePercentage }}" 

@@ -1,0 +1,25 @@
+name: calculator
+version: 0.1.0
+description: Simple calculator tool for evaluating mathematical expressions
+author: PepperPy Team
+
+plugin_type: tool
+category: calculator
+provider_name: basic
+entry_point: provider.CalculatorProvider
+
+config_schema:
+  type: object
+  properties:
+    allow_complex:
+      type: boolean
+      description: Allow complex math operations
+      default: false
+    max_digits:
+      type: integer
+      description: Maximum number of digits in the result
+      default: 10
+
+default_config:
+  allow_complex: false
+  max_digits: 10 

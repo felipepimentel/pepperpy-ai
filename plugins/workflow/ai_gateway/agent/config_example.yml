@@ -1,0 +1,408 @@
+# Sample Configuration for Agentic AI System
+
+# Agent System Configuration
+system:
+  name: "ai_gateway_agent_system"
+  description: "Agentic AI system for AI Gateway"
+  version: "0.1.0"
+  logging:
+    level: "info"
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    file: "logs/agent_system.log"
+  metrics:
+    enabled: true
+    prometheus_port: 9090
+    interval_seconds: 60
+
+# Agent Configuration
+agents:
+  # Decision-making agent
+  decision_agent:
+    name: "decision_agent"
+    capabilities:
+      - "decision_making"
+      - "task_planning"
+    role: "specialist"
+    decision_strategy: "utility_based"
+    model_providers:
+      - "openai_gpt4"
+      - "anthropic_claude"
+    max_tokens: 4000
+    temperature: 0.7
+    timeout_seconds: 30
+    retry_attempts: 3
+    tools:
+      - "calculator"
+      - "search"
+    memory_limit: 20
+    custom_settings:
+      use_multi_model_consensus: true
+      confidence_threshold: 0.7
+  
+  # Coordinator agent
+  coordinator_agent:
+    name: "coordinator_agent"
+    capabilities:
+      - "task_planning"
+      - "decision_making"
+      - "collaboration"
+    role: "coordinator"
+    decision_strategy: "goal_oriented"
+    model_providers:
+      - "openai_gpt4"
+    max_tokens: 8000
+    temperature: 0.4
+    timeout_seconds: 60
+    retry_attempts: 3
+    tools:
+      - "task_scheduler"
+      - "progress_tracker"
+    memory_limit: 50
+    custom_settings:
+      max_concurrent_tasks: 5
+      priority_levels: 3
+  
+  # Integrated agent
+  integrated_agent:
+    name: "integrated_agent"
+    capabilities:
+      - "database_integration"
+      - "decision_making"
+      - "task_planning"
+    role: "specialist"
+    decision_strategy: "utility_based"
+    model_providers:
+      - "openai_gpt4"
+    max_tokens: 4000
+    temperature: 0.7
+    timeout_seconds: 30
+    retry_attempts: 3
+    tools:
+      - "sql_generator"
+      - "data_analyzer"
+    memory_limit: 30
+    custom_settings:
+      query_timeout_seconds: 10
+      max_rows_per_query: 1000
+
+# Integration Configuration
+integrations:
+  # Database integrations
+  databases:
+    main_db:
+      type: "postgresql"
+      host: "localhost"
+      port: 5432
+      username: "postgres"
+      password: "${DB_PASSWORD}"
+      database: "ai_gateway"
+      ssl: true
+      connection_timeout: 30
+      custom_params:
+        pool_size: 10
+        max_overflow: 20
+    
+    redis_cache:
+      type: "redis"
+      host: "localhost"
+      port: 6379
+      username: ""
+      password: "${REDIS_PASSWORD}"
+      database: "0"
+      ssl: false
+      connection_timeout: 5
+      custom_params:
+        decode_responses: true
+  
+  # Knowledge resource integrations
+  knowledge_resources:
+    documentation:
+      type: "file_system"
+      path: "/docs"
+      format: "markdown"
+      embedding_model: "text-embedding-ada-002"
+      chunk_size: 1000
+      custom_params:
+        include_metadata: true
+        recursive: true
+    
+    vector_db:
+      type: "chroma"
+      path: "/data/chroma"
+      format: "vector"
+      embedding_model: "text-embedding-ada-002"
+      chunk_size: 1000
+      custom_params:
+        collection_name: "ai_gateway_docs"
+  
+  # Model tailoring
+  model_tailoring:
+    roles:
+      customer_service:
+        description: "Assist users with questions about the AI Gateway services."
+        model_settings:
+          temperature: 0.7
+          max_tokens: 2000
+          top_p: 0.95
+      
+      financial_analyst:
+        description: "Analyze financial data and provide insights."
+        model_settings:
+          temperature: 0.2
+          max_tokens: 4000
+          top_p: 0.8
+      
+      technical_support:
+        description: "Provide technical assistance for AI Gateway issues."
+        model_settings:
+          temperature: 0.4
+          max_tokens: 3000
+          top_p: 0.9
+    
+    templates:
+      customer_service_greeting: "Hello, I'm your AI Gateway assistant. How can I help you today?"
+      financial_analyst_analysis: "Based on the financial data provided, here's my analysis:"
+      technical_support_troubleshooting: "Let's troubleshoot your AI Gateway issue. Please provide the following information:"
+  
+  # System interoperability
+  interoperability:
+    endpoints:
+      jira_api:
+        url: "https://your-company.atlassian.net/rest/api/3"
+        method: "POST"
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Basic ${JIRA_API_KEY}"
+      
+      slack_webhook:
+        url: "https://hooks.slack.com/services/XXXX/YYYY/ZZZZ"
+        method: "POST"
+        headers:
+          Content-Type: "application/json"
+      
+      github_api:
+        url: "https://api.github.com"
+        method: "GET"
+        headers:
+          Authorization: "token ${GITHUB_TOKEN}"
+          Accept: "application/vnd.github+json"
+          X-GitHub-Api-Version: "2022-11-28"
+
+# Tool Configuration
+tools:
+  calculator:
+    name: "calculator"
+    description: "Perform mathematical calculations"
+    module: "calculator_tool"
+    class: "CalculatorTool"
+    parameters:
+      precision: 10
+  
+  search:
+    name: "search"
+    description: "Search for information on the web"
+    module: "search_tool"
+    class: "SearchTool"
+    parameters:
+      api_key: "${SEARCH_API_KEY}"
+      max_results: 5
+  
+  task_scheduler:
+    name: "task_scheduler"
+    description: "Schedule and manage tasks"
+    module: "task_scheduler_tool"
+    class: "TaskSchedulerTool"
+    parameters:
+      max_tasks: 100
+  
+  progress_tracker:
+    name: "progress_tracker"
+    description: "Track progress of tasks"
+    module: "progress_tracker_tool"
+    class: "ProgressTrackerTool"
+    parameters:
+      update_interval_seconds: 10
+  
+  sql_generator:
+    name: "sql_generator"
+    description: "Generate SQL queries"
+    module: "sql_generator_tool"
+    class: "SQLGeneratorTool"
+    parameters:
+      dialect: "postgresql"
+      safe_mode: true
+  
+  data_analyzer:
+    name: "data_analyzer"
+    description: "Analyze data sets"
+    module: "data_analyzer_tool"
+    class: "DataAnalyzerTool"
+    parameters:
+      pandas_enabled: true
+      max_sample_size: 10000
+
+# Model Provider Configuration
+model_providers:
+  openai_gpt4:
+    name: "OpenAI GPT-4"
+    type: "openai"
+    model: "gpt-4-turbo"
+    api_key: "${OPENAI_API_KEY}"
+    max_tokens: 4096
+    parameters:
+      timeout_seconds: 30
+      retry_attempts: 3
+  
+  anthropic_claude:
+    name: "Anthropic Claude"
+    type: "anthropic"
+    model: "claude-3-opus-20240229"
+    api_key: "${ANTHROPIC_API_KEY}"
+    max_tokens: 8192
+    parameters:
+      timeout_seconds: 30
+      retry_attempts: 3
+  
+  cohere_command:
+    name: "Cohere Command"
+    type: "cohere"
+    model: "command-r"
+    api_key: "${COHERE_API_KEY}"
+    max_tokens: 4000
+    parameters:
+      timeout_seconds: 30
+      retry_attempts: 3
+
+# Memory Configuration
+memory:
+  default:
+    type: "simple"
+    max_size: 100
+  
+  conversation:
+    type: "conversation"
+    max_messages: 100
+  
+  lru:
+    type: "lru"
+    max_size: 200
+  
+  hierarchical:
+    type: "hierarchical"
+    short_term_size: 50
+    long_term_size: 500
+
+# Application Areas Configuration
+application_areas:
+  customer_service:
+    description: "AI Gateway customer service automation"
+    agents:
+      - "decision_agent"
+      - "integrated_agent"
+    knowledge_resources:
+      - "documentation"
+    model_tailoring_role: "customer_service"
+    tools:
+      - "search"
+  
+  insurance_claims:
+    description: "Insurance claims processing automation"
+    agents:
+      - "decision_agent"
+      - "integrated_agent"
+    knowledge_resources:
+      - "vector_db"
+    model_tailoring_role: "financial_analyst"
+    tools:
+      - "calculator"
+      - "data_analyzer"
+  
+  supply_chain:
+    description: "Supply chain optimization"
+    agents:
+      - "coordinator_agent"
+      - "integrated_agent"
+    knowledge_resources:
+      - "vector_db"
+    model_tailoring_role: "technical_support"
+    tools:
+      - "data_analyzer"
+      - "sql_generator"
+  
+  financial_analysis:
+    description: "Financial data analysis and recommendations"
+    agents:
+      - "decision_agent"
+      - "integrated_agent"
+    knowledge_resources:
+      - "vector_db"
+    model_tailoring_role: "financial_analyst"
+    tools:
+      - "calculator"
+      - "data_analyzer"
+
+# Human-AI Collaboration Configuration
+collaboration:
+  oversight_mechanisms:
+    approval_required:
+      enabled: true
+      threshold_confidence: 0.7
+      roles:
+        - "admin"
+        - "manager"
+    
+    review_cycle:
+      enabled: true
+      periodic_review_hours: 24
+      random_sampling_percentage: 10
+  
+  feedback_mechanisms:
+    thumbs_up_down:
+      enabled: true
+      store_feedback: true
+    
+    detailed_feedback:
+      enabled: true
+      categories:
+        - "accuracy"
+        - "helpfulness"
+        - "safety"
+      scale: 5
+  
+  explanation_mechanisms:
+    decision_explanation:
+      enabled: true
+      detail_level: "medium"  # "low", "medium", "high"
+    
+    confidence_reporting:
+      enabled: true
+      format: "percentage"  # "percentage", "descriptive"
+
+# Continuous Improvement Configuration
+continuous_improvement:
+  metrics_tracking:
+    enabled: true
+    metrics:
+      - "success_rate"
+      - "average_latency"
+      - "user_satisfaction"
+      - "cost_per_request"
+  
+  learning_from_feedback:
+    enabled: true
+    adjustment_frequency: "daily"
+    minimum_feedback_samples: 10
+    learning_rate: 0.05
+  
+  model_updates:
+    enabled: true
+    check_for_updates_frequency: "weekly"
+    auto_update: false
+    notify_admins: true
+  
+  system_adaptability:
+    enabled: true
+    adaptability_factors:
+      - "usage_patterns"
+      - "error_rates"
+      - "user_preferences" 

@@ -1,0 +1,117 @@
+groups:
+  - name: ai_gateway_recording_rules
+    rules:
+      - record: ai_gateway:error_rate
+        expr: sum(rate(ai_gateway_errors_total[5m])) / sum(rate(ai_gateway_requests_total[5m]))
+
+      - record: ai_gateway:latency_p95
+        expr: histogram_quantile(0.95, sum(rate(ai_gateway_request_duration_seconds_bucket[5m])) by (le))
+
+      - record: ai_gateway:token_usage_per_hour
+        expr: sum(rate(ai_gateway_token_usage_total[1h])) by (model)
+
+      - record: ai_gateway:errors_by_type
+        expr: sum(rate(ai_gateway_errors_total[5m])) by (error_type, endpoint)
+
+      - record: ai_gateway:requests_by_endpoint
+        expr: sum(rate(ai_gateway_requests_total[5m])) by (endpoint)
+
+      - record: ai_gateway:token_cost_per_hour
+        expr: sum(rate(ai_gateway_token_cost_total[1h])) by (model)
+
+      - record: ai_gateway:cache_hit_ratio
+        expr: sum(rate(ai_gateway_cache_hits_total[5m])) / sum(rate(ai_gateway_cache_requests_total[5m]))
+
+      - record: ai_gateway:model_error_rate
+        expr: sum(rate(ai_gateway_model_errors_total[5m])) by (model) / sum(rate(ai_gateway_model_requests_total[5m])) by (model)
+
+      # New market trend metrics
+      - record: ai_gateway:feature_adoption_rate
+        expr: sum(rate(ai_gateway_feature_usage_total[24h])) by (feature_name) / count(count by (user_id)(ai_gateway_feature_usage_total))
+
+      - record: ai_gateway:feature_retention_rate
+        expr: sum(rate(ai_gateway_feature_usage_total[7d])) by (feature_name) / sum(rate(ai_gateway_feature_usage_total[30d])) by (feature_name)
+
+      - record: ai_gateway:feature_growth_rate
+        expr: sum(rate(ai_gateway_feature_usage_total[7d])) by (feature_name) / sum(rate(ai_gateway_feature_usage_total[7d] offset 7d)) by (feature_name)
+
+      - record: ai_gateway:model_preference_ratio
+        expr: sum(rate(ai_gateway_model_requests_total[24h])) by (model) / sum(rate(ai_gateway_model_requests_total[24h]))
+
+      - record: ai_gateway:rag_effectiveness
+        expr: sum(rate(ai_gateway_rag_success_total[1h])) / sum(rate(ai_gateway_rag_requests_total[1h]))
+
+      - record: ai_gateway:function_call_usage
+        expr: sum(rate(ai_gateway_function_calls_total[1h])) by (function_name)
+
+      - record: ai_gateway:multimodal_usage_ratio
+        expr: sum(rate(ai_gateway_multimodal_requests_total[24h])) / sum(rate(ai_gateway_requests_total[24h]))
+
+      - record: ai_gateway:guardrails_effectiveness
+        expr: 1 - (sum(rate(ai_gateway_guardrails_violations_total[1h])) / sum(rate(ai_gateway_requests_total[1h])))
+
+      - record: ai_gateway:cost_per_request
+        expr: sum(rate(ai_gateway_token_cost_total[1h])) / sum(rate(ai_gateway_requests_total[1h]))
+
+      - record: ai_gateway:federation_distribution
+        expr: sum(rate(ai_gateway_model_requests_total[1h])) by (deployment_type) / sum(rate(ai_gateway_model_requests_total[1h]))
+
+      # Performance Optimization
+      - record: ai_gateway:response_time_by_model
+        expr: avg(rate(ai_gateway_request_duration_seconds_sum[5m])) by (model) / avg(rate(ai_gateway_request_duration_seconds_count[5m])) by (model)
+
+      - record: ai_gateway:concurrent_requests
+        expr: sum(rate(ai_gateway_active_requests_total[1m]))
+
+      - record: ai_gateway:queue_latency
+        expr: histogram_quantile(0.95, sum(rate(ai_gateway_queue_duration_seconds_bucket[5m])) by (le))
+
+      # Security Metrics
+      - record: ai_gateway:auth_failure_rate
+        expr: sum(rate(ai_gateway_auth_failures_total[5m])) / sum(rate(ai_gateway_auth_attempts_total[5m]))
+
+      - record: ai_gateway:content_filter_blocks
+        expr: sum(rate(ai_gateway_content_filter_blocks_total[5m])) by (filter_type)
+
+      - record: ai_gateway:api_key_usage
+        expr: sum(rate(ai_gateway_requests_total[1h])) by (api_key_hash)
+
+      # Business Intelligence
+      - record: ai_gateway:user_satisfaction
+        expr: sum(rate(ai_gateway_user_feedback_score_total[24h])) / count(count by (user_id)(ai_gateway_user_feedback_score_total))
+
+      - record: ai_gateway:feature_conversion
+        expr: sum(rate(ai_gateway_feature_conversion_total[24h])) by (feature_name) / sum(rate(ai_gateway_feature_exposure_total[24h])) by (feature_name)
+
+      - record: ai_gateway:revenue_per_user
+        expr: sum(rate(ai_gateway_revenue_total[24h])) by (user_tier) / count(count by (user_id)(ai_gateway_revenue_total)) by (user_tier)
+
+      # Resource Utilization
+      - record: ai_gateway:memory_usage_per_request
+        expr: avg(container_memory_working_set_bytes{container=~"ai-gateway.*"}) / sum(rate(ai_gateway_requests_total[5m]))
+
+      - record: ai_gateway:cpu_usage_per_request
+        expr: avg(rate(container_cpu_usage_seconds_total{container=~"ai-gateway.*"}[5m])) / sum(rate(ai_gateway_requests_total[5m]))
+
+      - record: ai_gateway:network_usage_per_request
+        expr: (sum(rate(container_network_receive_bytes_total{container=~"ai-gateway.*"}[5m])) + sum(rate(container_network_transmit_bytes_total{container=~"ai-gateway.*"}[5m]))) / sum(rate(ai_gateway_requests_total[5m]))
+
+      # Advanced Analytics
+      - record: ai_gateway:prompt_complexity
+        expr: avg(ai_gateway_prompt_tokens_total / ai_gateway_requests_total) by (endpoint)
+
+      - record: ai_gateway:completion_efficiency
+        expr: avg(ai_gateway_completion_tokens_total / ai_gateway_prompt_tokens_total) by (model)
+
+      - record: ai_gateway:error_prediction
+        expr: predict_linear(ai_gateway:error_rate[1h], 3600) * 100
+
+      # Integration Health
+      - record: ai_gateway:plugin_error_rate
+        expr: sum(rate(ai_gateway_plugin_errors_total[5m])) by (plugin_name) / sum(rate(ai_gateway_plugin_calls_total[5m])) by (plugin_name)
+
+      - record: ai_gateway:tool_usage_distribution
+        expr: sum(rate(ai_gateway_tool_calls_total[1h])) by (tool_name) / sum(rate(ai_gateway_tool_calls_total[1h]))
+
+      - record: ai_gateway:integration_latency
+        expr: histogram_quantile(0.95, sum(rate(ai_gateway_integration_duration_seconds_bucket[5m])) by (integration_name, le))

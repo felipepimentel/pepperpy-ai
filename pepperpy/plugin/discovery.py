@@ -191,7 +191,7 @@ class FileSystemDiscovery(PluginDiscoveryProtocol):
                 # Skip directories with a .disabled file
                 if os.path.exists(os.path.join(item_path, ".disabled")):
                     logger.info(f"Skipping disabled plugin in directory: {item_path}")
-                    continue
+                continue
 
                 # Check if plugin.yaml exists in the directory
                 plugin_yaml = os.path.join(item_path, "plugin.yaml")
@@ -199,22 +199,22 @@ class FileSystemDiscovery(PluginDiscoveryProtocol):
                     # Load plugin information
                     plugin_info = self._load_plugin_info(plugin_yaml, item_path)
 
-                    if plugin_info:
-                        # Register plugin info for lazy loading instead of loading it immediately
-                        domain = plugin_info.plugin_type
-                        name = (
-                            f"{domain}/{plugin_info.provider_name}"
-                            if domain != "discovery"
-                            else plugin_info.provider_name
-                        )
+                if plugin_info:
+                    # Register plugin info for lazy loading instead of loading it immediately
+                    domain = plugin_info.plugin_type
+                    name = (
+                        f"{domain}/{plugin_info.provider_name}"
+                        if domain != "discovery"
+                        else plugin_info.provider_name
+                    )
 
-                        register_plugin_info(domain, name, plugin_info)
-                        logger.debug(f"Registered plugin info: {domain}/{name}")
+                    register_plugin_info(domain, name, plugin_info)
+                    logger.debug(f"Registered plugin info: {domain}/{name}")
 
-                        # Add to the local plugins dict for compatibility
-                        if domain not in self._plugins:
-                            self._plugins[domain] = {}
-                        self._plugins[domain][name] = plugin_info
+                    # Add to the local plugins dict for compatibility
+                    if domain not in self._plugins:
+                        self._plugins[domain] = {}
+                    self._plugins[domain][name] = plugin_info
                 # Recurse into subdirectories up to max_recursion_depth
                 elif recursion_depth < max_recursion_depth:
                     self._scan_directory(item_path, recursion_depth + 1)
@@ -314,13 +314,13 @@ def _find_plugin_class(
     """Find the plugin class in the given module.
 
     Args:
-        module: Module to search
-        plugin_type: Plugin type (llm, tts, etc.)
-        provider_name: Provider name
+    module: Module to search
+    plugin_type: Plugin type (llm, tts, etc.)
+    provider_name: Provider name
         plugin_info: Plugin information
 
     Returns:
-        Plugin class or None
+    Plugin class or None
 
     Raises:
         DiscoveryError: If plugin class cannot be found

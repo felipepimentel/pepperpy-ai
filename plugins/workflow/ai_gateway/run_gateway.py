@@ -264,7 +264,7 @@ async def run_gateway(
                 llm_providers.append(mcp_adapter)
                 logger.info("Registered MCP server provider")
 
-            except Exception as e:
+        except Exception as e:
                 logger.error(f"Failed to initialize MCP server: {e}")
                 import traceback
 
@@ -359,7 +359,7 @@ def main() -> int:
             return 0
         else:
             asyncio.run(run_gateway(args.host, args.port, args.debug, args.use_mcp))
-            return 0
+        return 0
     except KeyboardInterrupt:
         print("Gateway stopped by user")
         return 0

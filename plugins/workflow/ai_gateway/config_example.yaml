@@ -1,0 +1,309 @@
+# AI Gateway Configuration Example
+
+# Global configuration
+global:
+  debug: false
+  environment: production
+  logging:
+    level: info
+    format: json
+
+# Authentication configuration
+auth:
+  provider: basic
+  api_key_header: X-API-Key
+  api_keys:
+    - key: sk-test-1234567890
+      name: Test Key
+    - key: sk-admin-0987654321
+      name: Admin Key
+  require_auth: true
+
+# Routing configuration
+routing:
+  provider: basic
+  host: 0.0.0.0
+  port: 8081
+  prefix: /api
+  cors:
+    enabled: true
+    allow_origins:
+      - "*"
+    allow_methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+    allow_headers:
+      - Content-Type
+      - X-API-Key
+
+# Models configuration
+models:
+  gpt-4:
+    provider: openai
+    model: gpt-4
+    api_key:
+      env_var: OPENAI_API_KEY
+    temperature: 0.7
+    max_tokens: 4096
+    top_p: 1.0
+    timeout: 60
+
+  claude:
+    provider: anthropic
+    model: claude-3-opus-20240229
+    api_key:
+      env_var: ANTHROPIC_API_KEY
+    temperature: 0.7
+    max_tokens: 4096
+    top_p: 1.0
+    timeout: 60
+
+  falcon:
+    provider: huggingface
+    model: tiiuae/falcon-7b
+    api_key:
+      env_var: HF_API_KEY
+    temperature: 0.7
+    max_tokens: 2048
+    timeout: 120
+
+  local:
+    provider: ollama
+    model: llama2
+    host: http://localhost:11434
+    timeout: 120
+
+# Tools configuration
+tools:
+  calculator:
+    provider: calculator
+    enabled: true
+
+  weather:
+    provider: weather
+    api_key:
+      env_var: WEATHER_API_KEY
+    enabled: true
+
+  translate:
+    provider: translate
+    api_key:
+      env_var: TRANSLATE_API_KEY
+    enabled: true
+
+# Multi-port configuration
+multiport:
+  enabled: true
+  services:
+    - name: api
+      type: api
+      host: 0.0.0.0
+      port: 8081
+      rate_limiting_enabled: true
+      metrics_enabled: true
+      function_calling_enabled: true
+      rag_enabled: true
+      multimodal_enabled: true
+      
+    - name: web
+      type: web
+      host: 0.0.0.0
+      port: 8082
+      rate_limiting_enabled: true
+      metrics_enabled: true
+      
+    - name: metrics
+      type: metrics
+      host: 0.0.0.0
+      port: 8083
+      rate_limiting_enabled: false
+      
+    - name: admin
+      type: admin
+      host: 0.0.0.0
+      port: 8084
+      rate_limiting_enabled: true
+      metrics_enabled: true
+      compliance_enabled: true
+
+# RAG configuration
+rag:
+  enabled: true
+  vector_stores:
+    chroma:
+      provider: chroma
+      collection: default
+      url: http://localhost:8000
+    pinecone:
+      provider: pinecone
+      index: ai-gateway
+      environment: production
+      api_key:
+        env_var: PINECONE_API_KEY
+  embeddings:
+    provider: openai
+    model: text-embedding-ada-002
+    api_key:
+      env_var: OPENAI_API_KEY
+  chunk_size: 1000
+  chunk_overlap: 200
+
+# Function calling configuration
+function_calling:
+  enabled: true
+  built_in_functions:
+    weather:
+      description: Get weather information for a location
+      parameters:
+        location:
+          type: string
+          description: City name or location
+    calculator:
+      description: Perform mathematical calculations
+      parameters:
+        expression:
+          type: string
+          description: Mathematical expression to evaluate
+    translate:
+      description: Translate text to another language
+      parameters:
+        text:
+          type: string
+          description: Text to translate
+        target_lang:
+          type: string
+          description: Target language code
+
+# Model federation configuration
+federation:
+  enabled: true
+  strategy: cost_based  # cost_based, performance_based, availability_based
+  model_groups:
+    gpt:
+      - gpt-4
+      - gpt-3.5-turbo
+    claude:
+      - claude-3-opus
+      - claude-3-sonnet
+    local:
+      - llama2
+      - mistral
+
+# Guardrails configuration
+guardrails:
+  enabled: true
+  content_filtering:
+    enabled: true
+    level: medium  # low, medium, high
+  prompt_injection:
+    enabled: true
+    action: block  # block, warn, log
+  policies:
+    - name: pii_detection
+      enabled: true
+      action: redact
+    - name: toxicity_filter
+      enabled: true
+      threshold: 0.8
+      action: block
+
+# Fine-tuning configuration
+fine_tuning:
+  enabled: true
+  providers:
+    - openai
+    - anthropic
+  default_params:
+    n_epochs: 3
+    batch_size: 4
+    learning_rate: 1e-5
+  storage:
+    provider: s3
+    bucket: fine-tune-data
+    credentials:
+      env_var: AWS_CREDENTIALS
+
+# Cost optimization configuration
+cost_optimization:
+  enabled: true
+  cost_based_routing:
+    enabled: true
+    strategy: lowest_cost  # lowest_cost, best_value
+  budget_limits:
+    daily:
+      limit: 10.0
+      period: daily
+      action: warn  # warn, block
+    monthly:
+      limit: 250.0
+      period: monthly
+      action: warn
+
+# Caching configuration
+caching:
+  enabled: true
+  backend: redis  # memory, redis, memcached
+  redis:
+    host: localhost
+    port: 6379
+    db: 0
+  ttl: 3600  # seconds
+  max_size: 10000  # items
+  invalidation:
+    automatic: true
+    strategy: time_based  # time_based, change_based
+
+# Multimodal support configuration
+multimodal:
+  enabled: true
+  modalities:
+    - text
+    - image
+    - audio
+  model_mappings:
+    image_generation: openai/dall-e-3
+    image_understanding: openai/gpt-4-vision
+    audio_transcription: openai/whisper
+    audio_generation: elevenlabs/tts
+
+# Plugin marketplace configuration
+plugin_marketplace:
+  enabled: true
+  sources:
+    - name: Official
+      url: https://marketplace.ai-gateway.com
+      trusted: true
+    - name: Community
+      url: https://community.ai-gateway.com
+      trusted: false
+  validation:
+    enabled: true
+    sandbox: true
+    scan_for_vulnerabilities: true
+
+# Compliance configuration
+compliance:
+  enabled: true
+  audit_logging:
+    enabled: true
+    storage:
+      provider: s3
+      bucket: compliance-logs
+      credentials:
+        env_var: AWS_CREDENTIALS
+  data_retention:
+    enabled: true
+    period: 90d
+    auto_delete: true
+  policies:
+    - name: gdpr
+      type: privacy
+      enabled: true
+    - name: hipaa
+      type: healthcare
+      enabled: false
+    - name: pci
+      type: financial
+      enabled: false 

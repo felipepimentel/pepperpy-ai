@@ -1,0 +1,30 @@
+name: weather
+version: 0.1.0
+description: Weather information tool that provides mock weather data
+author: PepperPy Team
+
+plugin_type: tool
+category: weather
+provider_name: basic
+entry_point: provider.WeatherProvider
+
+config_schema:
+  type: object
+  properties:
+    default_temperature:
+      type: integer
+      description: Default temperature for mock data
+      default: 22
+    default_condition:
+      type: string
+      description: Default weather condition for mock data
+      default: "partly cloudy"
+    use_static_data:
+      type: boolean
+      description: Whether to use static mock data
+      default: true
+
+default_config:
+  default_temperature: 22
+  default_condition: "partly cloudy"
+  use_static_data: true 

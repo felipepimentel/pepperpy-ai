@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # Serviço principal da API Gateway
+  ai-gateway-api:
+    build:
+      context: ../../..
+      dockerfile: plugins/workflow/ai_gateway/Dockerfile
+    image: ai-gateway:latest
+    container_name: ai-gateway-api
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./config:/app/plugins/workflow/ai_gateway/config
+    environment:
+      - GATEWAY_SERVICE_TYPE=api
+      - GATEWAY_PORT=8081
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+    restart: unless-stopped
+    networks:
+      - ai-gateway-network
+    depends_on:
+      - redis
+
+  # Serviço de interface web
+  ai-gateway-web:
+    build:
+      context: ../../..
+      dockerfile: plugins/workflow/ai_gateway/Dockerfile
+    image: ai-gateway:latest
+    container_name: ai-gateway-web
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./config:/app/plugins/workflow/ai_gateway/config
+    environment:
+      - GATEWAY_SERVICE_TYPE=web
+      - GATEWAY_PORT=8082
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    restart: unless-stopped
+    networks:
+      - ai-gateway-network
+    depends_on:
+      - ai-gateway-api
+      - redis
+
+  # Serviço de métricas
+  ai-gateway-metrics:
+    build:
+      context: ../../..
+      dockerfile: plugins/workflow/ai_gateway/Dockerfile
+    image: ai-gateway:latest
+    container_name: ai-gateway-metrics
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./config:/app/plugins/workflow/ai_gateway/config
+    environment:
+      - GATEWAY_SERVICE_TYPE=metrics
+      - GATEWAY_PORT=8083
+    restart: unless-stopped
+    networks:
+      - ai-gateway-network
+    depends_on:
+      - ai-gateway-api
+      - redis
+
+  # Serviço de administração
+  ai-gateway-admin:
+    build:
+      context: ../../..
+      dockerfile: plugins/workflow/ai_gateway/Dockerfile
+    image: ai-gateway:latest
+    container_name: ai-gateway-admin
+    ports:
+      - "8084:8084"
+    volumes:
+      - ./config:/app/plugins/workflow/ai_gateway/config
+    environment:
+      - GATEWAY_SERVICE_TYPE=admin
+      - GATEWAY_PORT=8084
+    restart: unless-stopped
+    networks:
+      - ai-gateway-network
+    depends_on:
+      - ai-gateway-api
+      - redis
+
+  # Serviço Redis para cache compartilhado
+  redis:
+    image: redis:latest
+    container_name: ai-gateway-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - ai-gateway-network
+
+  # Serviço Prometheus para monitoramento
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ai-gateway-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: unless-stopped
+    networks:
+      - ai-gateway-network
+
+  # Serviço Grafana para visualização de métricas
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ai-gateway-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    networks:
+      - ai-gateway-network
+    depends_on:
+      - prometheus
+  
+  # Serviço Ollama para LLMs locais
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-gateway-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - ai-gateway-network
+
+  # Serviço Chroma para armazenamento de vetores (RAG)
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    container_name: ai-gateway-chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    environment:
+      - ALLOW_RESET=true
+    restart: unless-stopped
+    networks:
+      - ai-gateway-network
+
+# Volumes persistentes
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  ollama-data:
+  chroma-data:
+
+# Rede dedicada
+networks:
+  ai-gateway-network:
+    driver: bridge 
