@@ -1,313 +1,626 @@
-"""Memory implementations for agents.
+"""Memory implementations for the agent system.
 
-This module provides different memory implementations that agents can use
-to store and retrieve information during their operation.
+This module provides various memory implementations for storing and
+retrieving agent state and context.
 """
 
 import asyncio
+import collections
 import logging
-from collections import OrderedDict
+import time
+from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional, TypeVar, Generic, Union
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T")
+Key = str
+Value = Any
 
-class SimpleMemory:
-    """Simple in-memory storage for agents."""
 
-    def __init__(self, max_size: int = 100):
+class BaseMemory(ABC):
+    """Base class for all memory implementations."""
+
+    def __init__(self, max_size: int = 1000):
         """Initialize memory.
-
+        
         Args:
             max_size: Maximum number of items to store
         """
-        self._data: dict[str, Any] = {}
-        self._max_size = max_size
+        self.max_size = max_size
         self._lock = asyncio.Lock()
 
-    async def add(self, key: str, value: Any) -> None:
+    @abstractmethod
+    async def add(self, key: Key, value: Value) -> None:
         """Add an item to memory.
-
+        
         Args:
-            key: Key to store the value under
-            value: Value to store
+            key: Item key
+            value: Item value
+        """
+        pass
+
+    @abstractmethod
+    async def get(self, key: Key) -> Optional[Value]:
+        """Retrieve an item from memory.
+        
+        Args:
+            key: Item key
+            
+        Returns:
+            Item value or None if not found
+        """
+        pass
+
+    @abstractmethod
+    async def update(self, key: Key, value: Value) -> None:
+        """Update an item in memory.
+        
+        Args:
+            key: Item key
+            value: New item value
+        """
+        pass
+
+    @abstractmethod
+    async def remove(self, key: Key) -> None:
+        """Remove an item from memory.
+        
+        Args:
+            key: Item key
+        """
+        pass
+
+    @abstractmethod
+    async def clear(self) -> None:
+        """Clear all items from memory."""
+        pass
+
+    @abstractmethod
+    async def get_all(self) -> Dict[Key, Value]:
+        """Get all items in memory.
+        
+        Returns:
+            Dictionary of all items
+        """
+        pass
+
+
+class SimpleMemory(BaseMemory):
+    """Simple memory implementation using a dictionary."""
+
+    def __init__(self, max_size: int = 1000):
+        """Initialize simple memory.
+        
+        Args:
+            max_size: Maximum number of items to store
+        """
+        super().__init__(max_size)
+        self._data: Dict[Key, Value] = {}
+
+    async def add(self, key: Key, value: Value) -> None:
+        """Add an item to memory.
+        
+        Args:
+            key: Item key
+            value: Item value
         """
         async with self._lock:
-            if len(self._data) >= self._max_size and key not in self._data:
-                # Remove the oldest item if at capacity
-                oldest_key = next(iter(self._data))
-                del self._data[oldest_key]
-
+            if len(self._data) >= self.max_size and key not in self._data:
+                # If we're at capacity, we need to remove an item
+                # In SimpleMemory, we just remove a random item
+                if self._data:
+                    del self._data[next(iter(self._data))]
+            
             self._data[key] = value
 
-    async def get(self, key: str) -> Any | None:
+    async def get(self, key: Key) -> Optional[Value]:
         """Retrieve an item from memory.
-
+        
         Args:
-            key: Key to retrieve
-
+            key: Item key
+            
         Returns:
-            Stored value, or None if not found
+            Item value or None if not found
         """
         return self._data.get(key)
 
-    async def update(self, key: str, value: Any) -> None:
+    async def update(self, key: Key, value: Value) -> None:
         """Update an item in memory.
-
+        
         Args:
-            key: Key to update
-            value: New value
+            key: Item key
+            value: New item value
         """
-        await self.add(key, value)
+        async with self._lock:
+            if key in self._data:
+                self._data[key] = value
 
-    async def remove(self, key: str) -> None:
+    async def remove(self, key: Key) -> None:
         """Remove an item from memory.
-
+        
         Args:
-            key: Key to remove
+            key: Item key
         """
         async with self._lock:
             if key in self._data:
                 del self._data[key]
 
     async def clear(self) -> None:
-        """Clear all memory."""
+        """Clear all items from memory."""
         async with self._lock:
             self._data.clear()
 
+    async def get_all(self) -> Dict[Key, Value]:
+        """Get all items in memory.
+        
+        Returns:
+            Dictionary of all items
+        """
+        return self._data.copy()
 
-class LRUMemory:
-    """Memory with least recently used (LRU) eviction policy."""
 
-    def __init__(self, max_size: int = 100):
-        """Initialize memory.
+class LRUMemory(BaseMemory):
+    """Memory implementation with least recently used (LRU) eviction policy."""
 
+    def __init__(self, max_size: int = 1000):
+        """Initialize LRU memory.
+        
         Args:
             max_size: Maximum number of items to store
         """
-        self._data: OrderedDict[str, Any] = OrderedDict()
-        self._max_size = max_size
-        self._lock = asyncio.Lock()
+        super().__init__(max_size)
+        self._data: Dict[Key, Value] = {}
+        self._lru: collections.OrderedDict = collections.OrderedDict()
 
-    async def add(self, key: str, value: Any) -> None:
+    async def add(self, key: Key, value: Value) -> None:
         """Add an item to memory.
-
+        
         Args:
-            key: Key to store the value under
-            value: Value to store
+            key: Item key
+            value: Item value
         """
         async with self._lock:
+            # If key already exists, update it
             if key in self._data:
-                # Move to end if already exists
-                self._data.pop(key)
-            elif len(self._data) >= self._max_size:
-                # Remove the least recently used item if at capacity
-                self._data.popitem(last=False)
+                self._data[key] = value
+                # Move to the end (most recently used)
+                self._lru.move_to_end(key)
+                return
 
+            # If we're at capacity, remove the least recently used item
+            if len(self._data) >= self.max_size:
+                # Get the first key (least recently used)
+                lru_key, _ = next(iter(self._lru.items()))
+                # Remove from data and LRU
+                del self._data[lru_key]
+                del self._lru[lru_key]
+
+            # Add new item
             self._data[key] = value
+            self._lru[key] = None
 
-    async def get(self, key: str) -> Any | None:
+    async def get(self, key: Key) -> Optional[Value]:
         """Retrieve an item from memory.
-
+        
         Args:
-            key: Key to retrieve
-
+            key: Item key
+            
         Returns:
-            Stored value, or None if not found
+            Item value or None if not found
         """
+        if key not in self._data:
+            return None
+
+        # Update LRU order
         async with self._lock:
-            if key not in self._data:
-                return None
+            self._lru.move_to_end(key)
 
-            # Move to end (most recently used)
-            value = self._data.pop(key)
-            self._data[key] = value
-            return value
+        return self._data[key]
 
-    async def update(self, key: str, value: Any) -> None:
+    async def update(self, key: Key, value: Value) -> None:
         """Update an item in memory.
-
+        
         Args:
-            key: Key to update
-            value: New value
+            key: Item key
+            value: New item value
         """
-        await self.add(key, value)
+        if key not in self._data:
+            return
 
-    async def remove(self, key: str) -> None:
-        """Remove an item from memory.
-
-        Args:
-            key: Key to remove
-        """
         async with self._lock:
-            if key in self._data:
-                self._data.pop(key)
+            self._data[key] = value
+            self._lru.move_to_end(key)
+
+    async def remove(self, key: Key) -> None:
+        """Remove an item from memory.
+        
+        Args:
+            key: Item key
+        """
+        if key not in self._data:
+            return
+
+        async with self._lock:
+            del self._data[key]
+            del self._lru[key]
 
     async def clear(self) -> None:
-        """Clear all memory."""
+        """Clear all items from memory."""
         async with self._lock:
             self._data.clear()
+            self._lru.clear()
 
-
-class ConversationMemory:
-    """Memory for storing conversation history."""
-
-    def __init__(self, max_messages: int = 50):
-        """Initialize memory.
-
-        Args:
-            max_messages: Maximum number of messages to store
+    async def get_all(self) -> Dict[Key, Value]:
+        """Get all items in memory.
+        
+        Returns:
+            Dictionary of all items
         """
-        self._messages: list[dict[str, Any]] = []
-        self._max_messages = max_messages
-        self._lock = asyncio.Lock()
+        return self._data.copy()
 
-    async def add_message(
-        self, role: str, content: str, metadata: dict[str, Any] | None = None
-    ) -> None:
-        """Add a message to the conversation.
 
+class MemoryItem(Generic[T]):
+    """Item stored in memory with metadata."""
+
+    def __init__(self, value: T, metadata: Optional[Dict[str, Any]] = None):
+        """Initialize memory item.
+        
         Args:
-            role: Role of the message sender
-            content: Message content
-            metadata: Additional metadata
+            value: Item value
+            metadata: Item metadata
+        """
+        self.value = value
+        self.metadata = metadata or {}
+        self.created_at = datetime.now()
+        self.accessed_at = self.created_at
+        self.access_count = 0
+
+    def access(self) -> None:
+        """Mark item as accessed."""
+        self.accessed_at = datetime.now()
+        self.access_count += 1
+
+
+class ConversationMemory(BaseMemory):
+    """Memory implementation for storing conversation history."""
+
+    def __init__(self, max_size: int = 100):
+        """Initialize conversation memory.
+        
+        Args:
+            max_size: Maximum number of messages to store
+        """
+        super().__init__(max_size)
+        self._messages: List[Dict[str, Any]] = []
+        self._metadata: Dict[str, Any] = {}
+
+    async def add(self, key: Key, value: Dict[str, Any]) -> None:
+        """Add a message to conversation history.
+        
+        Args:
+            key: Message ID (not used in this implementation)
+            value: Message data
         """
         async with self._lock:
-            message = {
-                "role": role,
-                "content": content,
-                "timestamp": datetime.now().isoformat(),
-                "metadata": metadata or {},
-            }
+            # Add timestamp if not present
+            if "timestamp" not in value:
+                value["timestamp"] = datetime.now().isoformat()
 
-            self._messages.append(message)
+            # If we're at capacity, remove oldest message
+            if len(self._messages) >= self.max_size:
+                self._messages.pop(0)
 
-            # Trim if necessary
-            if len(self._messages) > self._max_messages:
-                self._messages = self._messages[-self._max_messages :]
+            self._messages.append(value)
 
-    async def get_history(
-        self, limit: int | None = None, roles: list[str] | None = None
-    ) -> list[dict[str, Any]]:
-        """Get conversation history.
-
+    async def get(self, key: Key) -> Optional[Dict[str, Any]]:
+        """Get a specific message by ID.
+        
         Args:
-            limit: Maximum number of messages to return
-            roles: Only include messages from these roles
-
+            key: Message ID
+            
         Returns:
-            List of messages
+            Message data or None if not found
         """
-        messages = self._messages.copy()
+        # Linear search for message with matching ID
+        for message in self._messages:
+            if message.get("id") == key:
+                return message
+        return None
 
-        if roles:
-            messages = [m for m in messages if m["role"] in roles]
+    async def update(self, key: Key, value: Dict[str, Any]) -> None:
+        """Update a message in the conversation.
+        
+        Args:
+            key: Message ID
+            value: New message data
+        """
+        async with self._lock:
+            for i, message in enumerate(self._messages):
+                if message.get("id") == key:
+                    self._messages[i] = value
+                    break
 
-        if limit:
-            messages = messages[-limit:]
-
-        return messages
+    async def remove(self, key: Key) -> None:
+        """Remove a message from the conversation.
+        
+        Args:
+            key: Message ID
+        """
+        async with self._lock:
+            self._messages = [m for m in self._messages if m.get("id") != key]
 
     async def clear(self) -> None:
-        """Clear all messages."""
+        """Clear all messages from memory."""
         async with self._lock:
             self._messages.clear()
+            self._metadata.clear()
 
-
-class HierarchicalMemory:
-    """Hierarchical memory with multiple storage layers."""
-
-    def __init__(self, short_term_size: int = 50, long_term_size: int = 500):
-        """Initialize memory.
-
-        Args:
-            short_term_size: Maximum short-term memory size
-            long_term_size: Maximum long-term memory size
-        """
-        self._short_term = SimpleMemory(max_size=short_term_size)
-        self._long_term = LRUMemory(max_size=long_term_size)
-        self._lock = asyncio.Lock()
-
-    async def add(self, key: str, value: Any, long_term: bool = False) -> None:
-        """Add an item to memory.
-
-        Args:
-            key: Key to store the value under
-            value: Value to store
-            long_term: Whether to store in long-term memory
-        """
-        if long_term:
-            await self._long_term.add(key, value)
-        else:
-            await self._short_term.add(key, value)
-
-    async def get(self, key: str) -> Any | None:
-        """Retrieve an item from memory.
-
-        Args:
-            key: Key to retrieve
-
+    async def get_all(self) -> List[Dict[str, Any]]:
+        """Get all messages in conversation.
+        
         Returns:
-            Stored value, or None if not found
+            List of all messages
         """
-        # Check short-term memory first
-        value = await self._short_term.get(key)
-        if value is not None:
-            return value
+        return self._messages.copy()
 
-        # Check long-term memory
-        return await self._long_term.get(key)
+    async def get_metadata(self) -> Dict[str, Any]:
+        """Get conversation metadata.
+        
+        Returns:
+            Conversation metadata
+        """
+        return self._metadata.copy()
 
-    async def update(self, key: str, value: Any, long_term: bool = False) -> None:
+    async def set_metadata(self, metadata: Dict[str, Any]) -> None:
+        """Set conversation metadata.
+        
+        Args:
+            metadata: Conversation metadata
+        """
+        async with self._lock:
+            self._metadata.update(metadata)
+
+    async def get_last_n_messages(self, n: int) -> List[Dict[str, Any]]:
+        """Get the last N messages.
+        
+        Args:
+            n: Number of messages to retrieve
+            
+        Returns:
+            List of the last N messages
+        """
+        return self._messages[-n:] if n > 0 else []
+
+
+class HierarchicalMemory(BaseMemory):
+    """Hierarchical memory with multiple tiers.
+    
+    This memory implementation uses multiple tiers with different
+    retention policies:
+    - Short-term memory: Fast access, limited size
+    - Long-term memory: Larger capacity, slower access
+    - Permanent memory: Important information that should be retained
+    """
+
+    def __init__(
+        self,
+        short_term_size: int = 100,
+        long_term_size: int = 1000,
+        permanent_size: int = 100,
+    ):
+        """Initialize hierarchical memory.
+        
+        Args:
+            short_term_size: Maximum size for short-term memory
+            long_term_size: Maximum size for long-term memory
+            permanent_size: Maximum size for permanent memory
+        """
+        super().__init__(short_term_size + long_term_size + permanent_size)
+        self._short_term = LRUMemory(short_term_size)
+        self._long_term = LRUMemory(long_term_size)
+        self._permanent = SimpleMemory(permanent_size)
+        
+        # Importance threshold for moving items to long-term memory
+        self.importance_threshold = 0.5
+        
+        # Access count threshold for moving items to long-term memory
+        self.access_count_threshold = 3
+
+    async def add(
+        self, key: Key, value: Value, importance: float = 0.0, permanent: bool = False
+    ) -> None:
+        """Add an item to memory.
+        
+        Args:
+            key: Item key
+            value: Item value
+            importance: Item importance (0.0-1.0)
+            permanent: Whether to store in permanent memory
+        """
+        item = MemoryItem(value, {"importance": importance})
+        
+        if permanent:
+            # Add to permanent memory
+            await self._permanent.add(key, item)
+        elif importance >= self.importance_threshold:
+            # Important items go to long-term memory
+            await self._long_term.add(key, item)
+        else:
+            # Regular items go to short-term memory
+            await self._short_term.add(key, item)
+
+    async def get(self, key: Key) -> Optional[Value]:
+        """Retrieve an item from memory.
+        
+        Args:
+            key: Item key
+            
+        Returns:
+            Item value or None if not found
+        """
+        # Check permanent memory first
+        item = await self._permanent.get(key)
+        if item is not None:
+            item.access()
+            return item.value
+            
+        # Then check short-term memory
+        item = await self._short_term.get(key)
+        if item is not None:
+            item.access()
+            
+            # If accessed frequently, move to long-term memory
+            if item.access_count >= self.access_count_threshold:
+                await self._short_term.remove(key)
+                await self._long_term.add(key, item)
+                
+            return item.value
+            
+        # Finally check long-term memory
+        item = await self._long_term.get(key)
+        if item is not None:
+            item.access()
+            return item.value
+            
+        return None
+
+    async def update(
+        self, key: Key, value: Value, importance: Optional[float] = None, permanent: Optional[bool] = None
+    ) -> None:
         """Update an item in memory.
-
+        
         Args:
-            key: Key to update
-            value: New value
-            long_term: Whether to store in long-term memory
+            key: Item key
+            value: New item value
+            importance: New importance value (if None, keep existing)
+            permanent: Whether to move to permanent memory
         """
-        await self.add(key, value, long_term)
+        # Check where the item currently is
+        item = await self._permanent.get(key)
+        memory_type = "permanent" if item is not None else None
+        
+        if item is None:
+            item = await self._short_term.get(key)
+            memory_type = "short_term" if item is not None else None
+            
+        if item is None:
+            item = await self._long_term.get(key)
+            memory_type = "long_term" if item is not None else None
+            
+        if item is None:
+            # Item doesn't exist, just add it
+            await self.add(key, value, importance or 0.0, permanent or False)
+            return
+            
+        # Update the item
+        item.value = value
+        
+        if importance is not None:
+            item.metadata["importance"] = importance
+            
+        # Handle memory type changes
+        if permanent:
+            # Move to permanent memory if requested
+            if memory_type != "permanent":
+                await self._remove_from_current(key, memory_type)
+                await self._permanent.add(key, item)
+        elif importance is not None:
+            if importance >= self.importance_threshold and memory_type == "short_term":
+                # Move from short-term to long-term if importance increased
+                await self._short_term.remove(key)
+                await self._long_term.add(key, item)
+            elif importance < self.importance_threshold and memory_type == "long_term":
+                # Move from long-term to short-term if importance decreased
+                await self._long_term.remove(key)
+                await self._short_term.add(key, item)
+        else:
+            # Just update in place
+            if memory_type == "permanent":
+                await self._permanent.update(key, item)
+            elif memory_type == "short_term":
+                await self._short_term.update(key, item)
+            elif memory_type == "long_term":
+                await self._long_term.update(key, item)
 
-    async def remove(self, key: str) -> None:
+    async def remove(self, key: Key) -> None:
         """Remove an item from memory.
-
+        
         Args:
-            key: Key to remove
+            key: Item key
         """
+        await self._permanent.remove(key)
         await self._short_term.remove(key)
         await self._long_term.remove(key)
 
     async def clear(self) -> None:
-        """Clear all memory."""
+        """Clear all items from memory."""
+        await self._permanent.clear()
         await self._short_term.clear()
         await self._long_term.clear()
 
+    async def get_all(self) -> Dict[Key, Value]:
+        """Get all items in memory.
+        
+        Returns:
+            Dictionary of all items
+        """
+        result = {}
+        
+        # Get items from all memory tiers
+        permanent_items = await self._permanent.get_all()
+        short_term_items = await self._short_term.get_all()
+        long_term_items = await self._long_term.get_all()
+        
+        # Extract values from MemoryItems
+        for key, item in permanent_items.items():
+            result[key] = item.value
+            
+        for key, item in short_term_items.items():
+            result[key] = item.value
+            
+        for key, item in long_term_items.items():
+            result[key] = item.value
+            
+        return result
+        
+    async def _remove_from_current(self, key: Key, memory_type: Optional[str]) -> None:
+        """Remove an item from its current memory tier.
+        
+        Args:
+            key: Item key
+            memory_type: Current memory tier
+        """
+        if memory_type == "permanent":
+            await self._permanent.remove(key)
+        elif memory_type == "short_term":
+            await self._short_term.remove(key)
+        elif memory_type == "long_term":
+            await self._long_term.remove(key)
 
-def create_memory(memory_type: str = "simple", **config) -> Any:
+
+# Factory function to create memory instances
+def create_memory(memory_type: str = "simple", **kwargs) -> BaseMemory:
     """Create a memory instance.
-
+    
     Args:
         memory_type: Type of memory to create
-        **config: Additional configuration
-
+        **kwargs: Additional parameters for the memory
+        
     Returns:
         Memory instance
+        
+    Raises:
+        ValueError: If memory type is unknown
     """
     if memory_type == "simple":
-        max_size = config.get("max_size", 100)
-        return SimpleMemory(max_size=max_size)
+        return SimpleMemory(**kwargs)
     elif memory_type == "lru":
-        max_size = config.get("max_size", 100)
-        return LRUMemory(max_size=max_size)
+        return LRUMemory(**kwargs)
     elif memory_type == "conversation":
-        max_messages = config.get("max_messages", 50)
-        return ConversationMemory(max_messages=max_messages)
+        return ConversationMemory(**kwargs)
     elif memory_type == "hierarchical":
-        short_term_size = config.get("short_term_size", 50)
-        long_term_size = config.get("long_term_size", 500)
-        return HierarchicalMemory(
-            short_term_size=short_term_size, long_term_size=long_term_size
-        )
+        return HierarchicalMemory(**kwargs)
     else:
         raise ValueError(f"Unknown memory type: {memory_type}")

@@ -8,7 +8,7 @@ import asyncio
 import logging
 import uuid
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
 from typing import Any, Protocol, TypeVar
@@ -57,6 +57,17 @@ class AgentCapability(Enum):
     SEARCH = "search"
     MATH = "math"
     DATA_ANALYSIS = "data_analysis"
+    TEXT_COMPLETION = "text_completion"
+    SUMMARIZATION = "summarization"
+    CLASSIFICATION = "classification"
+    TRANSLATION = "translation"
+    CODING = "coding"
+    KNOWLEDGE_RETRIEVAL = "knowledge_retrieval"
+    QUESTION_ANSWERING = "question_answering"
+    PROBLEM_SOLVING = "problem_solving"
+    ORCHESTRATION = "orchestration"
+    COORDINATION = "coordination"
+    SPECIALIZED = "specialized"
 
 
 class AgentRole(Enum):
@@ -92,6 +103,48 @@ class AgentMetrics:
     last_active: datetime | None = None
     feedback_score: float = 0.0
 
+    @property
+    def success_rate(self) -> float:
+        """Get success rate.
+
+        Returns:
+            Success rate as percentage
+        """
+        if self.total_tasks_completed == 0:
+            return 100.0
+
+        return (self.successful_tasks / self.total_tasks_completed) * 100.0
+
+    @property
+    def avg_processing_time(self) -> float:
+        """Get average processing time.
+
+        Returns:
+            Average processing time in seconds
+        """
+        if self.total_tasks_completed == 0:
+            return 0.0
+
+        return self.avg_task_duration_ms / 1000.0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary.
+
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "total_tasks_completed": self.total_tasks_completed,
+            "successful_tasks": self.successful_tasks,
+            "failed_tasks": self.failed_tasks,
+            "avg_task_duration_ms": self.avg_task_duration_ms,
+            "total_tokens_used": self.total_tokens_used,
+            "success_rate": self.success_rate,
+            "avg_processing_time": self.avg_processing_time,
+            "last_active": self.last_active.isoformat() if self.last_active else None,
+            "feedback_score": self.feedback_score,
+        }
+
 
 @dataclass
 class AgentContext:
@@ -99,8 +152,116 @@ class AgentContext:
 
     session_id: str
     user_id: str | None = None
-    environment_variables: dict[str, str] = None
-    metadata: dict[str, Any] = None
+    environment_variables: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    _data: dict[str, Any] = field(default_factory=dict)
+    _shared_memory: dict[str, Any] = field(default_factory=dict)
+    _history: list[dict[str, Any]] = field(default_factory=list)
+    _tools: dict[str, Any] = field(default_factory=dict)
+
+    async def get(self, key: str) -> Any | None:
+        """Get a value from context.
+
+        Args:
+            key: Key to retrieve
+
+        Returns:
+            Retrieved value or None if not found
+        """
+        return self._data.get(key)
+
+    async def set(self, key: str, value: Any) -> None:
+        """Set a value in context.
+
+        Args:
+            key: Key to set
+            value: Value to store
+        """
+        self._data[key] = value
+
+    async def remove(self, key: str) -> None:
+        """Remove a value from context.
+
+        Args:
+            key: Key to remove
+        """
+        if key in self._data:
+            del self._data[key]
+
+    async def clear(self) -> None:
+        """Clear all context data."""
+        self._data.clear()
+        self._shared_memory.clear()
+        self._history.clear()
+        self._tools.clear()
+
+    @property
+    def shared_memory(self) -> dict[str, Any]:
+        """Get shared memory.
+
+        Returns:
+            Shared memory dictionary
+        """
+        return self._shared_memory
+
+    async def add_to_history(self, event: dict[str, Any]) -> None:
+        """Add event to history.
+
+        Args:
+            event: Event data to add
+        """
+        event_with_timestamp = {"timestamp": datetime.now().isoformat(), **event}
+        self._history.append(event_with_timestamp)
+
+    async def get_tool(self, tool_name: str) -> Any | None:
+        """Get a tool by name.
+
+        Args:
+            tool_name: Name of the tool
+
+        Returns:
+            Tool implementation or None if not found
+        """
+        return self._tools.get(tool_name)
+
+    async def get_available_tools(self) -> list[str]:
+        """Get available tool names.
+
+        Returns:
+            List of available tool names
+        """
+        return list(self._tools.keys())
+
+    async def register_tool(self, name: str, implementation: Any) -> None:
+        """Register a tool.
+
+        Args:
+            name: Tool name
+            implementation: Tool implementation
+        """
+        self._tools[name] = implementation
+
+
+class TaskStatus(Enum):
+    """Status of a task."""
+
+    PENDING = "pending"
+    ASSIGNED = "assigned"
+    RUNNING = "running"
+    IN_PROGRESS = "in_progress"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class TaskPriority(Enum):
+    """Priority of a task."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
 
 
 @dataclass
@@ -116,73 +277,72 @@ class AgentConfig:
     temperature: float = 0.7
     timeout_seconds: int = 30
     retry_attempts: int = 3
-    tools: list[str] = None
+    tools: list[str] = field(default_factory=list)
     memory_limit: int = 10
-    custom_settings: dict[str, Any] = None
+    custom_settings: dict[str, Any] = field(default_factory=dict)
 
 
-class TaskStatus(Enum):
-    """Status of a task."""
-
-    PENDING = "pending"
-    ASSIGNED = "assigned"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
-class TaskPriority(Enum):
-    """Priority of a task."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
+@dataclass
 class Task:
     """Task for an agent to execute."""
 
-    def __init__(
-        self,
-        id: Optional[str] = None,
-        objective: str = "",
-        parameters: Dict[str, Any] = None,
-        priority: TaskPriority = TaskPriority.MEDIUM,
-        agent_id: Optional[str] = None,
-        conversation_id: Optional[str] = None,
-        metadata: Dict[str, Any] = None,
-    ):
-        """Initialize a task.
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    objective: str = ""
+    parameters: dict[str, Any] = field(default_factory=dict)
+    status: TaskStatus = TaskStatus.PENDING
+    priority: TaskPriority = TaskPriority.MEDIUM
+    agent_id: str | None = None
+    conversation_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=datetime.now)
+    assigned_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    required_capabilities: list[AgentCapability] = field(default_factory=list)
+    task_id: str = field(default_factory=lambda: str(uuid.uuid4()))  # For compatibility
+    description: str = ""  # For compatibility
+    assigned_to: str | None = None  # For compatibility
+    dependencies: list[str] = field(default_factory=list)  # For compatibility
 
-        Args:
-            id: Task ID (generated if not provided)
-            objective: Task objective
-            parameters: Task parameters
-            priority: Task priority
-            agent_id: ID of agent assigned to this task
-            conversation_id: ID of conversation this task is part of
-            metadata: Additional metadata
+    @property
+    def processing_time(self) -> float | None:
+        """Get processing time.
+
+        Returns:
+            Processing time in seconds or None if not completed
         """
-        self.id = id or str(uuid.uuid4())
-        self.objective = objective
-        self.parameters = parameters or {}
-        self.priority = priority
-        self.agent_id = agent_id
-        self.conversation_id = conversation_id
-        self.metadata = metadata or {}
+        if not self.started_at or not self.completed_at:
+            return None
 
-        self.status = TaskStatus.PENDING
-        self.created_at = datetime.now()
-        self.assigned_at: Optional[datetime] = None
-        self.started_at: Optional[datetime] = None
-        self.completed_at: Optional[datetime] = None
+        return (self.completed_at - self.started_at).total_seconds()
 
-        self.result: Optional[Dict[str, Any]] = None
-        self.error: Optional[str] = None
+    @property
+    def queue_time(self) -> float | None:
+        """Get queue time.
 
-    def to_dict(self) -> Dict[str, Any]:
+        Returns:
+            Queue time in seconds or None if not queued
+        """
+        if not self.assigned_at or not self.started_at:
+            return None
+
+        return (self.started_at - self.assigned_at).total_seconds()
+
+    @property
+    def total_time(self) -> float | None:
+        """Get total time.
+
+        Returns:
+            Total time in seconds or None if not completed
+        """
+        if not self.created_at or not self.completed_at:
+            return None
+
+        return (self.completed_at - self.created_at).total_seconds()
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary.
 
         Returns:
@@ -192,23 +352,31 @@ class Task:
             "id": self.id,
             "objective": self.objective,
             "parameters": self.parameters,
+            "status": self.status.value,
             "priority": self.priority.value,
             "agent_id": self.agent_id,
             "conversation_id": self.conversation_id,
             "metadata": self.metadata,
-            "status": self.status.value,
-            "created_at": self.created_at.isoformat(),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
             "assigned_at": self.assigned_at.isoformat() if self.assigned_at else None,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat()
             if self.completed_at
             else None,
+            "processing_time": self.processing_time,
+            "queue_time": self.queue_time,
+            "total_time": self.total_time,
             "result": self.result,
             "error": self.error,
+            "required_capabilities": [cap.name for cap in self.required_capabilities],
+            "task_id": self.task_id,
+            "description": self.description,
+            "assigned_to": self.assigned_to,
+            "dependencies": self.dependencies,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Task":
+    def from_dict(cls, data: dict[str, Any]) -> "Task":
         """Create from dictionary.
 
         Args:
@@ -243,6 +411,16 @@ class Task:
 
         task.result = data.get("result")
         task.error = data.get("error")
+
+        task.required_capabilities = [
+            AgentCapability[cap_name] if isinstance(cap_name, str) else cap_name
+            for cap_name in data.get("required_capabilities", [])
+        ]
+
+        task.task_id = data.get("task_id", str(uuid.uuid4()))
+        task.description = data.get("description", "")
+        task.assigned_to = data.get("assigned_to")
+        task.dependencies = data.get("dependencies", [])
 
         return task
 
@@ -392,6 +570,8 @@ class BaseAgent(ABC):
         self.task_history: list[str] = []  # IDs of tasks
         self.current_task: Task | None = None
         self.status = "idle"
+        self.metrics = AgentMetrics()
+        self.is_initialized = False
 
     @abstractmethod
     async def execute(self, task: Task, context: AgentContext) -> Any:
@@ -434,7 +614,21 @@ class BaseAgent(ABC):
             "created_at": self.created_at.isoformat(),
             "task_history": self.task_history,
             "current_task": self.current_task.id if self.current_task else None,
+            "metrics": self.metrics.to_dict(),
+            "is_initialized": self.is_initialized,
         }
+
+    async def initialize(self, context: AgentContext) -> None:
+        """Initialize agent.
+
+        Args:
+            context: Agent context
+        """
+        self.is_initialized = True
+
+    async def shutdown(self) -> None:
+        """Shutdown agent."""
+        self.is_initialized = False
 
 
 class ModelBasedAgent(BaseAgent):
