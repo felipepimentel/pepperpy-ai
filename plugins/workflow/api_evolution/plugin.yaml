@@ -1,0 +1,87 @@
+name: api_evolution
+version: 0.1.0
+description: Workflow for managing API versioning, compatibility analysis, and migration strategies
+author: PepperPy Team
+plugin_type: workflow
+category: api
+provider_name: api_evolution
+entry_point: provider.APIEvolutionProvider
+
+config_schema:
+  type: object
+  properties:
+    llm_config:
+      type: object
+      properties:
+        provider:
+          type: string
+          description: The LLM provider to use for analysis
+        model:
+          type: string
+          description: The specific model to use from the provider
+      required:
+        - provider
+        - model
+    versioning_strategy:
+      type: string
+      enum: [semantic, date, path, header, query, custom]
+      description: The versioning strategy to use for API evolution
+      default: semantic
+    compatibility_checks:
+      type: object
+      properties:
+        check_breaking_changes:
+          type: boolean
+          description: Check for breaking changes in API updates
+          default: true
+        check_deprecations:
+          type: boolean
+          description: Check for deprecated endpoints and parameters
+          default: true
+        check_client_impact:
+          type: boolean
+          description: Analyze impact on existing clients
+          default: true
+        check_security_impact:
+          type: boolean
+          description: Analyze security implications of changes
+          default: true
+    migration_config:
+      type: object
+      properties:
+        generate_migration_guide:
+          type: boolean
+          description: Generate migration guides for clients
+          default: true
+        migration_period_days:
+          type: integer
+          description: Suggested period for supporting old versions (in days)
+          minimum: 0
+          default: 90
+        generate_code_examples:
+          type: boolean
+          description: Generate code examples for migration
+          default: true
+    output_format:
+      type: string
+      enum: [json, markdown, html]
+      description: The format for the analysis and migration output
+      default: json
+  required:
+    - llm_config
+
+default_config:
+  llm_config:
+    provider: openai
+    model: gpt-4
+  versioning_strategy: semantic
+  compatibility_checks:
+    check_breaking_changes: true
+    check_deprecations: true
+    check_client_impact: true
+    check_security_impact: true
+  migration_config:
+    generate_migration_guide: true
+    migration_period_days: 90
+    generate_code_examples: true
+  output_format: json 

@@ -1,0 +1,35 @@
+name: mcp
+version: 0.1.0
+description: Model Communication Protocol adapter for PepperPy communication
+author: PepperPy Team
+
+# Categorization
+plugin_type: communication
+category: adapter
+provider_name: mcp
+entry_point: adapter.MCPCommunicationAdapter
+
+# Configuration schema
+config_schema:
+  type: object
+  properties:
+    base_url:
+      type: string
+      description: Base URL for the MCP API
+      default: "http://localhost:8000/api"
+    api_key:
+      type: string
+      description: API key for authentication with the MCP service
+    timeout:
+      type: integer
+      description: Request timeout in seconds
+      default: 30
+    headers:
+      type: object
+      description: Additional headers to include in requests
+      default: {}
+
+# Default configuration
+default_config:
+  base_url: "http://localhost:8000/api"
+  timeout: 30 

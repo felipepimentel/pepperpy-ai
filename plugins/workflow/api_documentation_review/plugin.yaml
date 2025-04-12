@@ -1,0 +1,69 @@
+name: api_documentation_review
+version: 0.1.0
+description: Workflow for assessing and improving API documentation quality and completeness
+author: PepperPy Team
+plugin_type: workflow
+category: api
+provider_name: api_documentation_review
+entry_point: provider.APIDocumentationReviewProvider
+
+config_schema:
+  type: object
+  properties:
+    llm_config:
+      type: object
+      properties:
+        provider:
+          type: string
+          description: The LLM provider to use for analysis
+        model:
+          type: string
+          description: The specific model to use from the provider
+      required:
+        - provider
+        - model
+    review_criteria:
+      type: object
+      properties:
+        accessibility:
+          type: boolean
+          description: Review for accessibility and readability
+        examples:
+          type: boolean
+          description: Review for quality and completeness of examples
+        completeness:
+          type: boolean
+          description: Review for completeness of endpoint documentation
+        terminology:
+          type: boolean
+          description: Review for consistent terminology
+        severity_threshold:
+          type: string
+          enum: [low, medium, high, critical]
+          description: Minimum severity level to include in findings
+      required:
+        - accessibility
+        - examples
+        - completeness
+        - terminology
+        - severity_threshold
+    output_format:
+      type: string
+      enum: [json, html, markdown, pdf]
+      description: The format of the output report
+  required:
+    - llm_config
+    - review_criteria
+    - output_format
+
+default_config:
+  llm_config:
+    provider: openai
+    model: gpt-4
+  review_criteria:
+    accessibility: true
+    examples: true
+    completeness: true
+    terminology: true
+    severity_threshold: low
+  output_format: json 

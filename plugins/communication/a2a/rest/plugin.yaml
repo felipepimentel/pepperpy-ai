@@ -1,0 +1,31 @@
+name: a2a_rest
+version: 0.1.0
+description: A2A REST protocol implementation for agent-to-agent communication
+author: PepperPy Team
+
+plugin_type: communication
+category: a2a
+provider_name: a2a_rest
+entry_point: provider.A2ARestProvider
+
+config_schema:
+  type: object
+  properties:
+    base_url:
+      type: string
+      description: Base URL for the A2A REST API
+    api_key:
+      type: string
+      description: API key for authentication with the A2A service
+    timeout:
+      type: integer
+      description: Request timeout in seconds
+      default: 30
+    headers:
+      type: object
+      description: Additional headers to include in requests
+      default: {}
+
+default_config:
+  base_url: "http://localhost:8080/a2a"
+  timeout: 30 

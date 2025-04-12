@@ -1,0 +1,57 @@
+name: api_blueprint
+version: 0.1.0
+description: Workflow for generating API contracts, documentation, and projects from user stories
+author: PepperPy Team
+plugin_type: workflow
+category: api
+provider_name: api_blueprint
+entry_point: provider.APIBlueprintProvider
+
+configuration_schema:
+  type: object
+  properties:
+    output_formats:
+      type: array
+      description: Formats to generate for API documentation
+      items:
+        type: string
+        enum: [openapi, swagger, raml, jsonschema, postman]
+      default: ["openapi"]
+    output_directory:
+      type: string
+      description: Directory to save generated files
+      default: "./output"
+    llm_config:
+      type: object
+      description: Configuration for the LLM provider
+      properties:
+        provider:
+          type: string
+          description: LLM provider to use
+        model:
+          type: string
+          description: LLM model to use
+    target_language:
+      type: string
+      description: Target programming language for code generation
+      enum: [python, java, javascript, typescript, go, rust, csharp]
+      default: python
+    generate_code:
+      type: boolean
+      description: Whether to generate code implementation in addition to contracts
+      default: false
+    security_standards:
+      type: array
+      description: Security standards to apply to the generated API
+      items:
+        type: string
+        enum: [oauth2, jwt, basic, apikey]
+      default: ["oauth2"]
+
+default_configuration:
+  output_formats: ["openapi"]
+  target_language: python
+  generate_code: false
+  llm_config:
+    provider: openai
+    model: gpt-4 

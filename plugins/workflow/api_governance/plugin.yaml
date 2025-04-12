@@ -1,0 +1,50 @@
+name: api_governance
+version: 0.1.0
+description: Workflow for API governance and compliance assessment
+author: PepperPy Team
+plugin_type: workflow
+category: api
+provider_name: api_governance
+entry_point: provider.APIGovernanceProvider
+
+config_schema:
+  type: object
+  properties:
+    governance_rules:
+      type: object
+      description: Rules for API governance assessment
+      properties:
+        security_rules:
+          type: array
+          description: Security rules to check
+          items:
+            type: object
+        standard_rules:
+          type: array
+          description: Standardization rules to check
+          items:
+            type: object
+        performance_thresholds:
+          type: object
+          description: Performance thresholds for API
+    llm_config:
+      type: object
+      description: LLM configuration for analysis
+      properties:
+        provider:
+          type: string
+          description: LLM provider (openai, anthropic, etc.)
+        model:
+          type: string
+          description: Model to use
+    output_format:
+      type: string
+      enum: [json, html, markdown, pdf]
+      description: Format for governance reports
+      default: json
+
+default_config:
+  output_format: json
+  llm_config:
+    provider: openai
+    model: gpt-4 

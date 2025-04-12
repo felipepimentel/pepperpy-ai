@@ -1,197 +1,49 @@
-name: workflow_mcp_demo
-version: 0.2.0
-description: Demonstration workflow that runs an MCP server and client together with agent orchestration
+name: mcp_demo
+version: 0.1.0
+description: Demonstration workflow for MCP (Model Control Protocol) capabilities
 author: PepperPy Team
 plugin_type: workflow
-category: mcp
+category: communication
 provider_name: mcp_demo
-entry_point: workflow.MCPDemoWorkflow
+entry_point: provider.MCPDemoWorkflow
 
 config_schema:
   type: object
   properties:
-    host:
-      type: string
-      description: Host address for the MCP server
-      default: "0.0.0.0"
-    port:
-      type: integer
-      description: Port for the MCP server
-      default: 8000
     provider_type:
       type: string
       description: Type of MCP provider to use
-      default: "http"
-    llm_provider:
+      default: default
+    host:
       type: string
-      description: LLM provider to use for chat
-      default: "openai"
-    llm_model:
-      type: string
-      description: LLM model to use
-      default: "gpt-3.5-turbo"
-    demo_duration:
+      description: Host address for the MCP server
+      default: localhost
+    port:
       type: integer
-      description: Duration in seconds to run the demo for
-      default: 60
-    enable_agent_orchestration:
-      type: boolean
-      description: Whether to enable agent orchestration
-      default: true
-    planner_model:
+      description: Port for the MCP server
+      default: 8080
+    demo_mode:
       type: string
-      description: Model to use for planning agent
-      default: "gpt-4"
-    executor_model:
-      type: string
-      description: Model to use for execution agent
-      default: "gpt-3.5-turbo"
-    critic_model:
-      type: string
-      description: Model to use for critic agent
-      default: "gpt-3.5-turbo"
+      enum: [basic, server_client, tools, agent_orchestration]
+      description: Demo mode to run
+      default: basic
+    llm_config:
+      type: object
+      properties:
+        provider:
+          type: string
+          description: LLM provider to use
+          default: openai
+        model:
+          type: string
+          description: Model to use
+          default: gpt-4
 
 default_config:
-  host: "0.0.0.0"
-  port: 8000
-  provider_type: "http"
-  llm_provider: "openai"
-  llm_model: "gpt-3.5-turbo"
-  demo_duration: 60
-  enable_agent_orchestration: true
-  planner_model: "gpt-4"
-  executor_model: "gpt-3.5-turbo"
-  critic_model: "gpt-3.5-turbo"
-
-documentation:
-  description: |
-    This workflow demonstrates the integration of MCP server and client components
-    with agent orchestration capabilities. It sets up an MCP server with registered tools,
-    then can run either a simple client or a multi-agent workflow using these tools.
-  
-  examples:
-    - title: Basic usage
-      description: Run the MCP demo with default settings
-      code: |
-        pepperpy run workflow mcp_demo
-    
-    - title: Custom configuration
-      description: Run the MCP demo with custom settings
-      code: |
-        pepperpy run workflow mcp_demo --config '{"port": 9000, "llm_model": "gpt-4"}'
-    
-    - title: Agent workflow
-      description: Run the MCP demo with agent orchestration
-      code: |
-        pepperpy run workflow mcp_demo --input '{"workflow_type": "agent", "task": "Create a marketing plan for a new eco-friendly product"}'
-    
-    - title: Custom agent workflow
-      description: Run the MCP demo with custom agent sequence
-      code: |
-        pepperpy run workflow mcp_demo --input '{"workflow_type": "agent", "task": "Research top 5 competitors for our product", "workflow": ["planner", "executor"]}'
-  
-  notes: |
-    # MCP Demo Workflow
-    
-    This workflow demonstrates the complete integration of Model Context Protocol (MCP) server and client with agent orchestration capabilities.
-    
-    ## Features
-    
-    - Start an MCP server with the specified configuration
-    - Register demo tools (calculate, weather, translate)
-    - Run client requests to demonstrate usage patterns
-    - Execute multi-agent workflows for complex tasks
-    
-    ## Usage
-    
-    Run the workflow with:
-    
-    ```bash
-    # Basic usage
-    python -m pepperpy.cli workflow run workflow/mcp_demo
-    
-    # With OpenAI API key
-    OPENAI_API_KEY=your_key_here python -m pepperpy.cli workflow run workflow/mcp_demo
-    
-    # Run with agent orchestration
-    python -m pepperpy.cli workflow run workflow/mcp_demo --input '{"workflow_type": "agent", "task": "Create a report on renewable energy trends"}'
-    ```
-    
-    ## CLI Tool
-    
-    A command-line interface is provided for interacting with a running MCP server:
-    
-    ```bash
-    # Connect to the local MCP server
-    python plugins/workflow/mcp_demo/cli.py
-    
-    # Connect to a remote server
-    python plugins/workflow/mcp_demo/cli.py --host api.example.com --port 443
-    ```
-    
-    The CLI tool provides these commands:
-    
-    - `/help` - Show help information
-    - `/quit` or `/exit` - Exit the CLI
-    - `/clear` - Clear conversation history
-    - `/models` - List available models
-    - `/calc <expression>` - Use the calculate tool
-    - `/weather <location>` - Use the weather tool
-    - `/translate <text> to <language>` - Use the translate tool
-    
-    ## Agent Orchestration
-    
-    The workflow includes agent orchestration for complex tasks:
-    
-    ### Default Agents
-    
-    - **Planner**: Decomposes tasks into smaller steps (uses gpt-4 by default)
-    - **Executor**: Executes individual steps using tools (uses gpt-3.5-turbo by default)
-    - **Critic**: Reviews outputs and suggests improvements (uses gpt-3.5-turbo by default)
-    
-    ### Usage
-    
-    To execute a task using agent orchestration:
-    
-    ```bash
-    python -m pepperpy.cli workflow run workflow/mcp_demo --input '{
-      "workflow_type": "agent",
-      "task": "Research and summarize the top 3 trends in renewable energy",
-      "workflow": ["planner", "executor", "critic"]
-    }'
-    ```
-    
-    ## Configuration
-    
-    You can customize the workflow with these parameters:
-    
-    ```yaml
-    host: "0.0.0.0"           # Host address to bind the server to
-    port: 8000                # Port for the MCP server
-    provider_type: "http"     # Type of MCP provider to use
-    llm_provider: "openai"    # LLM provider to use
-    llm_model: "gpt-3.5-turbo" # Default LLM model
-    demo_duration: 60         # Duration in seconds to run the demo
-    enable_agent_orchestration: true # Enable agent orchestration
-    planner_model: "gpt-4"    # Model for planning agent
-    executor_model: "gpt-3.5-turbo" # Model for execution agent
-    critic_model: "gpt-3.5-turbo" # Model for critic agent
-    ```
-    
-    ## Demo Tools
-    
-    The workflow demonstrates these MCP tool integrations:
-    
-    - **Chat**: Basic conversation with LLM model
-    - **Calculate**: Evaluate mathematical expressions (format: `calculate: 2 + 2`)
-    - **Weather**: Get weather information for a location (format: `get_weather: London`)
-    - **Translate**: Translate text to another language (format: `translate: Hello world to es`)
-    
-    ## Agent Tools
-    
-    Additional tools available to the agents:
-    
-    - **analyze_task**: Analyze a task to determine required steps
-    - **create_plan**: Create a step-by-step plan to complete a task
-    - **analyze_output**: Analyze output for correctness and completeness
-    - **suggest_improvements**: Suggest improvements to output 
+  provider_type: default
+  host: localhost
+  port: 8080
+  demo_mode: basic
+  llm_config:
+    provider: openai
+    model: gpt-4 

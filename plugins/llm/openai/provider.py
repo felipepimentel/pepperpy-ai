@@ -1,7 +1,7 @@
 """OpenAI LLM provider implementation for PepperPy."""
 
 from collections.abc import AsyncIterator
-from typing import Any, List, Optional
+from typing import Any
 
 from openai import AsyncOpenAI, OpenAIError
 from openai.types.chat import ChatCompletionMessageParam
@@ -14,7 +14,7 @@ from pepperpy.llm import (
     Message,
     MessageRole,
 )
-from pepperpy.plugin import ProviderPlugin
+from pepperpy.plugin.plugin import ProviderPlugin
 
 
 class OpenAIProvider(LLMProvider, ProviderPlugin):
@@ -35,7 +35,7 @@ class OpenAIProvider(LLMProvider, ProviderPlugin):
     def __init__(self) -> None:
         """Initialize the provider."""
         super().__init__()
-        self.client: Optional[AsyncOpenAI] = None
+        self.client: AsyncOpenAI | None = None
 
     async def initialize(self) -> None:
         """Initialize the OpenAI client.
@@ -69,8 +69,8 @@ class OpenAIProvider(LLMProvider, ProviderPlugin):
         self.logger.debug("Resources cleaned up")
 
     def _messages_to_openai_format(
-        self, messages: List[Message]
-    ) -> List[ChatCompletionMessageParam]:
+        self, messages: list[Message]
+    ) -> list[ChatCompletionMessageParam]:
         """Convert PepperPy messages to OpenAI format.
 
         Args:
@@ -79,7 +79,7 @@ class OpenAIProvider(LLMProvider, ProviderPlugin):
         Returns:
             OpenAI-formatted messages
         """
-        openai_messages: List[ChatCompletionMessageParam] = []
+        openai_messages: list[ChatCompletionMessageParam] = []
         for message in messages:
             if message.role == MessageRole.SYSTEM:
                 openai_messages.append({"role": "system", "content": message.content})
@@ -95,7 +95,7 @@ class OpenAIProvider(LLMProvider, ProviderPlugin):
         return openai_messages
 
     def _create_generation_result(
-        self, response_text: str, messages: List[Message]
+        self, response_text: str, messages: list[Message]
     ) -> GenerationResult:
         """Create a GenerationResult from a response text.
 
@@ -116,7 +116,7 @@ class OpenAIProvider(LLMProvider, ProviderPlugin):
         )
 
     async def generate(
-        self, messages: List[Message], **kwargs: Any
+        self, messages: list[Message], **kwargs: Any
     ) -> GenerationResult:
         """Generate a response from the OpenAI API.
 
@@ -166,7 +166,7 @@ class OpenAIProvider(LLMProvider, ProviderPlugin):
             raise LLMError(f"Unexpected error: {e}") from e
 
     async def stream(
-        self, messages: List[Message], **kwargs: Any
+        self, messages: list[Message], **kwargs: Any
     ) -> AsyncIterator[GenerationChunk]:
         """Stream a response from the OpenAI API.
 

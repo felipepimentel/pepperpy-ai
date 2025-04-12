@@ -1,0 +1,56 @@
+name: nlp_to_api
+version: 0.1.0
+description: Workflow for translating natural language to API calls
+author: PepperPy Team
+plugin_type: workflow
+category: api
+provider_name: nlp_to_api
+entry_point: provider.NLPToAPIProvider
+
+config_schema:
+  type: object
+  properties:
+    api_spec_location:
+      type: string
+      description: Location of API specifications (local path or URL)
+      default: "./api_specs"
+    supported_apis:
+      type: array
+      description: List of APIs that can be queried
+      items:
+        type: string
+      default: []
+    query_optimization:
+      type: boolean
+      description: Whether to optimize queries before execution
+      default: true
+    execute_queries:
+      type: boolean
+      description: Whether to execute API calls or just generate them
+      default: false
+    llm_config:
+      type: object
+      description: Configuration for the LLM provider
+      properties:
+        provider:
+          type: string
+          description: LLM provider to use
+          default: openai
+        model:
+          type: string
+          description: Model to use
+          default: gpt-4
+    output_format:
+      type: string
+      description: Format for the translated API calls
+      enum: [curl, python, javascript, raw]
+      default: python
+
+default_config:
+  api_spec_location: "./api_specs"
+  query_optimization: true
+  execute_queries: false
+  output_format: python
+  llm_config:
+    provider: openai
+    model: gpt-4 

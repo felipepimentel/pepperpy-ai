@@ -1,0 +1,41 @@
+name: a2a
+version: 0.1.0
+description: A2A Protocol adapter for PepperPy communication
+author: PepperPy Team
+
+# Categorization
+plugin_type: communication
+category: adapter
+provider_name: a2a
+entry_point: adapter.A2ACommunicationAdapter
+
+# Configuration schema
+config_schema:
+  type: object
+  properties:
+    provider_type:
+      type: string
+      description: Type of A2A provider to use (rest, mock, or other registered providers)
+      default: rest
+    # Other options are passed to the underlying A2A provider
+    base_url:
+      type: string
+      description: Base URL for the A2A REST API (for REST provider)
+    api_key:
+      type: string
+      description: API key for authentication with the A2A service (for REST provider)
+    timeout:
+      type: integer
+      description: Request timeout in seconds
+      default: 30
+    poll_interval:
+      type: integer
+      description: Interval between polls for task updates (in seconds)
+      default: 1
+
+# Default configuration
+default_config:
+  provider_type: rest
+  base_url: "http://localhost:8080/a2a"
+  timeout: 30
+  poll_interval: 1 

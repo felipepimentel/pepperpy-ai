@@ -1,0 +1,36 @@
+name: a2a_demo
+version: 0.1.0
+description: Workflow for demonstrating Agent-to-Agent (A2A) communication capabilities
+author: PepperPy Team
+plugin_type: workflow
+category: a2a
+provider_name: a2a_demo
+entry_point: provider.A2ADemoWorkflow
+
+config_schema:
+  type: object
+  properties:
+    demo_mode:
+      type: string
+      description: The demo mode to run
+      enum: [basic, multi_agent, conversation_chain, stateful]
+      default: basic
+    llm_config:
+      type: object
+      description: Configuration for the LLM provider
+      properties:
+        provider:
+          type: string
+          description: LLM provider to use
+          default: openai
+        model:
+          type: string
+          description: LLM model to use
+          default: gpt-4
+  required: []
+
+default_config:
+  demo_mode: basic
+  llm_config:
+    provider: openai
+    model: gpt-4 

@@ -30,12 +30,11 @@ from .memory.base import (
     VectorMemoryStore,
     create_memory_store,
 )
-from .result import AgentResult, Result, Status
-from .task import Memory, Task, TaskError, TaskPriority, TaskResult, TaskStatus
+from .result import ConversationResult, AgentTaskResult
+from .task import Memory, TaskBase, EnhancerProxy, AgentTask, Analysis, ConversationTask, ChatSession
 
 __all__ = [
     "AgentError",
-    "AgentResult",
     "BaseAgentProvider",
     "BaseCapability",
     "BaseMemoryAware",
@@ -44,25 +43,25 @@ __all__ = [
     "Capability",
     "CompositeAgent",
     "CompositeAgentBuilder",
+    "ConversationResult",
+    "AgentTaskResult",
     "InMemoryStore",
     "Memory",
     "MemoryAware",
     "MemoryError",
     "MemoryStore",
     "Message",
-    "Result",
-    "Status",
-    "Task",
-    "TaskError",
-    "TaskPriority",
-    "TaskResult",
-    "TaskStatus",
+    "TaskBase",
+    "EnhancerProxy",
+    "AgentTask",
+    "Analysis", 
+    "ConversationTask",
+    "ChatSession",
     "ToolUser",
     "VectorMemoryStore",
     "create_agent",
     "create_composite_agent",
     "create_memory_store",
-    "topology",
 ]
 
 
@@ -101,7 +100,3 @@ def create_agent(agent_type: str | None = None, **config: Any) -> BaseAgentProvi
             return agent_class(**config)
     except (ImportError, AttributeError) as e:
         raise AgentError(f"Invalid agent type '{agent_type}': {e}") from e
-
-
-# Import and expose the topology module
-from . import topology
