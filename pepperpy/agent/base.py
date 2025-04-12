@@ -47,7 +47,7 @@ class Message:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert message to dictionary."""
-        result = {
+        result: dict[str, Any] = {
             "role": self.role,
             "content": self.content,
         }
@@ -71,6 +71,7 @@ class BaseAgentProvider(PepperpyPlugin, ABC):
         self.config = config or {}
         self.enabled_tools: list[str] = self.config.get("enabled_tools", [])
         self.auto_tool_selection = self.config.get("auto_tool_selection", True)
+        self.initialized = False
 
     async def get_available_tools(self) -> list[dict[str, Any]]:
         """Get available tools in a format suitable for LLM context.
@@ -256,14 +257,34 @@ class BaseAgentProvider(PepperpyPlugin, ABC):
         tool_calls = []
         return tool_calls
 
-    @abstractmethod
     async def initialize(self) -> None:
         """Initialize agent resources."""
-        pass
+        if self.initialized:
+            return
+        await self._initialize_resources()
+        self.initialized = True
 
-    @abstractmethod
     async def cleanup(self) -> None:
         """Clean up agent resources."""
+        if not self.initialized:
+            return
+        await self._cleanup_resources()
+        self.initialized = False
+
+    async def _initialize_resources(self) -> None:
+        """Initialize resources for the agent.
+
+        This method should be overridden by subclasses to
+        initialize specific resources.
+        """
+        pass
+
+    async def _cleanup_resources(self) -> None:
+        """Clean up resources for the agent.
+
+        This method should be overridden by subclasses to
+        clean up specific resources.
+        """
         pass
 
     @abstractmethod

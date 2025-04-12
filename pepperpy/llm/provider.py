@@ -16,8 +16,13 @@ from rich.console import Console
 from rich.panel import Panel
 
 from pepperpy.core.errors import PepperpyError
+from pepperpy.core.logging import get_logger
+from pepperpy.llm.adapter import LLMProviderAdapter
+from pepperpy.llm.base import BaseLLMProvider
 from pepperpy.plugin.provider import BasePluginProvider
 from pepperpy.workflow.base import WorkflowComponent
+
+logger = get_logger(__name__)
 
 
 class MessageRole(str, enum.Enum):
@@ -713,3 +718,29 @@ class LLMComponent(WorkflowComponent):
     async def cleanup(self) -> None:
         """Clean up component resources."""
         await self.provider.cleanup()
+
+
+def create_provider(provider_type: str = "default", **config: Any) -> BaseLLMProvider:
+    """Create an LLM provider.
+
+    This function creates an LLM provider instance for the specified type.
+    It will first attempt to load from the plugin system, then fall back to
+    built-in adapters.
+
+    Args:
+        provider_type: Provider type (e.g., "openai", "anthropic", "ollama")
+        **config: Provider configuration
+
+    Returns:
+        LLM provider instance
+
+    Raises:
+        ValueError: If provider type is unknown or invalid
+    """
+    # Normalize provider type
+    provider_type = provider_type.lower()
+    provider_config = dict(config)
+
+    # Use adapter pattern directly since plugins require async operations
+    provider_config["provider"] = provider_type
+    return LLMProviderAdapter(provider_config)

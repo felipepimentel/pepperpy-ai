@@ -1,0 +1,47 @@
+# Basic metadata
+name: agent_topology_teamwork
+version: 0.1.0
+description: Teamwork topology for collaborative agent coordination
+author: PepperPy Team
+
+# Categorization
+plugin_type: agent
+category: topology
+provider_name: teamwork
+entry_point: provider.TeamworkTopologyProvider
+
+# Configuration schema
+config_schema:
+  type: object
+  properties:
+    team_size:
+      type: integer
+      description: Number of agents in the team
+      default: 3
+    team_leader:
+      type: string
+      description: Agent ID for the team leader
+    voting_threshold:
+      type: number
+      description: Threshold for agreement in collective decisions (0.0-1.0)
+      default: 0.5
+    max_iterations:
+      type: integer
+      description: Maximum number of coordination iterations
+      default: 10
+    consensus_required:
+      type: boolean
+      description: Whether consensus is required for task completion
+      default: true
+    agents:
+      type: object
+      description: Agent configurations by ID
+    agent_roles:
+      type: object
+      description: Role definitions for each agent
+
+# Default configuration
+default_config:
+  voting_threshold: 0.6
+  max_iterations: 5
+  consensus_required: true 

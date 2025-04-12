@@ -1,0 +1,45 @@
+name: a2a_mock
+version: 0.1.0
+description: Mock implementation of A2A protocol for testing and development
+author: PepperPy Team
+
+# Categorization
+plugin_type: a2a
+category: provider
+provider_name: mock
+entry_point: provider.MockA2AProvider
+
+# Configuration schema
+config_schema:
+  type: object
+  properties:
+    simulate_latency:
+      type: boolean
+      description: Whether to simulate network latency
+      default: false
+    latency_range:
+      type: array
+      description: Min and max latency range in seconds [min, max]
+      default: [0.2, 1.0]
+    auto_response:
+      type: boolean
+      description: Whether to automatically generate responses to messages
+      default: true
+    agent_templates:
+      type: array
+      description: Template agent configurations to use for simulating agents
+      default: []
+    storage_path:
+      type: string
+      description: Path to store mock data (tasks, agents, etc.)
+      default: "./.pepperpy/a2a_mock"
+    failure_rate:
+      type: number
+      description: Rate at which operations randomly fail (0.0-1.0)
+      default: 0.0
+
+# Default configuration
+default_config:
+  simulate_latency: false
+  auto_response: true
+  failure_rate: 0.0 

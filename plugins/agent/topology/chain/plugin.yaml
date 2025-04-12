@@ -1,0 +1,38 @@
+# Basic metadata
+name: agent_topology_chain
+version: 0.1.0
+description: Chain topology for sequential agent processing
+author: PepperPy Team
+
+# Categorization
+plugin_type: agent
+category: topology
+provider_name: chain
+entry_point: provider.ChainTopologyProvider
+
+# Configuration schema
+config_schema:
+  type: object
+  properties:
+    chain_direction:
+      type: string
+      description: Direction of the chain (linear, bidirectional)
+      enum: ["linear", "bidirectional"]
+      default: "linear"
+    max_iterations:
+      type: integer
+      description: Maximum number of rounds through the chain
+      default: 3
+    agents:
+      type: object
+      description: Agent configurations by ID
+    agent_order:
+      type: array
+      description: Ordered list of agent IDs defining the chain sequence
+      items:
+        type: string
+
+# Default configuration
+default_config:
+  chain_direction: "linear"
+  max_iterations: 3 

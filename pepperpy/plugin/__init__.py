@@ -24,6 +24,9 @@ from pepperpy.plugin.discovery import (
     load_plugin,
 )
 
+# Import ProviderPlugin from plugin.py
+from pepperpy.plugin.plugin import ProviderPlugin
+
 # Import provider base class
 from pepperpy.plugin.provider import BasePluginProvider
 
@@ -57,6 +60,8 @@ __all__ = [
     "load_plugin",
     # Provider base class
     "BasePluginProvider",
+    # Provider plugin alias
+    "ProviderPlugin",
     # Factory function
     "create_provider_instance",
 ]

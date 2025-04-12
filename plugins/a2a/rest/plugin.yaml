@@ -1,0 +1,70 @@
+name: a2a_rest
+version: 0.1.0
+description: REST implementation of Google's Agent-to-Agent (A2A) protocol
+author: PepperPy Team
+
+# Categorization
+plugin_type: a2a
+category: provider
+provider_name: rest
+entry_point: provider.RestA2AProvider
+
+# Configuration schema (JSON Schema format)
+config_schema:
+  type: object
+  properties:
+    base_url:
+      type: string
+      description: Base URL for the A2A REST API
+    timeout:
+      type: integer
+      description: Request timeout in seconds
+      default: 30
+    verify_ssl:
+      type: boolean
+      description: Whether to verify SSL certificates
+      default: true
+    max_retries:
+      type: integer
+      description: Maximum number of retries for failed requests
+      default: 3
+    retry_delay:
+      type: integer
+      description: Delay between retries in seconds
+      default: 1
+    auth:
+      type: object
+      description: Authentication configuration
+      properties:
+        type:
+          type: string
+          enum: [none, basic, bearer, oauth2]
+          description: Authentication type
+          default: none
+        username:
+          type: string
+          description: Username for basic authentication
+        password:
+          type: string
+          description: Password for basic authentication
+        token:
+          type: string
+          description: Token for bearer authentication
+        client_id:
+          type: string
+          description: Client ID for OAuth2 authentication
+        client_secret:
+          type: string
+          description: Client secret for OAuth2 authentication
+        token_url:
+          type: string
+          description: Token URL for OAuth2 authentication
+
+# Default configuration
+default_config:
+  timeout: 30
+  verify_ssl: true
+  max_retries: 3
+  retry_delay: 1
+  auth:
+    type: none 

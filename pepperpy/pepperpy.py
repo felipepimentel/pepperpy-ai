@@ -9,6 +9,7 @@ from typing import Any, Protocol, cast, runtime_checkable
 
 # Import domain providers
 from pepperpy.agent.base import AgentProvider, BaseAgentProvider
+from pepperpy.agent.topology import AgentTopologyProvider, create_topology
 from pepperpy.cache.base import BaseCacheProvider, CacheProvider
 from pepperpy.llm.base import BaseLLMProvider, LLMProvider
 from pepperpy.plugin.discovery import PluginDiscoveryProvider
@@ -53,6 +54,9 @@ class PepperPy:
 
         # Discover available plugins
         plugin_registry.discover_plugins()
+
+        # Add topology provider
+        self._topology_provider: AgentTopologyProvider | None = None
 
     # Task configuration methods
     def with_task_context(self, **context: Any) -> "PepperPy":
@@ -615,3 +619,85 @@ class PepperPy:
             await self._workflow_provider.initialize()
 
         return self
+
+    def with_topology(
+        self, topology_type: str | None = None, **config: Any
+    ) -> "PepperPy":
+        """Configure topology provider.
+
+        Args:
+            topology_type: Type of topology to use
+            **config: Topology-specific configuration options
+
+        Returns:
+            Self for chaining
+        """
+        # Merge with existing config if present
+        merged_config = {**self.config.get("topology", {}), **config}
+
+        # Create the topology provider
+        self._topology_provider = create_topology(topology_type, **merged_config)
+
+        # Store in config for persistence
+        self.config["topology"] = merged_config
+        if topology_type:
+            self.config["topology"]["topology_type"] = topology_type
+
+        return self
+
+    async def execute_topology(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute a task using the configured topology.
+
+        Args:
+            input_data: Input data containing task and other parameters
+
+        Returns:
+            Execution results
+
+        Raises:
+            ValueError: If no topology provider is configured
+        """
+        # Ensure we have a topology provider
+        if not self._topology_provider:
+            raise ValueError("No topology provider configured")
+
+        # Initialize if needed
+        if isinstance(self._topology_provider, InitializableProvider):
+            await self._topology_provider.initialize()
+
+        # Execute the topology
+        return await self._topology_provider.execute(input_data)
+
+    @property
+    def topology(self) -> AgentTopologyProvider:
+        """Get the configured topology provider.
+
+        Returns:
+            Configured topology provider
+
+        Raises:
+            ValueError: If no topology provider is configured
+        """
+        if not self._topology_provider:
+            raise ValueError("No topology provider configured")
+        return self._topology_provider
+
+    async def __aenter__(self) -> "PepperPy":
+        """Enter async context manager."""
+        # Initialize existing providers
+
+        # Initialize topology provider if configured
+        if self._topology_provider:
+            await self._topology_provider.initialize()
+
+        return self
+
+    async def __aexit__(
+        self, exc_type: Any = None, exc_val: Any = None, exc_tb: Any = None
+    ) -> None:
+        """Exit async context manager."""
+        # Clean up existing providers
+
+        # Clean up topology provider if configured
+        if self._topology_provider:
+            await self._topology_provider.cleanup()

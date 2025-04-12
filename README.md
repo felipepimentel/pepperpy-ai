@@ -67,6 +67,9 @@ The framework is currently in active development with several domains already im
 - **Configuration Management**: Centralized configuration with provider-specific options
 - **Consistent Error Handling**: Domain-specific error hierarchies
 - **Extensible**: Create custom providers for any domain
+- **Plugin Architecture**: Easily extend functionality with plugins
+- **Abstraction**: Common interfaces for LLMs, agents, tools, and more
+- **Multi-Modal**: Support for text, images, audio, and more
 
 ## Installation
 
@@ -476,4 +479,56 @@ Please follow the coding standards defined in the project.
 
 ## License
 
-PepperPy is licensed under [LICENSE]. See the LICENSE file for details. 
+PepperPy is licensed under [LICENSE]. See the LICENSE file for details.
+
+## Agent Topologies
+
+PepperPy supports various agent topologies for coordinating multiple AI agents:
+
+### Available Topologies
+
+- **Orchestrator**: Central orchestrator coordinates specialized agents
+- **Mesh**: Decentralized peer-to-peer agent communication
+- **Event**: Publish-subscribe pattern for loosely coupled agents
+- **Hierarchy**: Tree-structured organization with delegation and aggregation
+- **Teamwork**: Collaborative team approach with consensus building
+- **Chain**: Sequential processing pipeline for step-by-step refinement
+- **MCP (Master Control Program)**: Centralized resource management system with task scheduling and fault tolerance
+- **Observer**: Monitoring and oversight system with intervention capabilities for agent governance
+- **Federation**: Multi-domain system enabling secure collaboration across organizational boundaries
+
+### Example: Using the Orchestrator Topology
+
+```python
+from pepperpy import PepperPy
+
+# Create PepperPy instance with orchestrator topology
+pepperpy = (
+    PepperPy()
+    .with_llm("openai")
+    .with_topology(
+        "orchestrator",
+        max_iterations=3,
+        agents={
+            "researcher": {
+                "agent_type": "assistant",
+                "system_prompt": "You are a research specialist."
+            },
+            "analyst": {
+                "agent_type": "assistant",
+                "system_prompt": "You are a data analyst."
+            }
+        }
+    )
+)
+
+# Execute the topology
+async with pepperpy:
+    result = await pepperpy.execute_topology({
+        "task": "Analyze the impact of AI on healthcare."
+    })
+
+print(result)
+```
+
+See `docs/agent_topologies.md` for comprehensive documentation.

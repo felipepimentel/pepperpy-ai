@@ -1,0 +1,57 @@
+# Basic metadata
+name: agent_topology_mcp
+version: 0.1.0
+description: Master Control Program topology for centralized task processing with distributed execution
+author: PepperPy Team
+
+# Categorization
+plugin_type: agent
+category: topology
+provider_name: mcp
+entry_point: provider.MCPTopologyProvider
+
+# Configuration schema
+config_schema:
+  type: object
+  properties:
+    priority_levels:
+      type: integer
+      description: Number of priority levels for tasks (1-10)
+      default: 5
+      minimum: 1
+      maximum: 10
+    scheduling_algorithm:
+      type: string
+      description: Algorithm for task scheduling
+      enum: ["fifo", "priority", "round_robin"]
+      default: "priority"
+    fault_tolerance:
+      type: boolean
+      description: Enable fault tolerance mechanisms
+      default: true
+    resource_allocation:
+      type: string
+      description: Algorithm for agent resource allocation
+      enum: ["balanced", "priority", "weighted"]
+      default: "balanced"
+    agents:
+      type: object
+      description: Agent configurations by ID
+    task_queue_limit:
+      type: integer
+      description: Maximum number of tasks in queue
+      default: 100
+      minimum: 1
+    performance_metrics:
+      type: boolean
+      description: Enable detailed performance metrics
+      default: false
+
+# Default configuration
+default_config:
+  priority_levels: 5
+  scheduling_algorithm: "priority"
+  fault_tolerance: true
+  resource_allocation: "balanced"
+  task_queue_limit: 100
+  performance_metrics: false 

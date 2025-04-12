@@ -19,6 +19,13 @@ from pepperpy.core.config import (
     is_development,
     is_production,
 )
+from pepperpy.core.context import (
+    ContextError,
+    ExecutionContext,
+    execution_context,
+    get_current_context,
+    with_context,
+)
 from pepperpy.core.errors import (
     ConfigurationError,
     PepperpyError,
@@ -27,6 +34,18 @@ from pepperpy.core.errors import (
     ValidationError,
 )
 from pepperpy.core.logging import configure_logging, get_logger
+from pepperpy.core.observability import (
+    Metric,
+    MetricType,
+    ObservabilityError,
+    create_counter,
+    create_gauge,
+    create_histogram,
+    get_metric,
+    get_metrics_registry,
+    instrument,
+    timed_operation,
+)
 
 __all__ = [
     # Configuration
@@ -41,6 +60,12 @@ __all__ = [
     "is_production",
     "PepperPyConfig",
     "get_plugin_configuration",
+    # Context
+    "ContextError",
+    "ExecutionContext",
+    "execution_context",
+    "get_current_context",
+    "with_context",
     # Errors
     "PepperpyError",
     "ConfigurationError",
@@ -50,4 +75,15 @@ __all__ = [
     # Logging
     "get_logger",
     "configure_logging",
+    # Observability
+    "Metric",
+    "MetricType",
+    "ObservabilityError",
+    "create_counter",
+    "create_gauge",
+    "create_histogram",
+    "get_metric",
+    "get_metrics_registry",
+    "instrument",
+    "timed_operation",
 ]
