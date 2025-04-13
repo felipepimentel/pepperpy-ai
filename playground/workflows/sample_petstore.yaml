@@ -1,0 +1,280 @@
+openapi: 3.0.0
+info:
+  title: Petstore API
+  description: A sample API that uses a petstore as an example to demonstrate features in the OpenAPI specification
+  version: 1.0.0
+  
+servers:
+  - url: /api/v1
+
+paths:
+  /pets:
+    get:
+      summary: List all pets
+      description: Returns all pets from the system that the user has access to
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          description: How many items to return at one time (max 100)
+          required: false
+          schema:
+            type: integer
+            format: int32
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Status values that need to be considered for filter
+          required: false
+          schema:
+            type: string
+            enum: [available, pending, sold]
+      responses:
+        '200':
+          description: A paged array of pets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pets'
+          headers:
+            x-next:
+              description: A link to the next page of responses
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+    post:
+      summary: Create a pet
+      description: Creates a new pet in the store
+      operationId: createPet
+      requestBody:
+        description: Pet to add to the store
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPet'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+              
+  /pets/{petId}:
+    get:
+      summary: Info for a specific pet
+      description: Returns a pet by ID
+      operationId: getPetById
+      parameters:
+        - name: petId
+          in: path
+          description: The id of the pet to retrieve
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+    put:
+      summary: Update a pet
+      description: Updates a pet in the store
+      operationId: updatePet
+      parameters:
+        - name: petId
+          in: path
+          description: The id of the pet to update
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Updated pet object
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPet'
+      responses:
+        '200':
+          description: Pet updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      
+    delete:
+      summary: Delete a pet
+      description: Deletes a pet from the store
+      operationId: deletePet
+      parameters:
+        - name: petId
+          in: path
+          description: The id of the pet to delete
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No content
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+  /pets/findByStatus:
+    get:
+      summary: Finds Pets by status
+      description: Multiple status values can be provided with comma separated strings
+      operationId: findPetsByStatus
+      parameters:
+        - name: status
+          in: query
+          description: Status values that need to be considered for filter
+          required: true
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [available, pending, sold]
+              default: available
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pets'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: The unique identifier for a pet
+        name:
+          type: string
+          description: The name given to a pet
+        tag:
+          type: string
+          description: Tag that identifies the category of pet
+        status:
+          type: string
+          description: pet status in the store
+          enum:
+            - available
+            - pending
+            - sold
+          default: available
+          
+    NewPet:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The name given to a pet
+        tag:
+          type: string
+          description: Tag that identifies the category of pet
+        status:
+          type: string
+          description: pet status in the store
+          enum:
+            - available
+            - pending
+            - sold
+          default: available
+          
+    Pets:
+      type: array
+      items:
+        $ref: '#/components/schemas/Pet'
+        
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: Error code
+        message:
+          type: string
+          description: Error message
+          
+  responses:
+    BadRequest:
+      description: The request was invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: The specified resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication information is missing or invalid
+      headers:
+        WWW_Authenticate:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: An unexpected error occurred
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error' 

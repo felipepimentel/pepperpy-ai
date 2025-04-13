@@ -1,1 +1,1 @@
-"""API Ready Workflow plugin for enhancing APIs with AI capabilities.""" 
+"""API Ready workflow plugin package.""" 

@@ -1,0 +1,77 @@
+name: api_mock
+version: 0.1.0
+name: api_mock
+version: 0.1.0
+description: Workflow for generating mock API servers from OpenAPI specifications
+author: PepperPy Team
+plugin_type: workflow
+category: api
+provider_name: api_mock
+entry_point: provider.APIMockProvider
+
+config_schema:
+  type: object
+  properties:
+    port:
+      type: integer
+      description: Port to run the mock server on
+      default: 8080
+    host:
+      type: string
+      description: Host to bind the mock server to
+      default: "localhost"
+    delay:
+      type: integer
+      description: Delay in milliseconds for responses
+      default: 0
+    persistence:
+      type: boolean
+      description: Whether to persist data between requests
+      default: true
+    validate_requests:
+      type: boolean
+      description: Whether to validate incoming requests against the schema
+      default: true
+    generate_examples:
+      type: boolean
+      description: Whether to generate example responses if not provided in spec
+      default: true
+    cors_enabled:
+      type: boolean
+      description: Whether to enable CORS for the mock server
+      default: true
+    llm_config:
+      type: object
+      description: Configuration for the LLM provider used for generating mock data
+      properties:
+        provider:
+          type: string
+          description: LLM provider to use
+          default: openai
+        model:
+          type: string
+          description: Model to use
+          default: gpt-4
+    verbose_logging:
+      type: boolean
+      description: Whether to enable verbose logging
+      default: false
+    server_type:
+      type: string
+      description: Type of server to generate
+      enum: [standalone, embedded, containerized]
+      default: standalone
+
+default_config:
+  port: 8080
+  host: "localhost"
+  delay: 0
+  persistence: true
+  validate_requests: true
+  generate_examples: true
+  cors_enabled: true
+  verbose_logging: false
+  server_type: standalone
+  llm_config:
+    provider: openai
+    model: gpt-4 

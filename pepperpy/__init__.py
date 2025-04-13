@@ -6,6 +6,7 @@ This module provides the main interfaces for working with the PepperPy framework
 
 from pepperpy.content import ContentProcessor
 from pepperpy.llm import LLMProvider
+from pepperpy.pepperpy import PepperPy
 
 # Import orchestration components at the end to avoid circular imports
 from pepperpy.orchestration import OrchestrationProvider, WorkflowOrchestrator
@@ -17,6 +18,7 @@ __all__ = [
     "ContentProcessor",
     "LLMProvider",
     "OrchestrationProvider",
+    "PepperPy",
     "PluginDiscoveryProvider",
     "PluginRegistry",
     "StorageProvider",

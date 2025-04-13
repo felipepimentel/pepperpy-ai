@@ -1,0 +1,333 @@
+openapi: 3.0.0
+info:
+  title: Pet Store API
+  description: A sample API for managing a pet store
+  version: 1.0.0
+servers:
+  - url: https://petstore.example.com/api/v1
+    description: Production server
+paths:
+  /pets:
+    get:
+      summary: List all pets
+      operationId: listPets
+      tags:
+        - pets
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of pets to return
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+      responses:
+        '200':
+          description: A list of pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+              example:
+                - id: "1"
+                  name: "Fluffy"
+                  type: "cat"
+                  age: 3
+                  vaccinated: true
+                - id: "2"
+                  name: "Rex"
+                  type: "dog"
+                  age: 5
+                  vaccinated: true
+    post:
+      summary: Create a pet
+      operationId: createPet
+      tags:
+        - pets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPet'
+            example:
+              name: "Whiskers"
+              type: "cat"
+              age: 2
+              vaccinated: false
+      responses:
+        '201':
+          description: Pet created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+              example:
+                id: "3"
+                name: "Whiskers"
+                type: "cat"
+                age: 2
+                vaccinated: false
+        '400':
+          description: Invalid input
+  /pets/{id}:
+    get:
+      summary: Get a pet by ID
+      operationId: getPet
+      tags:
+        - pets
+      parameters:
+        - name: id
+          in: path
+          description: ID of the pet to get
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pet response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+              example:
+                id: "1"
+                name: "Fluffy"
+                type: "cat"
+                age: 3
+                vaccinated: true
+        '404':
+          description: Pet not found
+    put:
+      summary: Update a pet
+      operationId: updatePet
+      tags:
+        - pets
+      parameters:
+        - name: id
+          in: path
+          description: ID of the pet to update
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPet'
+            example:
+              name: "Fluffy"
+              type: "cat"
+              age: 4
+              vaccinated: true
+      responses:
+        '200':
+          description: Pet updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+              example:
+                id: "1"
+                name: "Fluffy"
+                type: "cat"
+                age: 4
+                vaccinated: true
+        '404':
+          description: Pet not found
+    delete:
+      summary: Delete a pet
+      operationId: deletePet
+      tags:
+        - pets
+      parameters:
+        - name: id
+          in: path
+          description: ID of the pet to delete
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Pet deleted
+        '404':
+          description: Pet not found
+  /owners:
+    get:
+      summary: List all owners
+      operationId: listOwners
+      tags:
+        - owners
+      responses:
+        '200':
+          description: A list of owners
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Owner'
+              example:
+                - id: "1"
+                  name: "John Doe"
+                  email: "john@example.com"
+                  phone: "555-1234"
+                - id: "2"
+                  name: "Jane Smith"
+                  email: "jane@example.com"
+                  phone: "555-5678"
+    post:
+      summary: Create an owner
+      operationId: createOwner
+      tags:
+        - owners
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewOwner'
+            example:
+              name: "Alice Johnson"
+              email: "alice@example.com"
+              phone: "555-9012"
+      responses:
+        '201':
+          description: Owner created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Owner'
+              example:
+                id: "3"
+                name: "Alice Johnson"
+                email: "alice@example.com"
+                phone: "555-9012"
+  /owners/{id}:
+    get:
+      summary: Get an owner by ID
+      operationId: getOwner
+      tags:
+        - owners
+      parameters:
+        - name: id
+          in: path
+          description: ID of the owner to get
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Owner response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Owner'
+        '404':
+          description: Owner not found
+  /owners/{id}/pets:
+    get:
+      summary: List all pets for an owner
+      operationId: listOwnerPets
+      tags:
+        - owners
+        - pets
+      parameters:
+        - name: id
+          in: path
+          description: ID of the owner
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of pets owned by the owner
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+              example:
+                - id: "1"
+                  name: "Fluffy"
+                  type: "cat"
+                  age: 3
+                  vaccinated: true
+                - id: "4"
+                  name: "Buddy"
+                  type: "dog"
+                  age: 2
+                  vaccinated: true
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+        - type
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [cat, dog, bird, fish, hamster]
+        age:
+          type: integer
+          minimum: 0
+        vaccinated:
+          type: boolean
+          default: false
+    NewPet:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [cat, dog, bird, fish, hamster]
+        age:
+          type: integer
+          minimum: 0
+        vaccinated:
+          type: boolean
+          default: false
+    Owner:
+      type: object
+      required:
+        - id
+        - name
+        - email
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+    NewOwner:
+      type: object
+      required:
+        - name
+        - email
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string 
