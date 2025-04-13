@@ -13,8 +13,9 @@ import asyncio
 import argparse
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+import logging
 
-from flask import Flask, render_template, request, jsonify, after_this_request
+from flask import Flask, render_template, request, jsonify, after_this_request, send_from_directory
 from flask_cors import CORS
 
 # Local imports
@@ -26,6 +27,13 @@ CORS(app)
 # Create a global workflow service instance
 workflow_service = MockWorkflowService()
 initialized = False
+
+# Initialize the mock API service
+mock_service = None
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @app.before_request
@@ -60,199 +68,247 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/api/health', methods=['GET'])
+@app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
-    return jsonify({
-        "status": "ok",
-        "service": "PepperPy Playground Web",
-        "timestamp": datetime.now().isoformat()
-    })
+    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
 
 
 @app.route('/api/workflows', methods=['GET'])
 async def get_workflows():
-    """Get available workflows."""
+    """Get all available workflows."""
+    global mock_service
+    if mock_service is None:
+        mock_service = MockWorkflowService()
+        await mock_service.initialize()
+    
+    workflows = await mock_service.get_available_workflows()
+    return jsonify({"workflows": workflows})
+
+
+@app.route('/api/components', methods=['GET'])
+async def get_workflow_components():
+    """Get available workflow components for custom workflow building."""
+    global mock_service
+    if mock_service is None:
+        mock_service = MockWorkflowService()
+        await mock_service.initialize()
+    
+    components = await mock_service.get_workflow_components()
+    return jsonify(components)
+
+
+@app.route('/api/workflows/custom', methods=['POST'])
+async def create_custom_workflow():
+    """Create a new custom workflow."""
+    global mock_service
+    if mock_service is None:
+        mock_service = MockWorkflowService()
+        await mock_service.initialize()
+    
+    workflow_data = request.json
     try:
-        workflows = await workflow_service.get_available_workflows()
-        return jsonify({"workflows": workflows})
+        result = await mock_service.create_custom_workflow(workflow_data)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error creating custom workflow: {str(e)}")
+        return jsonify({"status": "error", "message": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/api/workflows/custom/<workflow_id>', methods=['PUT'])
+async def update_custom_workflow(workflow_id):
+    """Update an existing custom workflow."""
+    global mock_service
+    if mock_service is None:
+        mock_service = MockWorkflowService()
+        await mock_service.initialize()
+    
+    workflow_data = request.json
+    try:
+        result = await mock_service.update_custom_workflow(workflow_id, workflow_data)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error updating custom workflow: {str(e)}")
+        return jsonify({"status": "error", "message": f"Internal error: {str(e)}"}), 500
+
+
+@app.route('/api/workflows/custom/<workflow_id>', methods=['DELETE'])
+async def delete_custom_workflow(workflow_id):
+    """Delete a custom workflow."""
+    global mock_service
+    if mock_service is None:
+        mock_service = MockWorkflowService()
+        await mock_service.initialize()
+    
+    try:
+        result = await mock_service.delete_custom_workflow(workflow_id)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error deleting custom workflow: {str(e)}")
+        return jsonify({"status": "error", "message": f"Internal error: {str(e)}"}), 500
 
 
 @app.route('/api/workflow/<workflow_id>/schema', methods=['GET'])
 async def get_workflow_schema(workflow_id):
     """Get schema for a specific workflow."""
+    global mock_service
+    if mock_service is None:
+        mock_service = MockWorkflowService()
+        await mock_service.initialize()
+    
     try:
-        workflow = await workflow_service.get_workflow_schema(workflow_id)
-        return jsonify(workflow)
+        workflow = None
+        for wf in await mock_service.get_available_workflows():
+            if wf['id'] == workflow_id:
+                workflow = wf
+                break
+                
+        if not workflow:
+            return jsonify({"status": "error", "message": f"Workflow not found: {workflow_id}"}), 404
+            
+        # If it's a built-in workflow, get the schema from the service
+        if workflow_id in mock_service._workflows:
+            schema = mock_service._workflows[workflow_id].get('schema', {})
+            return jsonify({
+                "id": workflow_id,
+                "name": workflow.get('name', 'Unknown'),
+                "description": workflow.get('description', ''),
+                "schema": schema
+            })
+        else:
+            # For custom workflows
+            return jsonify({
+                "id": workflow_id,
+                "name": workflow.get('name', 'Custom Workflow'),
+                "description": workflow.get('description', ''),
+                "schema": workflow.get('schema', {})
+            })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error getting workflow schema: {str(e)}")
+        return jsonify({"status": "error", "message": f"Internal error: {str(e)}"}), 500
 
 
 @app.route('/api/workflow/<workflow_id>/execute', methods=['POST'])
 async def execute_workflow(workflow_id):
     """Execute a workflow."""
+    global mock_service
+    if mock_service is None:
+        mock_service = MockWorkflowService()
+        await mock_service.initialize()
+    
     try:
         data = request.json or {}
         input_data = data.get('input_data', {})
         config = data.get('config', {})
         
-        result = await workflow_service.execute_workflow(
+        result = await mock_service.execute_workflow(
             workflow_id=workflow_id,
             input_data=input_data,
             config=config
         )
         
         return jsonify(result)
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error executing workflow: {str(e)}")
+        return jsonify({"status": "error", "message": f"Internal error: {str(e)}"}), 500
 
 
 @app.route('/api/samples/<workflow_id>', methods=['GET'])
 def get_workflow_samples(workflow_id):
-    """Get sample inputs for a workflow."""
-    # Return sample data based on workflow ID
+    """Get sample inputs for a specific workflow."""
     samples = {
-        "api_governance": {
-            "input_data": {
-                "api_spec": {
-                    "openapi": "3.0.0",
-                    "info": {
-                        "title": "Sample API",
-                        "version": "1.0.0"
-                    },
-                    "paths": {
-                        "/users": {
-                            "get": {
-                                "summary": "Get users"
-                            }
-                        }
-                    }
-                },
-                "output_format": "json",
-                "rule_set": "default"
+        "api-governance": [
+            {
+                "name": "Basic Security Check",
+                "description": "Check a sample API for security issues",
+                "input_data": {
+                    "spec_url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml",
+                    "governance_rules": ["security", "standards"],
+                    "output_format": "json"
+                }
             },
-            "config": {
-                "output_format": "json",
-                "llm_config": {
-                    "provider": "openai",
-                    "model": "gpt-4"
+            {
+                "name": "Comprehensive Check",
+                "description": "Check a sample API for all governance issues",
+                "input_data": {
+                    "spec_url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml",
+                    "governance_rules": ["security", "standards", "schema", "documentation"],
+                    "output_format": "markdown"
                 }
             }
-        },
-        "api_blueprint": {
-            "input_data": {
-                "user_stories": [
-                    "As a user, I want to be able to create an account",
-                    "As a user, I want to be able to login to my account",
-                    "As a user, I want to be able to view my profile"
-                ],
-                "output_format": "openapi",
-                "target_tech": "node"
+        ],
+        "simple-chat": [
+            {
+                "name": "Basic Question",
+                "description": "Ask a simple question to the LLM",
+                "input_data": {
+                    "message": "What is PepperPy and how does it help with LLM integration?",
+                    "model": "gpt-4o-mini",
+                    "system_prompt": "You are a helpful assistant explaining PepperPy, a Python framework for LLM integration."
+                }
             },
-            "config": {
-                "llm_config": {
-                    "provider": "openai",
-                    "model": "gpt-4"
+            {
+                "name": "Code Example",
+                "description": "Ask for a code example",
+                "input_data": {
+                    "message": "Write a simple Python function that calculates the Fibonacci sequence up to n terms.",
+                    "model": "gpt-4o-mini",
+                    "system_prompt": "You are a coding assistant. Provide clear, well-documented code examples."
                 }
             }
-        },
-        "api_mock": {
-            "input_data": {
-                "api_spec": {
-                    "openapi": "3.0.0",
-                    "info": {
-                        "title": "Sample API",
-                        "version": "1.0.0"
-                    },
-                    "paths": {
-                        "/users": {
-                            "get": {
-                                "summary": "Get users",
-                                "responses": {
-                                    "200": {
-                                        "description": "Success"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "port": 8080,
-                "response_delay": 0
-            }
-        },
-        "api_evolution": {
-            "input_data": {
-                "current_api": {
-                    "openapi": "3.0.0",
-                    "info": {
-                        "title": "Current API",
-                        "version": "1.0.0"
-                    },
-                    "paths": {
-                        "/users": {
-                            "get": {
-                                "summary": "Get users"
-                            }
-                        }
-                    }
-                },
-                "proposed_api": {
-                    "openapi": "3.0.0",
-                    "info": {
-                        "title": "Proposed API",
-                        "version": "2.0.0"
-                    },
-                    "paths": {
-                        "/users": {
-                            "get": {
-                                "summary": "Get users",
-                                "parameters": [
-                                    {
-                                        "name": "limit",
-                                        "in": "query",
-                                        "required": False
-                                    }
-                                ]
-                            }
-                        },
-                        "/users/{id}": {
-                            "get": {
-                                "summary": "Get user by ID"
-                            }
-                        }
-                    }
-                },
-                "output_format": "json"
-            }
-        },
-        "api_ready": {
-            "input_data": {
-                "spec_path": "/static/samples/petstore.yaml",
-                "enhancement_options": {
-                    "agent_discovery": True,
-                    "auth_mechanism": "api_key",
-                    "observability": True,
-                    "rate_limiting": True,
-                    "documentation": True
-                },
-                "output_dir": "/tmp"
-            },
-            "config": {
-                "llm_config": {
-                    "provider": "openai",
-                    "model": "gpt-4"
+        ],
+        "api-blueprint": [
+            {
+                "name": "User Authentication API",
+                "description": "Generate an API for user authentication",
+                "input_data": {
+                    "user_stories": "Feature: User Authentication\n\nScenario: User Registration\nGiven a new user with email and password\nWhen the user submits registration form\nThen a new account should be created\n\nScenario: User Login\nGiven a registered user\nWhen the user provides correct credentials\nThen the user should be authenticated and receive a token",
+                    "api_name": "Authentication API",
+                    "api_version": "1.0.0"
                 }
             }
-        }
+        ],
+        "api-mock": [
+            {
+                "name": "Pet Store Mock",
+                "description": "Create a mock server for the Pet Store API",
+                "input_data": {
+                    "spec_url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml",
+                    "port": 8080
+                }
+            }
+        ],
+        "api-evolution": [
+            {
+                "name": "Pet Store API Evolution",
+                "description": "Check for breaking changes between two versions",
+                "input_data": {
+                    "old_spec_url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.yaml",
+                    "new_spec_url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore-expanded.yaml",
+                    "check_breaking": True
+                }
+            }
+        ]
     }
     
-    if workflow_id not in samples:
-        return jsonify({"error": "No samples found for this workflow"}), 404
-        
-    return jsonify(samples[workflow_id])
+    # Return samples for the requested workflow
+    if workflow_id in samples:
+        return jsonify(samples[workflow_id])
+    else:
+        return jsonify([])  # Return empty array if no samples exist
+
+
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
 
 
 def run_async(coro):

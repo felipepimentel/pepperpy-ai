@@ -9,7 +9,11 @@ from typing import Any, Protocol, cast, runtime_checkable
 
 # Import domain providers
 from pepperpy.agent.base import AgentProvider, BaseAgentProvider
-from pepperpy.agent.topology import AgentTopologyProvider, create_topology
+from pepperpy.communication import (
+    CommunicationProvider,
+    CommunicationProtocol,
+    create_provider as create_communication_provider
+)
 from pepperpy.cache.base import BaseCacheProvider, CacheProvider
 from pepperpy.llm.base import BaseLLMProvider, LLMProvider
 from pepperpy.plugin.discovery import PluginDiscoveryProvider
@@ -56,7 +60,7 @@ class PepperPy:
         plugin_registry.discover_plugins()
 
         # Add topology provider
-        self._topology_provider: AgentTopologyProvider | None = None
+        self._communication_provider = None
 
     # Task configuration methods
     def with_task_context(self, **context: Any) -> "PepperPy":
@@ -620,33 +624,35 @@ class PepperPy:
 
         return self
 
-    def with_topology(
-        self, topology_type: str | None = None, **config: Any
+    def with_communication(
+        self, communication_type: str | None = None, **config: Any
     ) -> "PepperPy":
-        """Configure topology provider.
+        """Configure communication provider.
 
         Args:
-            topology_type: Type of topology to use
-            **config: Topology-specific configuration options
+            communication_type: Type of communication to use
+            **config: Communication-specific configuration options
 
         Returns:
             Self for chaining
         """
         # Merge with existing config if present
-        merged_config = {**self.config.get("topology", {}), **config}
+        merged_config = {**self.config.get("communication", {}), **config}
 
-        # Create the topology provider
-        self._topology_provider = create_topology(topology_type, **merged_config)
+        # Create the communication provider
+        self._communication_provider = create_communication_provider(
+            communication_type, **merged_config
+        )
 
         # Store in config for persistence
-        self.config["topology"] = merged_config
-        if topology_type:
-            self.config["topology"]["topology_type"] = topology_type
+        self.config["communication"] = merged_config
+        if communication_type:
+            self.config["communication"]["communication_type"] = communication_type
 
         return self
 
-    async def execute_topology(self, input_data: dict[str, Any]) -> dict[str, Any]:
-        """Execute a task using the configured topology.
+    async def execute_communication(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute a task using the configured communication.
 
         Args:
             input_data: Input data containing task and other parameters
@@ -655,40 +661,40 @@ class PepperPy:
             Execution results
 
         Raises:
-            ValueError: If no topology provider is configured
+            ValueError: If no communication provider is configured
         """
-        # Ensure we have a topology provider
-        if not self._topology_provider:
-            raise ValueError("No topology provider configured")
+        # Ensure we have a communication provider
+        if not self._communication_provider:
+            raise ValueError("No communication provider configured")
 
         # Initialize if needed
-        if isinstance(self._topology_provider, InitializableProvider):
-            await self._topology_provider.initialize()
+        if isinstance(self._communication_provider, InitializableProvider):
+            await self._communication_provider.initialize()
 
-        # Execute the topology
-        return await self._topology_provider.execute(input_data)
+        # Execute the communication
+        return await self._communication_provider.execute(input_data)
 
     @property
-    def topology(self) -> AgentTopologyProvider:
-        """Get the configured topology provider.
+    def communication(self) -> CommunicationProtocol:
+        """Get the configured communication provider.
 
         Returns:
-            Configured topology provider
+            Configured communication provider
 
         Raises:
-            ValueError: If no topology provider is configured
+            ValueError: If no communication provider is configured
         """
-        if not self._topology_provider:
-            raise ValueError("No topology provider configured")
-        return self._topology_provider
+        if not self._communication_provider:
+            raise ValueError("No communication provider configured")
+        return self._communication_provider
 
     async def __aenter__(self) -> "PepperPy":
         """Enter async context manager."""
         # Initialize existing providers
 
-        # Initialize topology provider if configured
-        if self._topology_provider:
-            await self._topology_provider.initialize()
+        # Initialize communication provider if configured
+        if self._communication_provider:
+            await self._communication_provider.initialize()
 
         return self
 
@@ -698,6 +704,6 @@ class PepperPy:
         """Exit async context manager."""
         # Clean up existing providers
 
-        # Clean up topology provider if configured
-        if self._topology_provider:
-            await self._topology_provider.cleanup()
+        # Clean up communication provider if configured
+        if self._communication_provider:
+            await self._communication_provider.cleanup()

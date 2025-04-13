@@ -9,6 +9,8 @@ let configEditor;
 let currentWorkflowId = null;
 let lastUpdateCheck = Date.now();
 const updateCheckInterval = 5000; // Check for updates every 5 seconds
+let lastScrollTime = 0;
+let workflowData = {};
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
@@ -64,6 +66,8 @@ function handlePossibleRestart() {
 
 // Initialize code editors
 function initializeEditors() {
+    if (inputEditor) return;
+
     // Initialize input editor
     inputEditor = ace.edit('input-editor');
     inputEditor.setTheme('ace/theme/monokai');
@@ -71,15 +75,10 @@ function initializeEditors() {
     inputEditor.setOptions({
         fontSize: '14px',
         showPrintMargin: false,
-        wrap: true,
-        fontFamily: '"Fira Code", "JetBrains Mono", monospace'
+        showGutter: true,
+        highlightActiveLine: true,
+        wrap: true
     });
-
-    // Set placeholder value
-    inputEditor.setValue(JSON.stringify({
-        "message": "Select a workflow from the sidebar to begin"
-    }, null, 2));
-    inputEditor.clearSelection();
 
     // Initialize config editor
     configEditor = ace.edit('config-editor');
@@ -88,21 +87,19 @@ function initializeEditors() {
     configEditor.setOptions({
         fontSize: '14px',
         showPrintMargin: false,
-        wrap: true,
-        fontFamily: '"Fira Code", "JetBrains Mono", monospace'
+        showGutter: true,
+        highlightActiveLine: true,
+        wrap: true
     });
 
-    // Set placeholder value
-    configEditor.setValue(JSON.stringify({
-        "config": "Optional configuration parameters"
-    }, null, 2));
-    configEditor.clearSelection();
+    // Set some default values
+    inputEditor.setValue(JSON.stringify({ "input": "Hello world" }, null, 2));
+    configEditor.setValue(JSON.stringify({}, null, 2));
 }
 
 // Set up event listeners
 function setupEventListeners() {
     document.getElementById('run-workflow').addEventListener('click', runWorkflow);
-    document.getElementById('load-sample').addEventListener('click', loadSample);
     document.getElementById('copy-result').addEventListener('click', copyResult);
 }
 
@@ -114,155 +111,176 @@ async function fetchWorkflows() {
         const response = await fetch(`/api/workflows?_t=${Date.now()}`);
         const data = await response.json();
 
-        if (data.workflows && Array.isArray(data.workflows)) {
-            renderWorkflows(data.workflows);
-        } else {
-            showToast('Error', 'Failed to load workflows: Invalid data format');
-            workflowList.innerHTML = `
-                <div class="text-center py-4">
-                    <p class="text-danger mb-0">Failed to load workflows</p>
-                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="fetchWorkflows()">
-                        <i class="bi bi-arrow-clockwise"></i> Retry
-                    </button>
-                </div>
-            `;
+        if (data.error) {
+            showNotification('Error loading workflows: ' + data.error, 'danger');
+            return;
         }
+
+        // Store workflow data for future reference
+        workflowData = data.workflows.reduce((acc, wf) => {
+            acc[wf.id] = wf;
+            return acc;
+        }, {});
+
+        // Render the workflow list
+        renderWorkflowList(data.workflows);
     } catch (error) {
-        console.error('Error fetching workflows:', error);
-        workflowList.innerHTML = `
-            <div class="text-center py-4">
-                <p class="text-danger mb-0">Connection error</p>
-                <button class="btn btn-sm btn-outline-primary mt-2" onclick="fetchWorkflows()">
-                    <i class="bi bi-arrow-clockwise"></i> Retry
-                </button>
-            </div>
-        `;
+        console.error("Error loading workflows:", error);
+        showNotification('Failed to load workflows. Please check your connection and try again.', 'danger');
     }
 }
 
 // Render workflows in the sidebar
-function renderWorkflows(workflows) {
+function renderWorkflowList(workflows) {
     const workflowList = document.getElementById('workflow-list');
     workflowList.innerHTML = '';
 
     if (workflows.length === 0) {
-        workflowList.innerHTML = `
-            <div class="text-center py-4">
-                <p class="text-muted">No workflows available</p>
-            </div>
-        `;
+        workflowList.innerHTML = '<div class="text-center p-4 text-muted">No workflows available</div>';
         return;
     }
 
-    workflows.forEach(workflow => {
-        // Create workflow item
-        const item = document.createElement('div');
-        item.className = 'workflow-item';
-        item.dataset.id = workflow.id;
+    // Group workflows by type
+    const workflowsByType = workflows.reduce((acc, workflow) => {
+        const type = workflow.type || 'other';
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(workflow);
+        return acc;
+    }, {});
 
-        // Determine badge class based on category
-        let badgeClass = '';
-        if (workflow.category === 'governance') badgeClass = 'badge-governance';
-        else if (workflow.category === 'design') badgeClass = 'badge-design';
-        else if (workflow.category === 'testing') badgeClass = 'badge-testing';
-        else if (workflow.category === 'enhancement') badgeClass = 'badge-enhancement';
-        else badgeClass = 'bg-secondary';
+    // Sort workflow types
+    const sortedTypes = Object.keys(workflowsByType).sort();
 
-        // Set item HTML
-        item.innerHTML = `
-            <div class="d-flex justify-content-between align-items-start mb-1">
-                <span class="workflow-title">${workflow.name}</span>
-                <span class="badge ${badgeClass}">${workflow.category}</span>
-            </div>
-            <div class="workflow-description">${workflow.description}</div>
-        `;
+    // Create a document fragment to improve performance
+    const fragment = document.createDocumentFragment();
 
-        // Add click handler
-        item.addEventListener('click', () => selectWorkflow(workflow.id));
+    // Add workflows by type
+    sortedTypes.forEach(type => {
+        // Add section header
+        const typeHeader = document.createElement('h6');
+        typeHeader.className = 'text-uppercase px-3 py-2 mt-3 mb-2 text-muted small';
+        typeHeader.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+        fragment.appendChild(typeHeader);
 
-        // Add to list
-        workflowList.appendChild(item);
+        // Add workflows
+        workflowsByType[type].forEach(workflow => {
+            const workflowItem = document.createElement('div');
+            workflowItem.className = 'workflow-item';
+            workflowItem.setAttribute('data-workflow-id', workflow.id);
+            workflowItem.setAttribute('role', 'button');
+
+            // Get icon based on workflow type or specify a default
+            const icon = workflowIcons[workflow.type] || workflowIcons.default;
+
+            workflowItem.innerHTML = `
+                <div class="workflow-title">
+                    <i class="bi ${icon}"></i>
+                    ${workflow.name}
+                </div>
+                <div class="workflow-description">${workflow.description || 'No description available'}</div>
+                <div class="workflow-badges">
+                    <span class="badge badge-${workflow.type || 'secondary'}">${workflow.type || 'other'}</span>
+                </div>
+            `;
+
+            workflowItem.addEventListener('click', () => {
+                initWorkflow(workflow.id);
+            });
+
+            if (currentWorkflowId === workflow.id) {
+                workflowItem.classList.add('active');
+            }
+
+            fragment.appendChild(workflowItem);
+        });
     });
 
-    // If we already had a selected workflow, re-select it
+    workflowList.appendChild(fragment);
+
+    // If a workflow is already selected, make sure it's visible
     if (currentWorkflowId) {
-        selectWorkflow(currentWorkflowId);
+        const activeItem = workflowList.querySelector(`.workflow-item[data-workflow-id="${currentWorkflowId}"]`);
+        if (activeItem) {
+            activeItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     }
 }
 
-// Select a workflow
-async function selectWorkflow(workflowId) {
-    // Update current workflow
-    currentWorkflowId = workflowId;
-
-    // Update active class in sidebar
-    document.querySelectorAll('.workflow-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.dataset.id === workflowId) {
-            item.classList.add('active');
-        }
-    });
-
+// Initialize workflow
+async function initWorkflow(workflowId) {
     try {
-        // Fetch workflow schema
-        const response = await fetch(`/api/workflow/${workflowId}/schema?_t=${Date.now()}`);
-        const data = await response.json();
+        const workflow = workflowData[workflowId];
+        if (!workflow) {
+            throw new Error(`Workflow ${workflowId} not found`);
+        }
 
         // Update UI
-        document.getElementById('selected-workflow').textContent = data.name;
-        document.getElementById('workflow-description').textContent = data.description;
-
-        // Show workflow detail and hide placeholder
-        document.getElementById('workflow-detail').classList.remove('d-none');
-        document.getElementById('workflow-placeholder').classList.add('d-none');
-
-        // Enable run button
+        currentWorkflowId = workflowId;
+        document.getElementById('selected-workflow').textContent = workflow.name;
+        document.getElementById('workflow-description').textContent = workflow.description || 'No description available';
         document.getElementById('run-workflow').disabled = false;
 
-        // Hide any previous results
+        // Toggle visibility of sections
+        document.getElementById('workflow-detail').classList.remove('d-none');
+        document.getElementById('workflow-placeholder').classList.add('d-none');
         document.getElementById('result-container').classList.add('d-none');
 
-        // Load sample data
-        loadSample();
-    } catch (error) {
-        console.error('Error fetching workflow schema:', error);
-        showToast('Error', 'Failed to load workflow details');
-    }
-}
+        // Update active class in the workflow list
+        const workflowItems = document.querySelectorAll('.workflow-item');
+        workflowItems.forEach(item => {
+            if (item.getAttribute('data-workflow-id') === workflowId) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
 
-// Load sample data for selected workflow
-async function loadSample() {
-    if (!currentWorkflowId) return;
+        // Initialize editors if needed
+        initializeEditors();
 
-    try {
-        const response = await fetch(`/api/samples/${currentWorkflowId}?_t=${Date.now()}`);
+        // Get workflow schema
+        const schemaResponse = await fetch(`/api/workflow/${workflowId}/schema`);
+        if (schemaResponse.ok) {
+            const schemaData = await schemaResponse.json();
 
-        if (response.ok) {
-            const data = await response.json();
-
-            // Update editors
-            if (data.input_data) {
-                inputEditor.setValue(JSON.stringify(data.input_data, null, 2));
-                inputEditor.clearSelection();
+            // Populate editors with schema examples if available
+            if (schemaData.input_example) {
+                inputEditor.setValue(JSON.stringify(schemaData.input_example, null, 2));
             }
 
-            if (data.config) {
-                configEditor.setValue(JSON.stringify(data.config, null, 2));
-                configEditor.clearSelection();
+            if (schemaData.config_example) {
+                configEditor.setValue(JSON.stringify(schemaData.config_example, null, 2));
             }
-
-            showToast('Success', 'Sample data loaded');
-        } else {
-            console.warn('No sample available for this workflow');
-            showToast('Warning', 'No sample data available for this workflow');
-
-            // Set default values
-            inputEditor.setValue(JSON.stringify({ "data": "Enter input data here" }, null, 2));
-            configEditor.setValue(JSON.stringify({}, null, 2));
         }
+
+        // Load sample data button
+        document.getElementById('load-sample').addEventListener('click', async () => {
+            try {
+                const sampleResponse = await fetch(`/api/samples/${workflowId}`);
+                if (sampleResponse.ok) {
+                    const sampleData = await sampleResponse.json();
+
+                    if (sampleData.input) {
+                        inputEditor.setValue(JSON.stringify(sampleData.input, null, 2));
+                    }
+
+                    if (sampleData.config) {
+                        configEditor.setValue(JSON.stringify(sampleData.config, null, 2));
+                    }
+
+                    showNotification('Sample data loaded!', 'success');
+                } else {
+                    showNotification('No sample data available for this workflow', 'warning');
+                }
+            } catch (error) {
+                console.error("Error loading sample:", error);
+                showNotification('Failed to load sample data', 'danger');
+            }
+        });
+
     } catch (error) {
-        console.error('Error loading sample:', error);
-        showToast('Error', 'Failed to load sample data');
+        console.error("Error initializing workflow:", error);
+        showNotification('Failed to initialize workflow: ' + error.message, 'danger');
     }
 }
 
@@ -270,32 +288,30 @@ async function loadSample() {
 async function runWorkflow() {
     if (!currentWorkflowId) return;
 
-    // Validate JSON input
-    let inputData, config;
     try {
-        inputData = JSON.parse(inputEditor.getValue());
-    } catch (error) {
-        showToast('Error', 'Invalid JSON in input data');
-        return;
-    }
+        // Get input and config JSON
+        let inputData;
+        let configData;
 
-    try {
-        config = JSON.parse(configEditor.getValue());
-    } catch (error) {
-        config = {};
-    }
+        try {
+            inputData = JSON.parse(inputEditor.getValue());
+        } catch (e) {
+            showNotification('Invalid JSON in input data', 'danger');
+            return;
+        }
 
-    // Show loading state
-    const runButton = document.getElementById('run-workflow');
-    const originalText = runButton.innerHTML;
-    runButton.disabled = true;
-    runButton.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Running...`;
+        try {
+            configData = JSON.parse(configEditor.getValue());
+        } catch (e) {
+            showNotification('Invalid JSON in config data', 'danger');
+            return;
+        }
 
-    // Hide previous results
-    document.getElementById('result-container').classList.add('d-none');
+        // Show loading state
+        document.getElementById('run-workflow').disabled = true;
+        document.getElementById('run-workflow').innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Running...';
 
-    try {
-        // Execute workflow
+        // Run workflow
         const response = await fetch(`/api/workflow/${currentWorkflowId}/execute`, {
             method: 'POST',
             headers: {
@@ -303,53 +319,67 @@ async function runWorkflow() {
             },
             body: JSON.stringify({
                 input_data: inputData,
-                config: config
+                config: configData
             })
         });
 
-        // Parse result
-        const result = await response.json();
+        const data = await response.json();
 
-        // Display result
-        displayResult(result);
-
-        // Show success toast
-        showToast('Success', 'Workflow executed successfully');
-    } catch (error) {
-        console.error('Error executing workflow:', error);
-        showToast('Error', 'Failed to execute workflow');
-    } finally {
         // Reset button state
-        runButton.disabled = false;
-        runButton.innerHTML = originalText;
+        document.getElementById('run-workflow').disabled = false;
+        document.getElementById('run-workflow').innerHTML = '<i class="bi bi-play-fill"></i> Run Workflow';
+
+        // Show result
+        showWorkflowResult(data);
+    } catch (error) {
+        console.error("Error running workflow:", error);
+        showNotification('Failed to run workflow: ' + error.message, 'danger');
+
+        // Reset button state
+        document.getElementById('run-workflow').disabled = false;
+        document.getElementById('run-workflow').innerHTML = '<i class="bi bi-play-fill"></i> Run Workflow';
     }
 }
 
-// Display result
-function displayResult(result) {
-    // Get elements
+// Show workflow result
+function showWorkflowResult(data) {
     const resultContainer = document.getElementById('result-container');
     const resultContent = document.getElementById('result-content');
     const resultStatus = document.getElementById('result-status');
 
-    // Set status badge
-    if (result.status === 'success') {
-        resultStatus.className = 'badge bg-success me-2';
-        resultStatus.textContent = 'Success';
-    } else {
+    // Format JSON result
+    const formattedResult = JSON.stringify(data, null, 2);
+
+    // Add to the result container
+    resultContent.innerHTML = `<pre><code class="language-json">${formattedResult}</code></pre>`;
+
+    // Update status badge
+    if (data.error) {
         resultStatus.className = 'badge bg-danger me-2';
         resultStatus.textContent = 'Error';
+    } else {
+        resultStatus.className = 'badge bg-success me-2';
+        resultStatus.textContent = 'Success';
     }
-
-    // Format and display JSON result
-    const formattedJson = JSON.stringify(result, null, 2);
-    resultContent.innerHTML = `<pre><code class="language-json">${formattedJson}</code></pre>`;
-
-    // Apply syntax highlighting
-    hljs.highlightAll();
 
     // Show the result container
     resultContainer.classList.remove('d-none');
+
+    // Highlight the code
+    document.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightElement(block);
+    });
+
+    // Set up copy button
+    document.getElementById('copy-result').addEventListener('click', () => {
+        navigator.clipboard.writeText(formattedResult)
+            .then(() => {
+                showNotification('Result copied to clipboard!', 'success');
+            })
+            .catch(() => {
+                showNotification('Failed to copy to clipboard', 'danger');
+            });
+    });
 
     // Scroll to result
     resultContainer.scrollIntoView({ behavior: 'smooth' });
@@ -367,11 +397,11 @@ function copyResult() {
     if (navigator.clipboard) {
         navigator.clipboard.writeText(code.textContent)
             .then(() => {
-                showToast('Success', 'Result copied to clipboard');
+                showNotification('Result copied to clipboard!', 'success');
             })
             .catch(err => {
                 console.error('Copy failed:', err);
-                showToast('Error', 'Failed to copy result');
+                showNotification('Failed to copy result', 'danger');
             });
     } else {
         // Fallback for browsers that don't support clipboard API
@@ -383,10 +413,10 @@ function copyResult() {
 
         try {
             document.execCommand('copy');
-            showToast('Success', 'Result copied to clipboard');
+            showNotification('Result copied to clipboard!', 'success');
         } catch (err) {
             console.error('Copy failed:', err);
-            showToast('Error', 'Failed to copy result');
+            showNotification('Failed to copy result', 'danger');
         }
 
         document.body.removeChild(textarea);
@@ -402,66 +432,60 @@ function copyResult() {
     }, 2000);
 }
 
-// Show toast notification
-function showToast(title, message) {
-    // Get or create toast container
-    let toastContainer = document.querySelector('.toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-        document.body.appendChild(toastContainer);
-    }
+// Show notification toast
+function showNotification(message, type = 'info') {
+    const toastContainer = document.querySelector('.toast-container');
+    const toastId = 'toast-' + Date.now();
 
-    // Set icon based on title
-    let icon = 'info-circle';
-    let titleClass = 'text-primary';
-
-    if (title === 'Success') {
-        icon = 'check-circle';
-        titleClass = 'text-success';
-    } else if (title === 'Error') {
-        icon = 'exclamation-circle';
-        titleClass = 'text-danger';
-    } else if (title === 'Warning') {
-        icon = 'exclamation-triangle';
-        titleClass = 'text-warning';
-    }
-
-    // Create toast element
-    const toast = document.createElement('div');
-    toast.className = 'toast show';
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'assertive');
-    toast.setAttribute('aria-atomic', 'true');
-
-    toast.innerHTML = `
-        <div class="toast-header">
-            <i class="bi bi-${icon} me-2 ${titleClass}"></i>
-            <strong class="me-auto ${titleClass}">${title}</strong>
-            <small>just now</small>
-            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body">
-            ${message}
+    const toastHTML = `
+        <div class="toast align-items-center text-white bg-${type}" role="alert" aria-live="assertive" aria-atomic="true" id="${toastId}">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi ${type === 'success' ? 'bi-check-circle' : 'bi-info-circle'} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
         </div>
     `;
 
-    // Add to container
-    toastContainer.appendChild(toast);
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
 
-    // Auto-remove after 3 seconds
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => {
-            toastContainer.removeChild(toast);
-        }, 300);
-    }, 3000);
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
 
-    // Add close button handler
-    toast.querySelector('.btn-close').addEventListener('click', () => {
-        toast.classList.remove('show');
-        setTimeout(() => {
-            toastContainer.removeChild(toast);
-        }, 300);
+    toast.show();
+
+    // Remove from DOM after it's hidden
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
     });
-} 
+}
+
+// Workflow Icons by Type
+const workflowIcons = {
+    'governance': 'bi-shield-check',
+    'design': 'bi-bezier2',
+    'testing': 'bi-bug',
+    'enhancement': 'bi-stars',
+    'chat': 'bi-chat-dots-fill',
+    'default': 'bi-gear'
+};
+
+// Periodic reload of workflows
+function startWorkflowPolling() {
+    // Load workflows initially
+    fetchWorkflows();
+
+    // Set up polling (every 5 seconds)
+    setInterval(fetchWorkflows, 5000);
+}
+
+// Document ready
+document.addEventListener('DOMContentLoaded', () => {
+    // Start workflow polling
+    startWorkflowPolling();
+
+    // Set up run workflow button
+    document.getElementById('run-workflow').addEventListener('click', runWorkflow);
+}); 

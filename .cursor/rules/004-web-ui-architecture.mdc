@@ -1,0 +1,434 @@
+---
+description: USE ALWAYS when working with the web UI components - defines patterns and best practices for web interfaces
+globs: playground_web/**/*
+---
+
+# PepperPy Web UI Architecture
+
+## Overview
+
+This rule defines the architecture, patterns, and best practices for developing web UI components for PepperPy, specifically focusing on the Flask-based playground web application.
+
+## Directory Structure
+
+```
+playground_web/
+├── app.py                # Flask application entry point
+├── mock_api_service.py   # Mock implementation of the API service
+├── static/               # Static assets
+│   ├── css/              # Stylesheets
+│   │   └── style.css     # Main stylesheet
+│   ├── js/               # JavaScript files
+│   │   └── app.js        # Main application script
+│   └── img/              # Images and icons
+├── templates/            # HTML templates
+│   └── index.html        # Main application template
+└── README.md             # Documentation
+```
+
+## Architectural Principles
+
+### 1. Separation of Concerns
+
+✅ **ALWAYS**:
+- Separate UI presentation (templates) from business logic (mock_api_service.py)
+- Use proper MVC pattern with Flask routes as controllers
+- Keep asynchronous code patterns consistent
+
+❌ **NEVER**:
+- Mix UI rendering logic with data processing
+- Add business logic to templates or static JS files
+- Implement complex workflows in the web layer
+
+### 2. Mock Service Implementation
+
+The `MockWorkflowService` class serves as a standalone demo implementation, separate from the actual PepperPy framework:
+
+```python
+class MockWorkflowService:
+    """Mock workflow service for playground demonstration."""
+    
+    async def initialize(self) -> None:
+        """Initialize resources."""
+        if self._initialized:
+            return
+        # Implementation
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        # Implementation
+        
+    async def execute_workflow(self, 
+                              workflow_id: str, 
+                              input_data: Dict[str, Any],
+                              config: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a specific workflow."""
+        # Mock implementation
+```
+
+### 3. Flask Routes Pattern
+
+```python
+@app.route('/api/workflows', methods=['GET'])
+async def get_workflows():
+    """Get all available workflows."""
+    global mock_service
+    if mock_service is None:
+        mock_service = MockWorkflowService()
+        await mock_service.initialize()
+    
+    workflows = await mock_service.get_available_workflows()
+    return jsonify(workflows)
+```
+
+### 4. Response Format Standard
+
+All API responses must follow a consistent format:
+
+```python
+# Success response
+{
+    "status": "success",
+    "data": {/* result data */},
+    "timestamp": "2023-05-16T12:34:56.789Z"
+}
+
+# Error response
+{
+    "status": "error",
+    "message": "Error description",
+    "code": "ERROR_CODE",
+    "timestamp": "2023-05-16T12:34:56.789Z"
+}
+```
+
+## UI Component Structure
+
+### 1. HTML Template Pattern
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Meta, title, CSS -->
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">...</nav>
+    
+    <!-- Main Content Structure -->
+    <div class="container-fluid">
+        <!-- Sidebar -->
+        <div class="sidebar">...</div>
+        
+        <!-- Content Area -->
+        <div class="main-content">...</div>
+    </div>
+    
+    <!-- Footer -->
+    <footer>...</footer>
+    
+    <!-- JavaScript -->
+    <script src="..."></script>
+</body>
+</html>
+```
+
+### 2. JavaScript Organization
+
+```javascript
+// Global variables and state
+let state = {
+    currentWorkflow: null,
+    // ...
+};
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+    initializeComponents();
+    fetchInitialData();
+    setupEventListeners();
+});
+
+// Component initialization functions
+function initializeComponents() {
+    // Initialize UI components
+}
+
+// API interaction functions
+async function fetchWorkflows() {
+    try {
+        const response = await fetch('/api/workflows');
+        // Process response
+    } catch (error) {
+        // Handle error
+    }
+}
+
+// Event handlers
+function handleWorkflowSelection(workflowId) {
+    // Handle workflow selection
+}
+
+// UI update functions
+function updateUIWithData(data) {
+    // Update UI components
+}
+```
+
+### 3. CSS Organization
+
+```css
+/* Variables */
+:root {
+    --primary: #5965DD;
+    --secondary: #6C757D;
+    /* ... */
+}
+
+/* Global styles */
+body {
+    font-family: 'Inter', sans-serif;
+    /* ... */
+}
+
+/* Layout components */
+.sidebar {
+    /* ... */
+}
+
+.main-content {
+    /* ... */
+}
+
+/* UI components */
+.workflow-item {
+    /* ... */
+}
+
+.editor {
+    /* ... */
+}
+
+/* Utilities and helpers */
+.badge {
+    /* ... */
+}
+```
+
+## Integration with PepperPy API
+
+### 1. Mock API Service Implementation
+
+The mock API service implements the same interface as the real PepperPy API, but with simplified functionality for demonstration purposes:
+
+```python
+async def execute_workflow(self, workflow_id: str, input_data: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute a workflow."""
+    if workflow_id == "api-governance":
+        return await self._execute_api_governance_workflow(input_data, config)
+    elif workflow_id == "api-blueprint":
+        return await self._execute_api_blueprint_workflow(input_data, config)
+    # More workflow implementations...
+```
+
+### 2. Real API Integration
+
+For production use, the web application can be reconfigured to use the real PepperPy API:
+
+```python
+class RealWorkflowService:
+    """Real workflow service implementation using PepperPy API."""
+    
+    def __init__(self, api_url: str = None):
+        """Initialize with API URL."""
+        self.api_url = api_url or os.environ.get("PEPPERPY_API_URL", "http://localhost:8000")
+        
+    async def execute_workflow(self, workflow_id: str, input_data: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute workflow via real API."""
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{self.api_url}/api/workflow/{workflow_id}/execute", json={
+                "input_data": input_data,
+                "config": config
+            }) as response:
+                return await response.json()
+```
+
+## Error Handling & User Experience
+
+### 1. Client-side Error Handling
+
+```javascript
+async function callApi(endpoint, method = 'GET', data = null) {
+    try {
+        const options = {
+            method,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+        
+        if (data) {
+            options.body = JSON.stringify(data);
+        }
+        
+        const response = await fetch(endpoint, options);
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'API request failed');
+        }
+        
+        return await response.json();
+    } catch (error) {
+        showToast('Error', error.message);
+        console.error('API Error:', error);
+        throw error;
+    }
+}
+```
+
+### 2. Server-side Error Handling
+
+```python
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 errors."""
+    return jsonify({
+        "status": "error",
+        "message": "Resource not found",
+        "code": "NOT_FOUND"
+    }), 404
+
+@app.errorhandler(500)
+def server_error(error):
+    """Handle 500 errors."""
+    return jsonify({
+        "status": "error",
+        "message": "Internal server error",
+        "code": "SERVER_ERROR"
+    }), 500
+```
+
+### 3. User Notifications
+
+```javascript
+function showToast(title, message) {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = 'toast show';
+    
+    // Set toast content
+    toast.innerHTML = `
+        <div class="toast-header">
+            <strong class="me-auto">${title}</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">${message}</div>
+    `;
+    
+    // Add to container and auto-remove after delay
+    document.querySelector('.toast-container').appendChild(toast);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+```
+
+## Responsive Design Principles
+
+✅ **ALWAYS**:
+- Use CSS variables for consistent theming
+- Implement responsive breakpoints for different screen sizes
+- Test on mobile, tablet, and desktop viewports
+- Use Flexbox and Grid for layout
+- Implement accessible UI patterns
+
+❌ **NEVER**:
+- Use fixed pixel widths for containers
+- Hardcode colors instead of using variables
+- Neglect keyboard navigation or screen readers
+- Ignore mobile or tablet experiences
+
+## Code Organization Best Practices
+
+### 1. Flask Routes
+
+- Group routes by functionality
+- Use descriptive function names
+- Keep route handlers focused on a single responsibility
+- Add proper documentation for each endpoint
+
+### 2. JavaScript Structure
+
+- Keep related functionality grouped together
+- Use async/await for all asynchronous code
+- Avoid global state when possible
+- Implement proper error handling
+- Use event delegation for dynamically created elements
+
+### 3. CSS Best Practices
+
+- Organize styles by component
+- Use CSS variables for theming
+- Follow a consistent naming convention
+- Implement responsive design with media queries
+- Use mobile-first approach
+
+## Integration Testing
+
+```python
+def test_api_endpoints():
+    """Test API endpoints."""
+    client = app.test_client()
+    
+    # Test workflows endpoint
+    response = client.get('/api/workflows')
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert "workflows" in data
+    
+    # Test workflow schema endpoint
+    workflow_id = data["workflows"][0]["id"]
+    response = client.get(f'/api/workflow/{workflow_id}/schema')
+    assert response.status_code == 200
+```
+
+## Anti-patterns to Avoid
+
+### 1. Frontend Anti-patterns
+
+❌ **NEVER**:
+- Mix jQuery with modern vanilla JS patterns
+- Use document.write() or other outdated methods
+- Add inline styles or scripts to HTML
+- Manipulate DOM nodes directly instead of using templates
+
+### 2. Backend Anti-patterns
+
+❌ **NEVER**:
+- Block the main thread with synchronous operations
+- Return HTML from API endpoints
+- Mix data access logic with route handlers
+- Hardcode configuration values
+
+## Performance Optimization
+
+✅ **ALWAYS**:
+- Minify and bundle static assets for production
+- Implement proper caching headers
+- Use lightweight dependencies
+- Optimize images and assets
+- Implement lazy loading where appropriate
+
+## Documentation Requirements
+
+The README.md should include:
+
+- Overview of the web application
+- Setup and installation instructions
+- Available endpoints and their usage
+- Configuration options
+- Development workflow
+- Testing instructions 

@@ -14,8 +14,14 @@ from typing import Any, Dict, List, Optional, cast
 
 from pepperpy.plugin import ProviderPlugin
 from pepperpy.workflow import WorkflowProvider
-from pepperpy.logging import get_logger
-from pepperpy.llm import get_llm_adapter, LLMAdapter, Message, MessageRole
+from pepperpy.core.logging import get_logger
+from pepperpy.communication import (
+    CommunicationProtocol,
+    create_provider,
+    Message,
+    TextPart,
+)
+from pepperpy.llm import create_provider as create_llm_provider
 
 logger = get_logger(__name__)
 
@@ -45,7 +51,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
         self._config: Dict[str, Any] = {}
         self._server_provider: Optional[Any] = None
         self._client_provider: Optional[Any] = None
-        self._llm_adapter: Optional[LLMAdapter] = None
+        self._llm_provider: Optional[Any] = None
         self._server_task: Optional[asyncio.Task] = None
     
     @property
@@ -64,32 +70,29 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             host = self._config.get("host", "localhost")
             port = self._config.get("port", 8080)
             
-            # Get the MCP server provider
-            from pepperpy.communication import get_provider
-            self._server_provider = await get_provider(
-                provider_name="mcp",
-                provider_type=provider_type,
+            # Get the MCP server provider using correct protocol abstraction
+            self._server_provider = await create_provider(
+                protocol=CommunicationProtocol.MCP,
+                provider_type=f"server_{provider_type}",
                 host=host,
-                port=port,
-                is_server=True
+                port=port
             )
             
-            # Get the MCP client provider
-            self._client_provider = await get_provider(
-                provider_name="mcp",
+            # Get the MCP client provider using correct protocol abstraction
+            self._client_provider = await create_provider(
+                protocol=CommunicationProtocol.MCP,
                 provider_type=provider_type,
                 host=host,
-                port=port,
-                is_server=False
+                port=port
             )
             
-            # Initialize the LLM adapter if needed
+            # Initialize the LLM provider if needed
             llm_config = self._config.get("llm_config", {})
             if llm_config:
-                self._llm_adapter = await get_llm_adapter(
-                    provider_name=llm_config.get("provider", "openai"),
-                    model=llm_config.get("model", "gpt-4")
-                )
+                provider_type = llm_config.get("provider", "openai")
+                model = llm_config.get("model", "gpt-4")
+                self._llm_provider = create_llm_provider(provider_type=provider_type)
+                await self._llm_provider.initialize()
             
             # Register tools for the MCP server
             await self._register_default_tools()
@@ -124,9 +127,9 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             if self._client_provider and hasattr(self._client_provider, "cleanup"):
                 await self._client_provider.cleanup()
             
-            # Clean up the LLM adapter
-            if self._llm_adapter:
-                await self._llm_adapter.cleanup()
+            # Clean up the LLM provider
+            if self._llm_provider:
+                await self._llm_provider.cleanup()
             
             self._initialized = False
             logger.info("MCP Demo workflow cleaned up")
@@ -250,10 +253,10 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
         Returns:
             Chat response
         """
-        if not self._llm_adapter:
+        if not self._llm_provider:
             return {
                 "status": "error",
-                "message": "LLM adapter not initialized"
+                "message": "LLM provider not initialized"
             }
         
         try:
@@ -273,7 +276,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
                 )
             ]
             
-            response = await self._llm_adapter.generate(messages=messages)
+            response = await self._llm_provider.generate(messages=messages)
             
             return {
                 "status": "success",
@@ -369,10 +372,10 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
         Returns:
             Translation result
         """
-        if not self._llm_adapter:
+        if not self._llm_provider:
             return {
                 "status": "error",
-                "message": "LLM adapter not initialized"
+                "message": "LLM provider not initialized"
             }
         
         try:
@@ -404,7 +407,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
                 )
             ]
             
-            translation = await self._llm_adapter.generate(messages=messages)
+            translation = await self._llm_provider.generate(messages=messages)
             
             return {
                 "status": "success",
@@ -627,8 +630,8 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
         Returns:
             Demo results
         """
-        if not self._client_provider or not self._llm_adapter:
-            raise RuntimeError("MCP client provider or LLM adapter not initialized")
+        if not self._client_provider or not self._llm_provider:
+            raise RuntimeError("MCP client provider or LLM provider not initialized")
         
         # Import necessary types
         from plugins.communication.mcp.adapter import MCPRequest, MCPOperationType

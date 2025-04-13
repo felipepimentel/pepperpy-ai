@@ -5,7 +5,7 @@ Base classes and interfaces for agents.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from pepperpy.core.base import PepperpyError
 from pepperpy.core.logging import get_logger
@@ -56,6 +56,64 @@ class Message:
         if self.function_call:
             result["function_call"] = self.function_call
         return result
+
+
+@runtime_checkable
+class AgentProvider(Protocol):
+    """Protocol defining agent provider interface."""
+
+    async def initialize(self) -> None:
+        """Initialize agent provider resources."""
+        ...
+
+    async def cleanup(self) -> None:
+        """Clean up agent provider resources."""
+        ...
+
+    async def get_available_tools(self) -> list[dict[str, Any]]:
+        """Get available tools in a format suitable for LLM context.
+
+        Returns:
+            List of tool metadata for LLM
+        """
+        ...
+
+    async def get_tool_descriptions(self) -> str:
+        """Get formatted tool descriptions for LLM context.
+
+        Returns:
+            Formatted string with tool descriptions
+        """
+        ...
+
+    async def execute_tool(
+        self, tool_name: str, command: str | None = None, **parameters: Any
+    ) -> ToolResult:
+        """Execute a tool.
+
+        Args:
+            tool_name: Name of the tool
+            command: Command to execute (optional)
+            **parameters: Tool parameters
+
+        Returns:
+            Tool execution result
+        """
+        ...
+
+    async def prepare_response_with_tools(
+        self, response: str, messages: list[Message]
+    ) -> str:
+        """Prepare agent response with tool execution results.
+
+        Args:
+            response: Agent response text
+            messages: Message history
+
+        Returns:
+            Updated response with tool results
+        """
+        ...
 
 
 class BaseAgentProvider(PepperpyPlugin, ABC):

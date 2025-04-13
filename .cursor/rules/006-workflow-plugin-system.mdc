@@ -1,0 +1,820 @@
+---
+description: USE ALWAYS when implementing workflow plugins - defines patterns and requirements for workflow providers
+globs: plugins/workflow/**/*
+---
+
+# PepperPy Workflow Plugin System
+
+## Overview
+
+This rule defines the architecture, patterns, and best practices for implementing workflow plugins in the PepperPy framework. Workflow plugins are specialized components that encapsulate business logic for specific use cases and can be executed through the PepperPy API.
+
+## Directory Structure
+
+```
+plugins/
+└── workflow/
+    └── [workflow_name]/
+        ├── __init__.py          # Package initialization
+        ├── plugin.yaml          # Plugin metadata and configuration
+        ├── provider.py          # Main workflow provider implementation
+        ├── models.py            # Data models specific to this workflow
+        └── utils/               # Workflow-specific utilities
+            └── __init__.py
+```
+
+## Plugin Metadata (plugin.yaml)
+
+Every workflow plugin must include a properly defined `plugin.yaml` file:
+
+```yaml
+# Basic metadata
+name: Workflow Name               # Human-readable name (e.g., "API Governance")
+version: 0.1.0                    # Semantic version
+description: Detailed description of what the workflow does
+author: Author Name or Organization
+
+# Categorization
+plugin_type: workflow             # Must be "workflow" for workflow plugins
+category: Category                # E.g., "API", "Security", "Integration"
+provider_name: ProviderName       # Technical name (e.g., "APIGovernanceProvider")
+entry_point: provider.ClassName   # Path to provider class
+
+# Configuration schema (JSON Schema format)
+config_schema:
+  type: object
+  properties:
+    option_name:
+      type: string
+      description: Description of the option
+      default: default_value
+
+# Default configuration
+default_config:
+  option_name: default_value
+```
+
+## Workflow Provider Implementation
+
+### Base Implementation Pattern
+
+All workflow providers must follow this basic structure:
+
+```python
+"""
+Workflow provider implementation.
+
+This module provides the implementation of the workflow provider.
+"""
+
+from typing import Dict, List, Any, Optional, TypedDict
+import asyncio
+import json
+import logging
+from datetime import datetime
+
+from pepperpy.core.logging import get_logger
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.workflow import BaseWorkflowProvider
+
+logger = get_logger(__name__)
+
+class WorkflowResult(TypedDict):
+    """Result of workflow execution."""
+    
+    status: str
+    message: str
+    timestamp: str
+    data: Dict[str, Any]
+
+class MyWorkflowProvider(BaseWorkflowProvider, ProviderPlugin):
+    """Implementation of the workflow provider.
+    
+    This workflow performs the following tasks:
+    1. Task one description
+    2. Task two description
+    """
+    
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        if self.initialized:
+            return
+        
+        logger.info("Initializing workflow provider")
+        
+        # Initialize properties from config
+        self.option_name = self.config.get("option_name", "default_value")
+        
+        # Initialize resources
+        self.resources = await self._create_resources()
+        
+        self.initialized = True
+        logger.info("Workflow provider initialized")
+    
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if not self.initialized:
+            return
+        
+        logger.info("Cleaning up workflow provider")
+        
+        # Clean up resources
+        if hasattr(self, "resources") and self.resources:
+            await self.resources.close()
+            self.resources = None
+        
+        self.initialized = False
+        logger.info("Workflow provider cleaned up")
+    
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute the workflow.
+        
+        Args:
+            input_data: The input data for the workflow
+            
+        Returns:
+            The result of the workflow execution
+        """
+        if not self.initialized:
+            await self.initialize()
+        
+        try:
+            # Parse input data
+            task = input_data.get("task", "default_task")
+            
+            # Execute appropriate task
+            if task == "task_one":
+                result = await self._execute_task_one(input_data)
+            elif task == "task_two":
+                result = await self._execute_task_two(input_data)
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Unknown task: {task}",
+                    "timestamp": datetime.now().isoformat()
+                }
+            
+            # Return result
+            return {
+                "status": "success",
+                "message": "Workflow executed successfully",
+                "timestamp": datetime.now().isoformat(),
+                "data": result
+            }
+            
+        except Exception as e:
+            logger.error(f"Error executing workflow: {e}")
+            return {
+                "status": "error",
+                "message": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    # Internal methods for task execution
+    async def _execute_task_one(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute task one.
+        
+        Args:
+            input_data: The input data for the task
+            
+        Returns:
+            The result of task execution
+        """
+        # Task implementation
+        return {"result": "Task one result"}
+    
+    async def _execute_task_two(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute task two.
+        
+        Args:
+            input_data: The input data for the task
+            
+        Returns:
+            The result of task execution
+        """
+        # Task implementation
+        return {"result": "Task two result"}
+    
+    async def _create_resources(self) -> Any:
+        """Create resources needed by the workflow."""
+        # Create and return resources
+        return None
+```
+
+## Core Requirements
+
+### 1. Error Handling
+
+All workflows must implement proper error handling:
+
+```python
+try:
+    # Perform operation
+    result = await external_service.call_api(input_data)
+    return self._process_result(result)
+except ExternalAPIError as e:
+    # Convert to appropriate error type
+    logger.error(f"External API error: {e}")
+    return {
+        "status": "error",
+        "message": f"Failed to call external API: {e}",
+        "timestamp": datetime.now().isoformat()
+    }
+except ValueError as e:
+    # Handle validation errors
+    logger.error(f"Validation error: {e}")
+    return {
+        "status": "error",
+        "message": f"Invalid input: {e}",
+        "timestamp": datetime.now().isoformat()
+    }
+except Exception as e:
+    # Catch all other exceptions
+    logger.error(f"Unexpected error: {e}")
+    return {
+        "status": "error",
+        "message": f"Internal error: {str(e)}",
+        "timestamp": datetime.now().isoformat()
+    }
+```
+
+### 2. Resource Management
+
+Properly manage all resources using async context managers:
+
+```python
+async def _create_client(self) -> AsyncClient:
+    """Create and configure client."""
+    client = AsyncClient(
+        base_url=self.api_url,
+        timeout=self.timeout,
+        headers={"Authorization": f"Bearer {self.api_key}"}
+    )
+    return client
+
+async def initialize(self) -> None:
+    """Initialize the provider."""
+    if self.initialized:
+        return
+    
+    # Create client
+    self.client = await self._create_client()
+    self.initialized = True
+
+async def cleanup(self) -> None:
+    """Clean up resources."""
+    if not self.initialized:
+        return
+    
+    # Close client
+    if self.client:
+        await self.client.aclose()
+        self.client = None
+    
+    self.initialized = False
+```
+
+### 3. Configuration Handling
+
+Access configuration through self.config with defaults:
+
+```python
+async def initialize(self) -> None:
+    """Initialize the provider."""
+    if self.initialized:
+        return
+    
+    # Access configuration with defaults
+    self.api_url = self.config.get("api_url", "https://api.example.com")
+    self.api_key = self.config.get("api_key")
+    self.timeout = self.config.get("timeout", 30.0)
+    
+    # Validate required configuration
+    if not self.api_key:
+        raise ValueError("API key is required")
+    
+    # Initialize resources
+    self.initialized = True
+```
+
+### 4. Logging
+
+Use the standard logging pattern:
+
+```python
+from pepperpy.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+class MyWorkflowProvider(BaseWorkflowProvider, ProviderPlugin):
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        logger.info(f"Executing workflow with task: {input_data.get('task')}")
+        # Implementation
+        logger.debug(f"Processed data: {processed_data}")
+        
+        if error_condition:
+            logger.error(f"Error occurred: {error_message}")
+            
+        logger.info("Workflow execution completed")
+        return result
+```
+
+## Workflow Types and Patterns
+
+### 1. API Processing Workflow Pattern
+
+For workflows that process API specifications:
+
+```python
+class APISpecWorkflow(BaseWorkflowProvider, ProviderPlugin):
+    """Base class for API specification processing workflows."""
+    
+    async def _load_api_spec(self, spec_path: str) -> Dict[str, Any]:
+        """Load API specification from path or URL."""
+        if spec_path.startswith(("http://", "https://")):
+            # Load from URL
+            async with httpx.AsyncClient() as client:
+                response = await client.get(spec_path)
+                response.raise_for_status()
+                content = response.text
+        else:
+            # Load from file
+            with open(spec_path, "r") as f:
+                content = f.read()
+        
+        # Parse based on file extension
+        if spec_path.endswith((".yaml", ".yml")):
+            return yaml.safe_load(content)
+        elif spec_path.endswith(".json"):
+            return json.loads(content)
+        else:
+            raise ValueError(f"Unsupported file format: {spec_path}")
+    
+    async def _save_output(self, 
+                         output: Dict[str, Any], 
+                         output_path: Optional[str] = None,
+                         output_format: str = "json") -> str:
+        """Save output to file or return as string."""
+        # Convert to specified format
+        if output_format == "json":
+            content = json.dumps(output, indent=2)
+        elif output_format == "yaml":
+            content = yaml.dump(output)
+        else:
+            raise ValueError(f"Unsupported output format: {output_format}")
+        
+        # Save to file or return
+        if output_path:
+            with open(output_path, "w") as f:
+                f.write(content)
+            return output_path
+        else:
+            return content
+```
+
+### 2. Generation Workflow Pattern
+
+For workflows that generate content:
+
+```python
+class GenerationWorkflow(BaseWorkflowProvider, ProviderPlugin):
+    """Base class for generation workflows."""
+    
+    async def _generate_content(self, prompt: str) -> str:
+        """Generate content from prompt using LLM."""
+        # Get LLM provider from configuration
+        llm_config = self.config.get("llm_config", {})
+        llm_provider = llm_config.get("provider", "openai")
+        
+        # Import provider dynamically
+        provider_module = importlib.import_module(f"pepperpy.llm.providers.{llm_provider}")
+        provider_class = getattr(provider_module, f"{llm_provider.capitalize()}Provider")
+        
+        # Create provider instance
+        provider = provider_class(**llm_config)
+        
+        # Generate content
+        try:
+            await provider.initialize()
+            response = await provider.generate(prompt)
+            return response
+        finally:
+            await provider.cleanup()
+    
+    async def _format_output(self, content: str, output_format: str) -> Dict[str, Any]:
+        """Format generated content into desired output format."""
+        if output_format == "json":
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                # Handle case where LLM didn't return valid JSON
+                return {"content": content}
+        elif output_format == "text":
+            return {"content": content}
+        elif output_format == "markdown":
+            return {"content": content}
+        else:
+            raise ValueError(f"Unsupported output format: {output_format}")
+```
+
+### 3. Analysis Workflow Pattern
+
+For workflows that analyze content:
+
+```python
+class AnalysisWorkflow(BaseWorkflowProvider, ProviderPlugin):
+    """Base class for analysis workflows."""
+    
+    async def _analyze_content(self, content: str) -> Dict[str, Any]:
+        """Analyze content and return findings."""
+        findings = []
+        
+        # Perform analysis
+        # ...
+        
+        # Return findings
+        return {
+            "score": self._calculate_score(findings),
+            "findings": findings,
+            "summary": self._generate_summary(findings)
+        }
+    
+    def _calculate_score(self, findings: List[Dict[str, Any]]) -> int:
+        """Calculate score based on findings."""
+        # Default scoring logic
+        total_issues = len(findings)
+        max_score = 100
+        
+        # Deduct points based on severity
+        deductions = sum(
+            10 if finding["severity"] == "critical" else
+            5 if finding["severity"] == "high" else
+            2 if finding["severity"] == "medium" else
+            1 for finding in findings
+        )
+        
+        return max(0, max_score - deductions)
+    
+    def _generate_summary(self, findings: List[Dict[str, Any]]) -> str:
+        """Generate summary of findings."""
+        # Count by severity
+        severity_counts = {}
+        for finding in findings:
+            severity = finding["severity"]
+            severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        
+        # Generate summary text
+        return f"Found {len(findings)} issues: " + ", ".join(
+            f"{count} {severity}" for severity, count in severity_counts.items()
+        )
+```
+
+## Testing Patterns
+
+### 1. Unit Testing
+
+```python
+import pytest
+from unittest.mock import AsyncMock, patch
+from .provider import MyWorkflowProvider
+
+@pytest.mark.asyncio
+async def test_workflow_execution():
+    """Test workflow execution."""
+    # Create provider with test config
+    provider = MyWorkflowProvider(
+        config={"option_name": "test_value"}
+    )
+    
+    # Initialize provider
+    await provider.initialize()
+    
+    try:
+        # Test execution
+        result = await provider.execute({"task": "task_one"})
+        
+        # Verify result
+        assert result["status"] == "success"
+        assert "data" in result
+        assert "result" in result["data"]
+    finally:
+        # Clean up
+        await provider.cleanup()
+
+@pytest.mark.asyncio
+async def test_error_handling():
+    """Test error handling."""
+    # Create provider with test config
+    provider = MyWorkflowProvider(
+        config={"option_name": "test_value"}
+    )
+    
+    # Mock internal method to raise exception
+    provider._execute_task_one = AsyncMock(side_effect=ValueError("Test error"))
+    
+    # Initialize provider
+    await provider.initialize()
+    
+    try:
+        # Test execution with error
+        result = await provider.execute({"task": "task_one"})
+        
+        # Verify error handling
+        assert result["status"] == "error"
+        assert "message" in result
+        assert "Test error" in result["message"]
+    finally:
+        # Clean up
+        await provider.cleanup()
+```
+
+### 2. Integration Testing
+
+```python
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_integration():
+    """Integration test with real dependencies."""
+    # Create provider with integration test config
+    provider = MyWorkflowProvider(
+        config={
+            "api_url": "https://test-api.example.com",
+            "api_key": "test_key"
+        }
+    )
+    
+    # Initialize provider
+    await provider.initialize()
+    
+    try:
+        # Test with real input
+        result = await provider.execute({
+            "task": "task_one",
+            "input": "real input data"
+        })
+        
+        # Verify integration result
+        assert result["status"] == "success"
+        assert "data" in result
+    finally:
+        # Clean up
+        await provider.cleanup()
+```
+
+## Standard Models and Data Structures
+
+### 1. Common Response Format
+
+```python
+class WorkflowResult(TypedDict):
+    """Standard workflow result format."""
+    
+    status: str                  # "success" or "error"
+    message: str                 # Human-readable message
+    timestamp: str               # ISO format timestamp
+    data: Optional[Dict[str, Any]]  # Result data (for success)
+    error: Optional[str]         # Error details (for error)
+```
+
+### 2. Finding Model
+
+```python
+class FindingSeverity(Enum):
+    """Severity levels for findings."""
+    
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
+
+class FindingCategory(Enum):
+    """Categories for findings."""
+    
+    SECURITY = "security"
+    PERFORMANCE = "performance"
+    USABILITY = "usability"
+    MAINTAINABILITY = "maintainability"
+    COMPLIANCE = "compliance"
+
+class Finding(TypedDict):
+    """Standard finding format."""
+    
+    title: str                   # Short finding title
+    description: str             # Detailed description
+    severity: str                # From FindingSeverity
+    category: str                # From FindingCategory
+    location: Optional[str]      # Where the finding was detected
+    recommendation: Optional[str]  # How to fix the issue
+```
+
+## Documentation Requirements
+
+### 1. Module Docstring
+
+Every provider module must include a comprehensive docstring:
+
+```python
+"""
+API Governance Workflow Provider
+
+This workflow analyzes API specifications against governance rules and
+produces a detailed report of findings, including:
+
+- Security issues
+- Standards compliance
+- Documentation quality
+- Schema validation
+
+The workflow accepts OpenAPI specifications in either YAML or JSON format
+and can output reports in JSON, Markdown, or HTML format.
+
+Example usage:
+    Input: {
+        "spec_url": "https://example.com/api-spec.yaml",
+        "output_format": "markdown",
+        "rules": ["security", "standards", "documentation"]
+    }
+"""
+```
+
+### 2. Class Docstring
+
+Provider classes must include comprehensive docstrings:
+
+```python
+class APIGovernanceProvider(BaseWorkflowProvider, ProviderPlugin):
+    """API Governance workflow provider.
+    
+    This workflow evaluates API specifications against governance rules
+    and provides a detailed report of findings.
+    
+    Configuration options:
+        - report_format: Output format (json, markdown, html)
+        - strict_mode: Whether to fail on any issue
+        - rule_set: Set of rules to use (default, strict, custom)
+    
+    Input format:
+        - spec_url: URL or path to API specification
+        - output_format: Format for the report
+        - rules: List of rule categories to check
+    
+    Output format:
+        - status: Success or error
+        - message: Human-readable message
+        - timestamp: ISO format timestamp
+        - data: Report data
+          - summary: Overall summary
+          - findings: List of findings
+          - metrics: Quality metrics
+    """
+```
+
+### 3. Method Docstrings
+
+All public methods must include proper docstrings:
+
+```python
+async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute the API governance workflow.
+    
+    This method analyzes the provided API specification against governance
+    rules and generates a report of findings.
+    
+    Args:
+        input_data: Dictionary containing:
+            - spec_url: URL or path to API specification
+            - output_format: Format for the report (json, markdown, html)
+            - rules: List of rule categories to check
+    
+    Returns:
+        Dictionary containing:
+            - status: "success" or "error"
+            - message: Human-readable message
+            - timestamp: ISO format timestamp
+            - data: Report data (for success)
+            - error: Error details (for error)
+    
+    Raises:
+        ValueError: If input data is invalid
+    """
+```
+
+## Anti-patterns to Avoid
+
+### 1. Direct Framework Dependencies
+
+❌ **NEVER** create direct dependencies on other plugins:
+
+```python
+# WRONG: Direct import of another plugin
+from plugins.llm.openai.provider import OpenAIProvider  # VIOLATION!
+
+class MyWorkflow(BaseWorkflowProvider):
+    async def execute(self, input_data):
+        provider = OpenAIProvider(api_key="...")  # VIOLATION!
+        # ...
+```
+
+✅ **CORRECT**: Use the framework's module imports:
+
+```python
+# CORRECT: Import from framework module
+from pepperpy.llm import create_provider
+
+class MyWorkflow(BaseWorkflowProvider):
+    async def execute(self, input_data):
+        llm_config = self.config.get("llm_config", {})
+        provider = create_provider(**llm_config)
+        # ...
+```
+
+### 2. Synchronous Blocking Code
+
+❌ **NEVER** use blocking I/O operations:
+
+```python
+# WRONG: Blocking I/O operations
+import requests  # VIOLATION!
+
+class MyWorkflow(BaseWorkflowProvider):
+    async def execute(self, input_data):
+        # Blocking HTTP request that will block the event loop
+        response = requests.get(input_data["url"])  # VIOLATION!
+        # ...
+```
+
+✅ **CORRECT**: Use async operations:
+
+```python
+# CORRECT: Async I/O operations
+import httpx
+
+class MyWorkflow(BaseWorkflowProvider):
+    async def execute(self, input_data):
+        # Async HTTP request
+        async with httpx.AsyncClient() as client:
+            response = await client.get(input_data["url"])
+        # ...
+```
+
+### 3. Hard-coded Configuration
+
+❌ **NEVER** hard-code configuration:
+
+```python
+# WRONG: Hard-coded configuration
+class MyWorkflow(BaseWorkflowProvider):
+    async def initialize(self):
+        self.api_key = "sk-1234567890"  # VIOLATION!
+        self.model = "gpt-4"  # VIOLATION!
+        # ...
+```
+
+✅ **CORRECT**: Read from configuration:
+
+```python
+# CORRECT: Read from configuration
+class MyWorkflow(BaseWorkflowProvider):
+    async def initialize(self):
+        self.api_key = self.config.get("api_key")
+        self.model = self.config.get("model", "gpt-4")
+        # ...
+```
+
+### 4. Missing Error Handling
+
+❌ **NEVER** ignore errors:
+
+```python
+# WRONG: Missing error handling
+class MyWorkflow(BaseWorkflowProvider):
+    async def execute(self, input_data):
+        # No error handling
+        result = await self.process_data(input_data)  # VIOLATION!
+        return {"status": "success", "data": result}
+```
+
+✅ **CORRECT**: Implement proper error handling:
+
+```python
+# CORRECT: Proper error handling
+class MyWorkflow(BaseWorkflowProvider):
+    async def execute(self, input_data):
+        try:
+            result = await self.process_data(input_data)
+            return {"status": "success", "data": result}
+        except Exception as e:
+            logger.error(f"Error processing data: {e}")
+            return {"status": "error", "message": str(e)}
+```
+
+## Workflow Discovery and Registration
+
+The workflow plugin system automatically discovers plugins based on the directory structure and plugin.yaml files. Each plugin must be properly structured to be discovered:
+
+1. Must be in a subdirectory under `plugins/workflow/`
+2. Must have a valid `plugin.yaml` file
+3. Must have a provider class that inherits from `BaseWorkflowProvider` and `ProviderPlugin`
+
+When the API service starts, it scans the plugin directories and registers all valid workflows, making them available through the API. 

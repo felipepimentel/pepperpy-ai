@@ -8,7 +8,7 @@ import importlib
 import os
 from typing import Any, Dict
 
-from .base import AgentError, BaseAgentProvider, Message
+from .base import AgentError, AgentProvider, BaseAgentProvider, Message
 from .capability import (
     BaseCapability,
     BaseMemoryAware,
@@ -35,6 +35,7 @@ from .task import Memory, TaskBase, EnhancerProxy, AgentTask, Analysis, Conversa
 
 __all__ = [
     "AgentError",
+    "AgentProvider",
     "BaseAgentProvider",
     "BaseCapability",
     "BaseMemoryAware",

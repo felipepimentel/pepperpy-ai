@@ -1,0 +1,754 @@
+---
+description: USE ALWAYS when working with API server components - defines patterns for FastAPI implementation
+globs: api/**/*
+---
+
+# PepperPy API Architecture
+
+## Overview
+
+This rule defines the architecture, patterns, and best practices for developing the PepperPy API server using FastAPI, focusing on service abstraction, dependency injection, and resource management.
+
+## Directory Structure
+
+```
+api/
+├── __init__.py          # Package initialization
+├── main.py              # FastAPI application entry point
+├── dependencies.py      # Dependency injection system
+├── config.py            # API configuration
+├── services/            # Service implementations
+│   ├── __init__.py
+│   ├── workflow.py      # Workflow service
+│   ├── a2a.py           # Agent-to-Agent service
+│   └── governance.py    # Governance service
+├── routes/              # API routes
+│   ├── __init__.py
+│   ├── workflows.py     # Workflow routes
+│   ├── sessions.py      # Session management routes
+│   └── health.py        # Health check routes
+├── models/              # Data models
+│   ├── __init__.py
+│   ├── workflow.py      # Workflow models
+│   └── common.py        # Shared models
+└── README.md            # Documentation
+```
+
+## Core Architectural Principles
+
+### 1. Service Abstraction
+
+All business logic must be encapsulated in service classes:
+
+```python
+class WorkflowService:
+    """Service for workflow operations."""
+
+    def __init__(self) -> None:
+        """Initialize the service."""
+        self._initialized = False
+        self.logger = get_logger(__name__)
+
+    async def initialize(self) -> None:
+        """Initialize service resources."""
+        if self._initialized:
+            return
+        # Initialize resources
+        self._initialized = True
+        
+    async def cleanup(self) -> None:
+        """Clean up service resources."""
+        if not self._initialized:
+            return
+        # Clean up resources
+        self._initialized = False
+        
+    async def get_workflows(self) -> List[Dict[str, Any]]:
+        """Get available workflows."""
+        # Implementation
+        
+    async def execute_workflow(self, 
+                             workflow_id: str, 
+                             input_data: Dict[str, Any],
+                             config: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a workflow."""
+        # Implementation
+```
+
+### 2. Dependency Injection
+
+Use FastAPI's dependency injection system to manage service instances:
+
+```python
+# In dependencies.py
+from fastapi import Depends
+
+from .services.workflow import WorkflowService
+
+# Singleton service instances
+_workflow_service: Optional[WorkflowService] = None
+
+async def get_workflow_service() -> WorkflowService:
+    """Get or create workflow service instance."""
+    global _workflow_service
+    if _workflow_service is None:
+        _workflow_service = WorkflowService()
+        await _workflow_service.initialize()
+    return _workflow_service
+
+# In routes/workflows.py
+from fastapi import APIRouter, Depends
+from ..dependencies import get_workflow_service
+from ..services.workflow import WorkflowService
+
+router = APIRouter()
+
+@router.get("/workflows")
+async def get_workflows(
+    service: WorkflowService = Depends(get_workflow_service)
+):
+    """Get available workflows."""
+    return await service.get_workflows()
+```
+
+### 3. FastAPI Route Organization
+
+Routes should be organized by domain and include proper documentation:
+
+```python
+# In routes/workflows.py
+from fastapi import APIRouter, Depends, HTTPException
+from ..dependencies import get_workflow_service
+from ..services.workflow import WorkflowService
+from ..models.workflow import WorkflowExecuteRequest, WorkflowResponse
+
+router = APIRouter(prefix="/api", tags=["workflows"])
+
+@router.get("/workflows", response_model=List[WorkflowResponse])
+async def get_workflows(
+    service: WorkflowService = Depends(get_workflow_service)
+):
+    """
+    Get all available workflows.
+    
+    Returns a list of available workflows with their metadata.
+    """
+    return await service.get_workflows()
+
+@router.post("/workflow/{workflow_id}/execute", response_model=Dict[str, Any])
+async def execute_workflow(
+    workflow_id: str,
+    request: WorkflowExecuteRequest,
+    service: WorkflowService = Depends(get_workflow_service)
+):
+    """
+    Execute a specific workflow.
+    
+    - **workflow_id**: ID of the workflow to execute
+    - **request**: Input data and configuration for the workflow
+    """
+    try:
+        result = await service.execute_workflow(
+            workflow_id=workflow_id,
+            input_data=request.input_data,
+            config=request.config
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+```
+
+### 4. Data Models with Pydantic
+
+Use Pydantic for request and response validation:
+
+```python
+# In models/workflow.py
+from pydantic import BaseModel, Field
+from typing import Dict, Any, List, Optional
+
+class WorkflowMetadata(BaseModel):
+    """Workflow metadata."""
+    
+    id: str = Field(..., description="Unique workflow identifier")
+    name: str = Field(..., description="Workflow name")
+    description: str = Field(..., description="Workflow description")
+    version: str = Field(..., description="Workflow version")
+
+class WorkflowExecuteRequest(BaseModel):
+    """Request model for workflow execution."""
+    
+    input_data: Dict[str, Any] = Field(
+        ..., 
+        description="Input data for the workflow"
+    )
+    config: Optional[Dict[str, Any]] = Field(
+        None, 
+        description="Configuration for the workflow execution"
+    )
+
+class WorkflowResponse(WorkflowMetadata):
+    """Response model for workflow metadata."""
+    
+    schema: Dict[str, Any] = Field(
+        ..., 
+        description="JSON Schema for workflow inputs"
+    )
+```
+
+## API Response Standards
+
+### 1. Standard Success Response
+
+```python
+class StandardResponse(BaseModel):
+    """Standard API response format."""
+    
+    status: Literal["success", "error"] = "success"
+    data: Any = None
+    message: Optional[str] = None
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "success",
+                "data": {"result": "value"},
+                "message": "Operation successful"
+            }
+        }
+```
+
+### 2. Error Response Format
+
+```python
+class ErrorResponse(BaseModel):
+    """Error response format."""
+    
+    status: Literal["error"] = "error"
+    message: str
+    code: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "error",
+                "message": "Invalid input data",
+                "code": "VALIDATION_ERROR",
+                "details": {"field": "description of error"}
+            }
+        }
+```
+
+### 3. Exception Handling
+
+```python
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from .models.common import ErrorResponse
+
+app = FastAPI()
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    """Handle ValueError exceptions."""
+    return JSONResponse(
+        status_code=400,
+        content=ErrorResponse(
+            status="error",
+            message=str(exc),
+            code="VALIDATION_ERROR"
+        ).dict()
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle general exceptions."""
+    return JSONResponse(
+        status_code=500,
+        content=ErrorResponse(
+            status="error",
+            message="Internal server error",
+            code="SERVER_ERROR"
+        ).dict()
+    )
+```
+
+## Service Implementation Patterns
+
+### 1. Service Lifecycle Management
+
+All services must implement the standard lifecycle methods:
+
+```python
+class BaseService:
+    """Base class for all services."""
+    
+    def __init__(self) -> None:
+        """Initialize the service."""
+        self._initialized = False
+        self.logger = get_logger(self.__class__.__name__)
+        
+    async def initialize(self) -> None:
+        """Initialize service resources."""
+        if self._initialized:
+            return
+        
+        try:
+            # Service-specific initialization
+            await self._initialize_resources()
+            self._initialized = True
+            self.logger.info(f"{self.__class__.__name__} initialized")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize {self.__class__.__name__}: {e}")
+            raise
+            
+    async def cleanup(self) -> None:
+        """Clean up service resources."""
+        if not self._initialized:
+            return
+            
+        try:
+            # Service-specific cleanup
+            await self._cleanup_resources()
+            self._initialized = False
+            self.logger.info(f"{self.__class__.__name__} cleaned up")
+        except Exception as e:
+            self.logger.error(f"Error during cleanup of {self.__class__.__name__}: {e}")
+            
+    async def _initialize_resources(self) -> None:
+        """Initialize service-specific resources."""
+        pass
+        
+    async def _cleanup_resources(self) -> None:
+        """Clean up service-specific resources."""
+        pass
+```
+
+### 2. Service Status and Health Checks
+
+```python
+class ServiceStatus(BaseModel):
+    """Service status information."""
+    
+    name: str
+    status: Literal["available", "unavailable", "initializing"]
+    version: str
+    uptime: float
+    
+class BaseService:
+    # ... other methods ...
+    
+    def get_status(self) -> ServiceStatus:
+        """Get service status."""
+        return ServiceStatus(
+            name=self.__class__.__name__,
+            status="available" if self._initialized else "unavailable",
+            version=self.version,
+            uptime=time.time() - self._start_time if hasattr(self, "_start_time") else 0
+        )
+```
+
+### 3. Workflow Execution Pattern
+
+```python
+class WorkflowService(BaseService):
+    # ... other methods ...
+    
+    async def execute_workflow(self, 
+                              workflow_id: str, 
+                              input_data: Dict[str, Any],
+                              config: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a workflow."""
+        if not self._initialized:
+            await self.initialize()
+            
+        # Validate workflow exists
+        if workflow_id not in self._workflows:
+            raise ValueError(f"Workflow not found: {workflow_id}")
+            
+        try:
+            # Get workflow provider
+            provider = await self._get_workflow_provider(workflow_id)
+            
+            # Execute workflow
+            start_time = time.time()
+            result = await provider.execute(input_data, config)
+            execution_time = time.time() - start_time
+            
+            # Augment result with metadata
+            return {
+                "status": "success",
+                "workflow_id": workflow_id,
+                "execution_time": execution_time,
+                "timestamp": datetime.now().isoformat(),
+                "result": result
+            }
+        except Exception as e:
+            self.logger.error(f"Error executing workflow {workflow_id}: {e}")
+            return {
+                "status": "error",
+                "workflow_id": workflow_id,
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e)
+            }
+```
+
+## API Configuration
+
+### 1. Environment-based Configuration
+
+```python
+# In config.py
+from pydantic import BaseSettings, Field
+
+class APISettings(BaseSettings):
+    """API server settings."""
+    
+    # Server settings
+    host: str = Field("0.0.0.0", env="API_HOST")
+    port: int = Field(8000, env="API_PORT")
+    
+    # Security settings
+    api_key_header: str = Field("X-API-Key", env="API_KEY_HEADER")
+    api_key: Optional[str] = Field(None, env="API_KEY")
+    
+    # Service settings
+    log_level: str = Field("INFO", env="LOG_LEVEL")
+    plugin_dir: str = Field("plugins", env="PLUGIN_DIR")
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        
+api_settings = APISettings()
+```
+
+### 2. Configuration Usage
+
+```python
+# In main.py
+from fastapi import FastAPI, Depends, Header, HTTPException
+from .config import api_settings
+
+app = FastAPI(title="PepperPy API", version="0.1.0")
+
+async def verify_api_key(
+    api_key: str = Header(None, alias=api_settings.api_key_header)
+):
+    """Verify API key if configured."""
+    if api_settings.api_key and api_key != api_settings.api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
+        )
+    return api_key
+```
+
+## Plugin Integration
+
+### 1. Plugin Loading
+
+```python
+class WorkflowService(BaseService):
+    # ... other methods ...
+    
+    async def _initialize_resources(self) -> None:
+        """Initialize resources."""
+        # Load available workflows
+        self._workflows = {}
+        plugin_dir = Path(api_settings.plugin_dir) / "workflow"
+        
+        for workflow_dir in plugin_dir.iterdir():
+            if not workflow_dir.is_dir():
+                continue
+                
+            # Check for plugin.yaml
+            plugin_yaml = workflow_dir / "plugin.yaml"
+            if not plugin_yaml.exists():
+                continue
+                
+            try:
+                # Load plugin metadata
+                with open(plugin_yaml) as f:
+                    plugin_metadata = yaml.safe_load(f)
+                    
+                # Register workflow
+                workflow_id = plugin_metadata.get("name", "").lower().replace(" ", "-")
+                self._workflows[workflow_id] = {
+                    "id": workflow_id,
+                    "name": plugin_metadata.get("name"),
+                    "description": plugin_metadata.get("description"),
+                    "version": plugin_metadata.get("version", "0.1.0"),
+                    "entry_point": plugin_metadata.get("entry_point"),
+                    "config_schema": plugin_metadata.get("config_schema", {})
+                }
+                
+                self.logger.info(f"Registered workflow: {workflow_id}")
+            except Exception as e:
+                self.logger.error(f"Error loading workflow from {workflow_dir}: {e}")
+```
+
+### 2. Plugin Execution
+
+```python
+class WorkflowService(BaseService):
+    # ... other methods ...
+    
+    async def _get_workflow_provider(self, workflow_id: str) -> Any:
+        """Get workflow provider instance."""
+        workflow = self._workflows[workflow_id]
+        entry_point = workflow["entry_point"]
+        
+        # Parse entry point
+        if ":" not in entry_point:
+            raise ValueError(f"Invalid entry point format: {entry_point}")
+            
+        module_path, class_name = entry_point.split(":")
+        
+        try:
+            # Import module
+            module = importlib.import_module(module_path)
+            
+            # Get provider class
+            provider_class = getattr(module, class_name)
+            
+            # Create provider instance
+            provider = provider_class()
+            
+            # Initialize provider
+            await provider.initialize()
+            
+            return provider
+        except Exception as e:
+            self.logger.error(f"Error creating provider for {workflow_id}: {e}")
+            raise
+```
+
+## API Security
+
+### 1. API Key Authentication
+
+```python
+from fastapi import Security, HTTPException
+from fastapi.security.api_key import APIKeyHeader
+from .config import api_settings
+
+api_key_header = APIKeyHeader(name=api_settings.api_key_header, auto_error=False)
+
+async def get_api_key(
+    api_key: str = Security(api_key_header)
+) -> str:
+    """Validate API key."""
+    if api_settings.api_key is None:
+        # No API key configured, authentication disabled
+        return None
+        
+    if api_key != api_settings.api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
+        )
+        
+    return api_key
+```
+
+### 2. CORS Configuration
+
+```python
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+## Testing Patterns
+
+### 1. Service Unit Tests
+
+```python
+@pytest.mark.asyncio
+async def test_workflow_service():
+    """Test workflow service."""
+    # Create service instance
+    service = WorkflowService()
+    
+    # Initialize service
+    await service.initialize()
+    
+    try:
+        # Test getting workflows
+        workflows = await service.get_workflows()
+        assert isinstance(workflows, list)
+        
+        # Test executing workflow
+        if workflows:
+            workflow_id = workflows[0]["id"]
+            result = await service.execute_workflow(
+                workflow_id=workflow_id,
+                input_data={"test": "data"},
+                config={}
+            )
+            assert "status" in result
+    finally:
+        # Clean up service
+        await service.cleanup()
+```
+
+### 2. API Integration Tests
+
+```python
+from fastapi.testclient import TestClient
+from .main import app
+
+client = TestClient(app)
+
+def test_get_workflows():
+    """Test getting workflows."""
+    response = client.get("/api/workflows")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    
+def test_execute_workflow():
+    """Test executing workflow."""
+    # Get available workflows
+    response = client.get("/api/workflows")
+    assert response.status_code == 200
+    workflows = response.json()
+    
+    if not workflows:
+        pytest.skip("No workflows available for testing")
+        
+    workflow_id = workflows[0]["id"]
+    
+    # Execute workflow
+    response = client.post(
+        f"/api/workflow/{workflow_id}/execute",
+        json={
+            "input_data": {"test": "data"},
+            "config": {}
+        }
+    )
+    assert response.status_code == 200
+    result = response.json()
+    assert "status" in result
+```
+
+## Documentation Standards
+
+### 1. API Documentation with OpenAPI
+
+```python
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="PepperPy API",
+    description="API server for PepperPy framework",
+    version="0.1.0",
+    terms_of_service="https://example.com/terms/",
+    contact={
+        "name": "PepperPy Team",
+        "url": "https://example.com/contact/",
+        "email": "info@example.com",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://mit-license.org/",
+    },
+)
+```
+
+### 2. Route Documentation
+
+```python
+@router.post("/workflow/{workflow_id}/execute", response_model=Dict[str, Any])
+async def execute_workflow(
+    workflow_id: str,
+    request: WorkflowExecuteRequest,
+    service: WorkflowService = Depends(get_workflow_service)
+):
+    """
+    Execute a specific workflow.
+    
+    This endpoint runs the specified workflow with the provided input data
+    and configuration. The workflow is identified by its unique ID.
+    
+    Parameters:
+    - **workflow_id**: The unique identifier of the workflow to execute
+    - **request**: The request body containing input data and configuration
+    
+    Returns:
+    - A dictionary containing the execution results
+    
+    Raises:
+    - 400: If the workflow ID is invalid or the input data is invalid
+    - 404: If the workflow is not found
+    - 500: If there is an error during workflow execution
+    """
+```
+
+## Error Handling Best Practices
+
+### 1. HTTP Exception Handling
+
+```python
+from fastapi import HTTPException
+from fastapi.responses import JSONResponse
+from .models.common import ErrorResponse
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=ErrorResponse(
+            status="error",
+            message=exc.detail,
+            code=f"HTTP_{exc.status_code}"
+        ).dict()
+    )
+```
+
+### 2. Validation Exception Handling
+
+```python
+from fastapi.exceptions import RequestValidationError
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation exceptions."""
+    return JSONResponse(
+        status_code=422,
+        content=ErrorResponse(
+            status="error",
+            message="Validation error",
+            code="VALIDATION_ERROR",
+            details={"errors": exc.errors()}
+        ).dict()
+    )
+```
+
+## Performance Considerations
+
+✅ **ALWAYS**:
+- Use async/await for all I/O operations
+- Implement proper resource management
+- Use connection pooling for database/external services
+- Include proper timeout handling
+- Implement caching where appropriate
+
+❌ **NEVER**:
+- Block the event loop with synchronous operations
+- Create connection per request (reuse connections)
+- Leave resources unclosed
+- Neglect to handle timeout cases
+- Return unnecessarily large responses 

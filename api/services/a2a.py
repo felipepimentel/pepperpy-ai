@@ -13,7 +13,10 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from pepperpy import Agent, AgentConfig
-from pepperpy.communication import CommunicationFactory
+from pepperpy.communication import (
+    CommunicationProvider,
+    create_provider as create_communication_provider
+)
 from pepperpy.utils.version import get_version
 
 # Configure service logger
@@ -31,6 +34,7 @@ class A2ASimulationService:
         self.start_time = time.time()
         self.initialized = False
         self.version = get_version()
+        self._provider: Optional[CommunicationProvider] = None
         logger.info("A2A Simulation Service created")
     
     async def initialize(self):
@@ -42,7 +46,7 @@ class A2ASimulationService:
         try:
             # Initialize any required resources
             # For example, we might pre-initialize the A2A adapter
-            self.communication_factory = CommunicationFactory()
+            self._provider = await create_communication_provider("a2a")
             
             self.initialized = True
             logger.info("A2A simulation service initialized successfully")
@@ -88,9 +92,6 @@ class A2ASimulationService:
         start_time = time.time()
         
         try:
-            # Set up communication adapter for A2A
-            a2a_adapter = self.communication_factory.get_provider("a2a")
-            
             # Configure agents
             agent1_config = AgentConfig(
                 system_prompt=agent1_prompt,
@@ -107,7 +108,7 @@ class A2ASimulationService:
             agent2 = Agent(config=agent2_config)
             
             # Initialize the simulation environment
-            await a2a_adapter.initialize({
+            await self._provider.initialize({
                 "agent1": agent1,
                 "agent2": agent2,
                 "simulation_mode": True
@@ -134,7 +135,7 @@ class A2ASimulationService:
                 "agent1_prompt": agent1_prompt,
                 "agent2_prompt": agent2_prompt,
                 "config": config,
-                "adapter": a2a_adapter,
+                "adapter": self._provider,
                 "status": "running"
             }
             
@@ -160,7 +161,7 @@ class A2ASimulationService:
                     }
                     
                     # Have the current agent respond
-                    response = await a2a_adapter.send_message(
+                    response = await self._provider.send_message(
                         sender=sender,
                         receiver=receiver,
                         message=message_data

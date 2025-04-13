@@ -3,36 +3,72 @@
 :root {
     --primary: #5965DD;
     --primary-dark: #4752C4;
+    --primary-light: #7B84E8;
     --secondary: #6C757D;
     --success: #2ED47A;
     --info: #58A9DE;
     --warning: #F8B425;
     --danger: #F25767;
-    --light: #F5F6FA;
+    --light: #F8F9FD;
     --dark: #1E2142;
+    --bg-sidebar: #FFFFFF;
+    --bg-main: var(--light);
     --sidebar-width: 280px;
     --editor-height: 400px;
+    --border-radius: 0.5rem;
+    --transition-speed: 0.25s;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 /* Global styles */
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
-    background-color: var(--light);
+    background-color: var(--bg-main);
     color: var(--dark);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    line-height: 1.6;
 }
 
 /* Navigation bar */
 .navbar-dark.bg-gradient-primary {
-    background: linear-gradient(to right, var(--primary), var(--primary-dark));
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    box-shadow: var(--shadow-md);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .navbar-brand {
     font-weight: 600;
     letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    transition: transform var(--transition-speed);
+}
+
+.navbar-brand:hover {
+    transform: translateY(-1px);
+}
+
+.navbar-brand img {
+    height: 36px;
+    margin-right: 10px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.nav-link {
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    transition: all var(--transition-speed);
+}
+
+.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
 }
 
 /* Main layout */
@@ -43,96 +79,141 @@ body {
 
 /* Sidebar */
 .sidebar {
-    background-color: #fff;
+    background-color: var(--bg-sidebar);
     border-right: 1px solid rgba(0, 0, 0, 0.05);
-    min-height: calc(100vh - 56px - 60px); /* Full height minus navbar and footer */
+    min-height: calc(100vh - 68px - 62px);
+    /* Full height minus navbar and footer */
     position: sticky;
-    top: 56px; /* Navbar height */
-    height: calc(100vh - 56px - 60px);
+    top: 68px;
+    /* Navbar height */
+    height: calc(100vh - 68px - 62px);
     overflow-y: auto;
     z-index: 100;
-    box-shadow: 1px 0 5px rgba(0, 0, 0, 0.05);
+    transition: all var(--transition-speed);
+    box-shadow: var(--shadow-sm);
+    padding-top: 1rem;
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background-color: transparent;
 }
 
 .sidebar-heading {
-    font-size: 0.85rem;
+    font-size: 0.875rem;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--secondary);
     font-weight: 600;
+    padding: 0 1rem 0.75rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .workflow-list {
-    margin-left: -1rem;
-    margin-right: -1rem;
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+    padding: 0 0.5rem;
 }
 
 /* Main content area */
 .main-content {
-    background-color: var(--light);
-    min-height: calc(100vh - 56px - 60px);
+    background-color: var(--bg-main);
+    min-height: calc(100vh - 68px - 62px);
+    padding-top: 1.5rem;
 }
 
 /* Cards and containers */
 .card {
-    border-radius: 0.5rem;
+    border-radius: var(--border-radius);
     border: none;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-sm);
     margin-bottom: 1.5rem;
+    transition: box-shadow var(--transition-speed), transform var(--transition-speed);
+    overflow: hidden;
+}
+
+.card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
 }
 
 .card-header {
     background-color: #fff;
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    padding: 1rem;
+    padding: 1rem 1.25rem;
+    font-weight: 500;
 }
 
 .card-body {
     padding: 1.25rem;
+    background-color: #fff;
 }
 
 /* Workflow items */
 .workflow-item {
-    padding: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
     border: none;
-    border-radius: 0.3rem;
-    margin-bottom: 0.5rem;
-    transition: all 0.2s ease;
+    border-radius: var(--border-radius);
+    margin-bottom: 0.75rem;
+    transition: all var(--transition-speed);
     display: flex;
     flex-direction: column;
+    background-color: rgba(255, 255, 255, 0.5);
+    box-shadow: var(--shadow-sm);
 }
 
 .workflow-item:hover {
     background-color: rgba(89, 101, 221, 0.05);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
 .workflow-item.active {
     background-color: rgba(89, 101, 221, 0.1);
-    border-left: 3px solid var(--primary);
+    border-left: 4px solid var(--primary);
+    padding-left: calc(1.25rem - 4px);
 }
 
 .workflow-item .workflow-title {
-    font-weight: 500;
+    font-weight: 600;
     font-size: 1rem;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
     color: var(--dark);
+    display: flex;
+    align-items: center;
+}
+
+.workflow-item .workflow-title i {
+    margin-right: 0.5rem;
+    font-size: 1.25rem;
+    color: var(--primary);
 }
 
 .workflow-description {
     color: var(--secondary);
-    font-size: 0.85rem;
-    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
 }
 
 /* Badges */
 .badge {
-    padding: 0.4rem 0.6rem;
+    padding: 0.4rem 0.75rem;
     font-size: 0.7rem;
     font-weight: 500;
     border-radius: 50rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .badge-governance {
@@ -155,12 +236,26 @@ body {
     color: white;
 }
 
+.badge-chat {
+    background-color: var(--info);
+    color: white;
+}
+
 /* Buttons */
 .btn {
     font-weight: 500;
-    padding: 0.5rem 1rem;
-    border-radius: 0.3rem;
-    transition: all 0.2s;
+    padding: 0.625rem 1.125rem;
+    border-radius: var(--border-radius);
+    transition: all var(--transition-speed);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn i {
+    font-size: 1.1em;
 }
 
 .btn-primary {
@@ -168,33 +263,51 @@ body {
     border-color: var(--primary);
 }
 
-.btn-primary:hover {
+.btn-primary:hover,
+.btn-primary:focus {
     background-color: var(--primary-dark);
     border-color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(89, 101, 221, 0.3);
+}
+
+.btn-outline-secondary {
+    color: var(--secondary);
+    border-color: rgba(108, 117, 125, 0.2);
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+    color: var(--dark);
+    background-color: rgba(108, 117, 125, 0.1);
+    border-color: rgba(108, 117, 125, 0.3);
     transform: translateY(-1px);
-    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.1);
 }
 
 .btn-sm {
-    padding: 0.25rem 0.75rem;
+    padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
 }
 
 /* Editors */
 .editor {
     height: var(--editor-height);
-    border-radius: 0 0 0.5rem 0.5rem;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
     overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-#input-editor, #config-editor {
+#input-editor,
+#config-editor {
     width: 100%;
     font-family: 'Fira Code', 'JetBrains Mono', 'Courier New', monospace;
 }
 
 .ace_editor {
     font-family: 'Fira Code', 'JetBrains Mono', 'Courier New', monospace;
-    line-height: 1.5;
+    line-height: 1.6;
     font-size: 14px;
 }
 
@@ -202,133 +315,178 @@ body {
 .result-viewer {
     height: 400px;
     overflow: auto;
-    border-radius: 0 0 0.5rem 0.5rem;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
     padding: 0;
+    background-color: #272822;
+}
+
+.result-viewer::-webkit-scrollbar {
+    width: 8px;
+}
+
+.result-viewer::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+
+.result-viewer::-webkit-scrollbar-track {
+    background-color: rgba(0, 0, 0, 0.2);
 }
 
 .result-viewer pre {
     margin: 0;
-    border-radius: 0 0 0.5rem 0.5rem;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
 }
 
 .result-viewer code {
     font-family: 'Fira Code', 'JetBrains Mono', 'Courier New', monospace;
     padding: 1.25rem;
     display: block;
+    font-size: 14px;
+    line-height: 1.6;
 }
 
 /* Placeholder */
 .workflow-placeholder-content {
-    padding: 3rem 0;
+    padding: 4rem 0;
     opacity: 0.7;
+    transition: all var(--transition-speed);
+}
+
+.workflow-placeholder-content:hover {
+    opacity: 0.9;
+}
+
+.workflow-placeholder-content i {
+    margin-bottom: 1.5rem;
+    color: var(--primary);
 }
 
 /* Footer */
 .footer {
     background-color: #fff;
-    padding: 1rem 0;
+    padding: 1.25rem 0;
     border-top: 1px solid rgba(0, 0, 0, 0.05);
     margin-top: auto;
-    height: 60px;
+    height: 62px;
+    box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.03);
+}
+
+.footer a {
+    color: var(--secondary);
+    text-decoration: none;
+    transition: color var(--transition-speed);
+}
+
+.footer a:hover {
+    color: var(--primary);
 }
 
 /* Notifications */
 .toast-container {
     position: fixed;
-    bottom: 1rem;
-    right: 1rem;
+    bottom: 1.5rem;
+    right: 1.5rem;
     z-index: 1050;
 }
 
 .toast {
-    background-color: #fff;
-    border-radius: 0.5rem;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
     border: none;
-    max-width: 350px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-md);
+    min-width: 300px;
 }
 
-.toast-header {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    padding: 0.75rem 1rem;
+/* Form controls */
+.form-control,
+.form-select {
+    border-radius: var(--border-radius);
+    padding: 0.625rem 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    transition: all var(--transition-speed);
 }
 
-.toast-body {
-    padding: 1rem;
+.form-control:focus,
+.form-select:focus {
+    box-shadow: 0 0 0 3px rgba(89, 101, 221, 0.25);
+    border-color: var(--primary);
 }
 
-/* Spinners */
-.spinner-border {
-    width: 1.5rem;
-    height: 1.5rem;
-    border-width: 0.2rem;
+.form-control-sm,
+.form-select-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
 }
 
-/* Responsive */
-@media (max-width: 992px) {
-    .sidebar {
-        position: relative;
-        height: auto;
-        min-height: auto;
-        top: 0;
+/* Animation keyframes */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
     }
-    
-    .main-content {
-        min-height: 0;
-    }
-    
-    .workflow-item {
-        margin-bottom: 0.25rem;
-    }
-    
-    .editor {
-        height: 300px;
-    }
-    
-    .result-viewer {
-        height: 300px;
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
-/* Dark mode adjustments (optional) */
+/* Dark theme support */
 @media (prefers-color-scheme: dark) {
     :root {
+        --bg-sidebar: #2A2D3E;
+        --bg-main: #1E2142;
         --light: #1E2142;
-        --dark: #F5F6FA;
+        --dark: #F8F9FD;
     }
-    
+
     body {
-        background-color: #171933;
-        color: #E9ECEF;
+        color: #F8F9FD;
     }
-    
-    .sidebar, .card, .footer {
-        background-color: #252A4A;
+
+    .card,
+    .card-header,
+    .card-body {
+        background-color: #2A2D3E;
+        border-color: rgba(255, 255, 255, 0.05);
     }
-    
-    .card-header {
-        background-color: #252A4A;
-        border-bottom-color: rgba(255, 255, 255, 0.05);
+
+    .footer {
+        background-color: #2A2D3E;
+        border-top-color: rgba(255, 255, 255, 0.05);
     }
-    
-    .text-muted {
-        color: #ADB5BD !important;
+
+    .workflow-item {
+        background-color: rgba(255, 255, 255, 0.03);
     }
-    
+
     .workflow-item:hover {
-        background-color: rgba(255, 255, 255, 0.05);
+        background-color: rgba(89, 101, 221, 0.1);
     }
-    
+
     .workflow-item.active {
+        background-color: rgba(89, 101, 221, 0.15);
+    }
+
+    .form-control,
+    .form-select {
+        background-color: #252839;
+        border-color: rgba(255, 255, 255, 0.1);
+        color: #F8F9FD;
+    }
+
+    .btn-outline-secondary {
+        color: #CCD;
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-outline-secondary:hover {
+        color: #FFF;
         background-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
     }
-    
-    .workflow-title {
-        color: #E9ECEF;
-    }
-    
-    .toast {
-        background-color: #252A4A;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+
+    .text-muted {
+        color: #AABBCC !important;
     }
 }
