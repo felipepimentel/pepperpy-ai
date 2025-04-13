@@ -1,56 +1,64 @@
-name: api_ready
+name: API Ready
 version: 0.1.0
-description: Workflow for enhancing APIs with agent-ready capabilities
+description: Evaluates APIs for production readiness against industry best practices
 author: PepperPy Team
-plugin_type: workflow
-category: api
-provider_name: api_ready
-entry_point: provider.APIReadyProvider
+type: workflow
+category: API
+provider_name: APIReadyProvider
+provider_entry_point: plugins.workflow.api_ready.provider:APIReadyProvider
 
 # Configuration schema
 config_schema:
   type: object
   properties:
-    llm_config:
+    output_format:
+      type: string
+      enum: [json, markdown]
+      default: json
+      description: Format for the readiness report output
+    min_readiness_score:
+      type: integer
+      minimum: 0
+      maximum: 100
+      default: 80
+      description: Minimum acceptable readiness score
+    checks:
       type: object
-      description: Configuration for the LLM provider
       properties:
-        provider:
-          type: string
-          description: LLM provider to use
-          default: openai
-        model:
-          type: string
-          description: LLM model to use
-          default: gpt-4
-    default_enhancement_options:
-      type: object
-      description: Default enhancement options for APIs
-      properties:
-        agent_discovery:
+        security:
           type: boolean
-          description: Add agent discovery endpoint
           default: true
-        auth_mechanism:
-          type: string
-          description: Authentication mechanism to add
-          enum: [api_key, oauth, jwt, none]
-          default: api_key
-        observability:
+        performance:
           type: boolean
-          description: Add observability endpoints
           default: true
-        rate_limiting:
+        reliability:
           type: boolean
-          description: Add rate limiting
           default: true
         documentation:
           type: boolean
-          description: Enhance documentation
           default: true
+        standards:
+          type: boolean
+          default: true
+        observability:
+          type: boolean
+          default: true
+      default:
+        security: true
+        performance: true
+        reliability: true
+        documentation: true
+        standards: true
+        observability: true
 
 # Default configuration
 default_config:
-  llm_config:
-    provider: openai
-    model: gpt-4 
+  output_format: json
+  min_readiness_score: 80
+  checks:
+    security: true
+    performance: true
+    reliability: true
+    documentation: true
+    standards: true
+    observability: true 

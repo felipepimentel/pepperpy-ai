@@ -11,6 +11,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 from typing import Dict, List, Any, Optional, TypedDict, Union, Literal
+from enum import Enum
 
 from pepperpy.core.logging import get_logger
 from pepperpy.plugin import ProviderPlugin
@@ -36,12 +37,189 @@ class EnhancementResult(TypedDict):
     spec_path: str
 
 
+class ReadinessLevel(Enum):
+    """Readiness levels for API evaluation."""
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class ReadinessCategory(Enum):
+    """Categories for API readiness evaluation."""
+    SECURITY = "security"
+    PERFORMANCE = "performance"
+    RELIABILITY = "reliability"
+    MAINTAINABILITY = "maintainability"
+    OBSERVABILITY = "observability"
+    DOCUMENTATION = "documentation"
+    STANDARDS = "standards"
+
+
+class ReadinessFinding:
+    """Represents a finding during API readiness evaluation."""
+
+    def __init__(
+        self,
+        title: str,
+        description: str,
+        level: ReadinessLevel,
+        category: ReadinessCategory,
+        path: Optional[str] = None,
+        recommendation: Optional[str] = None,
+    ):
+        self.title = title
+        self.description = description
+        self.level = level
+        self.category = category
+        self.path = path
+        self.recommendation = recommendation
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert finding to dictionary."""
+        return {
+            "title": self.title,
+            "description": self.description,
+            "level": self.level.value,
+            "category": self.category.value,
+            "path": self.path,
+            "recommendation": self.recommendation,
+        }
+
+
+class APIReadinessReport:
+    """Represents a comprehensive API readiness evaluation report."""
+
+    def __init__(
+        self,
+        api_name: str,
+        api_version: str,
+        api_spec: Dict[str, Any],
+        findings: List[ReadinessFinding],
+    ):
+        self.api_name = api_name
+        self.api_version = api_version
+        self.api_spec = api_spec
+        self.findings = findings
+        self.summary = self._generate_summary()
+
+    def _generate_summary(self) -> Dict[str, Any]:
+        """Generate a summary of findings by level and category."""
+        total_findings = len(self.findings)
+        findings_by_level = {level.value: 0 for level in ReadinessLevel}
+        findings_by_category = {category.value: 0 for category in ReadinessCategory}
+
+        for finding in self.findings:
+            findings_by_level[finding.level.value] += 1
+            findings_by_category[finding.category.value] += 1
+
+        readiness_score = self._calculate_readiness_score()
+
+        return {
+            "total_findings": total_findings,
+            "findings_by_level": findings_by_level,
+            "findings_by_category": findings_by_category,
+            "readiness_score": readiness_score,
+        }
+
+    def _calculate_readiness_score(self) -> int:
+        """Calculate an overall readiness score (0-100)."""
+        if not self.findings:
+            return 100
+
+        # Weight factors for different levels
+        weights = {
+            ReadinessLevel.CRITICAL.value: 10,
+            ReadinessLevel.HIGH.value: 5,
+            ReadinessLevel.MEDIUM.value: 2,
+            ReadinessLevel.LOW.value: 1,
+        }
+
+        # Calculate weighted sum of findings
+        weighted_sum = sum(
+            weights[finding.level.value] for finding in self.findings
+        )
+
+        # Max possible score is 100
+        # We deduct points based on findings
+        max_deduction = 100
+        score = max(0, 100 - min(weighted_sum, max_deduction))
+        
+        return score
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert report to dictionary."""
+        return {
+            "api_name": self.api_name,
+            "api_version": self.api_version,
+            "summary": self.summary,
+            "findings": [finding.to_dict() for finding in self.findings],
+        }
+
+    def to_markdown(self) -> str:
+        """Convert report to markdown format."""
+        md = [
+            f"# API Readiness Report: {self.api_name} v{self.api_version}",
+            "",
+            "## Summary",
+            f"- **Readiness Score**: {self.summary['readiness_score']}/100",
+            f"- **Total Findings**: {self.summary['total_findings']}",
+            "",
+            "### Findings by Severity",
+        ]
+
+        for level in ReadinessLevel:
+            count = self.summary["findings_by_level"][level.value]
+            md.append(f"- **{level.value.capitalize()}**: {count}")
+
+        md.extend([
+            "",
+            "### Findings by Category",
+        ])
+
+        for category in ReadinessCategory:
+            count = self.summary["findings_by_category"][category.value]
+            md.append(f"- **{category.value.capitalize()}**: {count}")
+
+        if self.findings:
+            md.extend([
+                "",
+                "## Detailed Findings",
+            ])
+
+            for finding in self.findings:
+                md.extend([
+                    f"### {finding.title}",
+                    f"- **Level**: {finding.level.value.capitalize()}",
+                    f"- **Category**: {finding.category.value.capitalize()}",
+                ])
+                
+                if finding.path:
+                    md.append(f"- **Path**: `{finding.path}`")
+                    
+                md.extend([
+                    "",
+                    f"{finding.description}",
+                    "",
+                ])
+                
+                if finding.recommendation:
+                    md.extend([
+                        "**Recommendation:**",
+                        "",
+                        f"{finding.recommendation}",
+                        "",
+                    ])
+
+        return "\n".join(md)
+
+
 class APIReadyProvider(BaseWorkflowProvider, ProviderPlugin):
-    """Provider for making APIs agent-ready.
+    """Provider for evaluating APIs for production readiness.
     
-    This workflow takes an existing API specification and enhances it with
-    features necessary for effective agent interaction, including discovery,
-    authentication, and observability.
+    This workflow evaluates an existing API specification against industry best practices
+    and provides a detailed report on its readiness for production deployment, focusing on
+    security, performance, reliability, documentation, standards compliance, and observability.
     """
     
     async def initialize(self) -> None:
@@ -52,10 +230,18 @@ class APIReadyProvider(BaseWorkflowProvider, ProviderPlugin):
         logger.info("Initializing API Ready workflow provider")
         
         # Initialize properties from config
-        self.llm_provider = self.config.get("llm_config", {}).get("provider", "openai")
-        self.llm_model = self.config.get("llm_config", {}).get("model", "gpt-4")
+        self.output_format = self.config.get("output_format", "json")
+        self.min_readiness_score = self.config.get("min_readiness_score", 80)
+        self.checks = self.config.get("checks", {
+            "security": True,
+            "performance": True,
+            "reliability": True,
+            "documentation": True,
+            "standards": True,
+            "observability": True
+        })
         
-        # Default enhancement options
+        # For API enhancement
         self.default_scaffold_config = APIScaffoldConfig(
             agent_discovery=True,
             auth_mechanism="api_key",
@@ -81,11 +267,12 @@ class APIReadyProvider(BaseWorkflowProvider, ProviderPlugin):
         Args:
             input_data: Dict containing:
                 - spec_path: Path to the API spec file
-                - enhancement_options: Options for API enhancement
-                - output_dir: Directory to save enhanced spec
+                - mode: "evaluate" (default) or "enhance"
+                - enhancement_options: Options for API enhancement (if mode is "enhance")
+                - output_dir: Directory to save enhanced spec (if mode is "enhance")
         
         Returns:
-            Results of the enhancement process
+            Results of the evaluation or enhancement process
         """
         try:
             if not self.initialized:
@@ -96,46 +283,96 @@ class APIReadyProvider(BaseWorkflowProvider, ProviderPlugin):
             if not spec_path or not os.path.exists(spec_path):
                 return {"error": "Missing or invalid API specification path"}
             
-            enhancement_options = input_data.get("enhancement_options", {})
-            output_dir = input_data.get("output_dir", os.path.dirname(spec_path))
-            
             # Load the API spec
             spec_content = await self._load_api_spec(spec_path)
             
-            # Merge default scaffold config with provided options
-            scaffold_config = {**self.default_scaffold_config}
-            if enhancement_options:
-                for key in scaffold_config:
-                    if key in enhancement_options:
-                        scaffold_config[key] = enhancement_options[key]
+            # Determine mode: evaluate or enhance
+            mode = input_data.get("mode", "evaluate")
             
-            # Enhance the API spec
-            enhanced_spec, enhancements = await self._enhance_api_spec(
-                spec_content, 
-                scaffold_config
-            )
-            
-            # Save the enhanced spec
-            output_path = await self._save_enhanced_spec(
-                enhanced_spec, 
-                spec_path, 
-                output_dir
-            )
-            
-            # Generate enhancement report
-            result = EnhancementResult(
-                original_endpoints=enhancements["original_endpoints"],
-                enhanced_endpoints=enhancements["enhanced_endpoints"],
-                added_endpoints=enhancements["added_endpoints"],
-                enhancement_summary=enhancements["summary"],
-                spec_path=output_path
-            )
-            
-            return {
-                "status": "success", 
-                "result": result,
-                "message": f"API enhanced successfully. Output saved to {output_path}"
-            }
+            if mode == "evaluate":
+                # Evaluate API readiness
+                findings = await self._evaluate_api_readiness(
+                    spec_content,
+                    enabled_checks=self.checks
+                )
+                
+                # Extract API metadata
+                api_name, api_version = await self._extract_api_metadata(spec_content)
+                
+                # Generate report
+                report = APIReadinessReport(
+                    api_name=api_name,
+                    api_version=api_version,
+                    api_spec=spec_content,
+                    findings=findings
+                )
+                
+                # Check if API meets minimum readiness score
+                meets_minimum = report.summary["readiness_score"] >= self.min_readiness_score
+                
+                # Return appropriate format
+                if self.output_format == "markdown":
+                    return {
+                        "status": "success",
+                        "result": {
+                            "report": report.to_markdown(),
+                            "readiness_score": report.summary["readiness_score"],
+                            "meets_minimum": meets_minimum
+                        }
+                    }
+                else:
+                    return {
+                        "status": "success",
+                        "result": {
+                            "report": report.to_dict(),
+                            "readiness_score": report.summary["readiness_score"],
+                            "meets_minimum": meets_minimum
+                        }
+                    }
+                
+            elif mode == "enhance":
+                enhancement_options = input_data.get("enhancement_options", {})
+                output_dir = input_data.get("output_dir", os.path.dirname(spec_path))
+                
+                # Merge default scaffold config with provided options
+                scaffold_config = {**self.default_scaffold_config}
+                if enhancement_options:
+                    for key in scaffold_config:
+                        if key in enhancement_options:
+                            scaffold_config[key] = enhancement_options[key]
+                
+                # Enhance the API spec
+                enhanced_spec, enhancements = await self._enhance_api_spec(
+                    spec_content, 
+                    scaffold_config
+                )
+                
+                # Save the enhanced spec
+                output_path = await self._save_enhanced_spec(
+                    enhanced_spec, 
+                    spec_path, 
+                    output_dir
+                )
+                
+                # Generate enhancement report
+                result = EnhancementResult(
+                    original_endpoints=enhancements["original_endpoints"],
+                    enhanced_endpoints=enhancements["enhanced_endpoints"],
+                    added_endpoints=enhancements["added_endpoints"],
+                    enhancement_summary=enhancements["summary"],
+                    spec_path=output_path
+                )
+                
+                return {
+                    "status": "success", 
+                    "result": result,
+                    "message": f"API enhanced successfully. Output saved to {output_path}"
+                }
+            else:
+                return {
+                    "status": "error",
+                    "error": f"Invalid mode: {mode}. Must be 'evaluate' or 'enhance'."
+                }
             
         except Exception as e:
             logger.error(f"Error executing API Ready workflow: {str(e)}")
@@ -544,4 +781,421 @@ API Enhancement Summary:
             
             return output_path
         except Exception as e:
-            raise IOError(f"Failed to save enhanced API specification: {str(e)}") 
+            raise IOError(f"Failed to save enhanced API specification: {str(e)}")
+    
+    async def _extract_api_metadata(self, spec: Dict[str, Any]) -> tuple[str, str]:
+        """Extract API name and version from specification.
+        
+        Args:
+            spec: API specification
+            
+        Returns:
+            Tuple of (api_name, api_version)
+        """
+        api_name = "Unknown API"
+        api_version = "1.0.0"
+        
+        # Extract from info section if available
+        if "info" in spec:
+            if "title" in spec["info"]:
+                api_name = spec["info"]["title"]
+            
+            if "version" in spec["info"]:
+                api_version = spec["info"]["version"]
+        
+        return api_name, api_version
+    
+    async def _evaluate_api_readiness(self, 
+                                    spec: Dict[str, Any],
+                                    enabled_checks: Dict[str, bool]) -> List[ReadinessFinding]:
+        """Evaluate API readiness against best practices.
+        
+        Args:
+            spec: API specification
+            enabled_checks: Dictionary of enabled check categories
+            
+        Returns:
+            List of readiness findings
+        """
+        findings = []
+        
+        # Security checks
+        if enabled_checks.get("security", True):
+            findings.extend(await self._evaluate_security(spec))
+        
+        # Performance checks
+        if enabled_checks.get("performance", True):
+            findings.extend(await self._evaluate_performance(spec))
+        
+        # Reliability checks
+        if enabled_checks.get("reliability", True):
+            findings.extend(await self._evaluate_reliability(spec))
+        
+        # Documentation checks
+        if enabled_checks.get("documentation", True):
+            findings.extend(await self._evaluate_documentation(spec))
+        
+        # Standards compliance checks
+        if enabled_checks.get("standards", True):
+            findings.extend(await self._evaluate_standards(spec))
+        
+        # Observability checks
+        if enabled_checks.get("observability", True):
+            findings.extend(await self._evaluate_observability(spec))
+        
+        return findings
+    
+    async def _evaluate_security(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+        """Evaluate API security readiness.
+        
+        Args:
+            spec: API specification
+            
+        Returns:
+            List of security findings
+        """
+        findings = []
+        
+        # Check if HTTPS is enforced
+        if "schemes" in spec and ("http" in spec["schemes"] and "https" not in spec["schemes"]):
+            findings.append(ReadinessFinding(
+                title="HTTP Used Without HTTPS",
+                description="The API allows HTTP connections without requiring HTTPS, which exposes data to potential interception.",
+                level=ReadinessLevel.CRITICAL,
+                category=ReadinessCategory.SECURITY,
+                recommendation="Add HTTPS support and consider disabling HTTP for production environments."
+            ))
+        elif "schemes" not in spec:
+            findings.append(ReadinessFinding(
+                title="No Transport Protocol Defined",
+                description="The API specification does not define transport protocols (HTTP/HTTPS), which may lead to insecure implementations.",
+                level=ReadinessLevel.HIGH,
+                category=ReadinessCategory.SECURITY,
+                recommendation="Explicitly define 'https' as the transport protocol in the API specification."
+            ))
+        
+        # Check for authentication
+        has_security_requirement = False
+        if "security" in spec and spec["security"]:
+            has_security_requirement = True
+        
+        if not has_security_requirement:
+            # Check if there are any security definitions that aren't used
+            if "components" in spec and "securitySchemes" in spec["components"] and spec["components"]["securitySchemes"]:
+                findings.append(ReadinessFinding(
+                    title="Security Schemes Defined But Not Required",
+                    description="Security schemes are defined but not required globally or on any endpoints.",
+                    level=ReadinessLevel.HIGH,
+                    category=ReadinessCategory.SECURITY,
+                    recommendation="Apply security requirements either globally or on specific endpoints."
+                ))
+            else:
+                findings.append(ReadinessFinding(
+                    title="No Authentication Mechanism",
+                    description="The API does not define any authentication mechanism, allowing anonymous access to all endpoints.",
+                    level=ReadinessLevel.CRITICAL,
+                    category=ReadinessCategory.SECURITY,
+                    recommendation="Implement an appropriate authentication mechanism such as API keys, OAuth, or JWT."
+                ))
+        
+        # Check for rate limiting
+        has_rate_limiting = False
+        
+        # Check standard extensions
+        if "x-rate-limit" in spec or "x-ratelimit" in spec:
+            has_rate_limiting = True
+        
+        # Check for rate limit headers in responses
+        for path in spec.get("paths", {}):
+            for method in spec["paths"][path]:
+                if method not in ["get", "post", "put", "delete", "patch"]:
+                    continue
+                
+                for status_code in spec["paths"][path][method].get("responses", {}):
+                    headers = spec["paths"][path][method]["responses"][status_code].get("headers", {})
+                    if any(header.lower().startswith(("x-rate-limit", "x-ratelimit")) for header in headers):
+                        has_rate_limiting = True
+                        break
+        
+        if not has_rate_limiting:
+            findings.append(ReadinessFinding(
+                title="No Rate Limiting",
+                description="The API does not implement rate limiting, which may expose it to abuse and denial of service attacks.",
+                level=ReadinessLevel.HIGH,
+                category=ReadinessCategory.SECURITY,
+                recommendation="Implement rate limiting and expose rate limit headers in API responses."
+            ))
+        
+        return findings
+    
+    async def _evaluate_performance(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+        """Evaluate API performance readiness.
+        
+        Args:
+            spec: API specification
+            
+        Returns:
+            List of performance findings
+        """
+        findings = []
+        
+        # Check for pagination in collection endpoints
+        for path, path_item in spec.get("paths", {}).items():
+            for method, operation in path_item.items():
+                if method not in ["get"]:
+                    continue
+                
+                # Check if this looks like a collection endpoint
+                is_collection = False
+                if path.endswith("s") and not path.endswith("/{id}"):
+                    is_collection = True
+                
+                # Check description or summary for collection indicators
+                if operation.get("description", "").lower().find("list") >= 0 or operation.get("summary", "").lower().find("list") >= 0:
+                    is_collection = True
+                
+                if is_collection:
+                    # Check for pagination parameters
+                    has_pagination = False
+                    pagination_params = ["page", "limit", "offset", "size", "per_page"]
+                    
+                    for param in operation.get("parameters", []):
+                        param_name = param.get("name", "").lower()
+                        if any(pagination_term in param_name for pagination_term in pagination_params):
+                            has_pagination = True
+                            break
+                    
+                    if not has_pagination:
+                        findings.append(ReadinessFinding(
+                            title="Collection Endpoint Without Pagination",
+                            description=f"The collection endpoint {path} doesn't support pagination, which may lead to performance issues with large datasets.",
+                            level=ReadinessLevel.MEDIUM,
+                            category=ReadinessCategory.PERFORMANCE,
+                            path=path,
+                            recommendation="Add pagination parameters such as 'page' and 'limit' or 'offset' and 'limit'."
+                        ))
+        
+        return findings
+    
+    async def _evaluate_reliability(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+        """Evaluate API reliability readiness.
+        
+        Args:
+            spec: API specification
+            
+        Returns:
+            List of reliability findings
+        """
+        findings = []
+        
+        # Check for error responses
+        for path, path_item in spec.get("paths", {}).items():
+            for method, operation in path_item.items():
+                if method not in ["get", "post", "put", "delete", "patch"]:
+                    continue
+                
+                # Check if common error status codes are defined
+                responses = operation.get("responses", {})
+                error_codes = ["400", "401", "403", "404", "500"]
+                defined_error_codes = [code for code in error_codes if code in responses]
+                
+                if len(defined_error_codes) < 3:  # Arbitrary threshold
+                    findings.append(ReadinessFinding(
+                        title="Insufficient Error Responses",
+                        description=f"The {method.upper()} endpoint for {path} doesn't define enough error responses ({', '.join(defined_error_codes)}).",
+                        level=ReadinessLevel.MEDIUM,
+                        category=ReadinessCategory.RELIABILITY,
+                        path=path,
+                        recommendation="Define common error responses (400, 401, 403, 404, 500) with appropriate schemas."
+                    ))
+        
+        return findings
+    
+    async def _evaluate_documentation(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+        """Evaluate API documentation readiness.
+        
+        Args:
+            spec: API specification
+            
+        Returns:
+            List of documentation findings
+        """
+        findings = []
+        
+        # Check if API info section is complete
+        if "info" in spec:
+            info = spec["info"]
+            
+            if not info.get("description") or len(info.get("description", "")) < 20:
+                findings.append(ReadinessFinding(
+                    title="Insufficient API Description",
+                    description="The API description is missing or too brief, which makes it difficult for consumers to understand its purpose.",
+                    level=ReadinessLevel.MEDIUM,
+                    category=ReadinessCategory.DOCUMENTATION,
+                    recommendation="Add a comprehensive description that explains the API's purpose, audience, and key features."
+                ))
+            
+            if not info.get("contact"):
+                findings.append(ReadinessFinding(
+                    title="Missing Contact Information",
+                    description="The API specification doesn't include contact information for support or questions.",
+                    level=ReadinessLevel.LOW,
+                    category=ReadinessCategory.DOCUMENTATION,
+                    recommendation="Add contact information including at least an email address and optionally a name and URL."
+                ))
+        
+        # Check for undocumented endpoints or parameters
+        for path, path_item in spec.get("paths", {}).items():
+            for method, operation in path_item.items():
+                if method not in ["get", "post", "put", "delete", "patch"]:
+                    continue
+                
+                # Check operation summary and description
+                if not operation.get("summary") and not operation.get("description"):
+                    findings.append(ReadinessFinding(
+                        title="Undocumented Endpoint",
+                        description=f"The {method.upper()} endpoint for {path} lacks both summary and description.",
+                        level=ReadinessLevel.MEDIUM,
+                        category=ReadinessCategory.DOCUMENTATION,
+                        path=path,
+                        recommendation="Add a concise summary and detailed description for the endpoint."
+                    ))
+                
+                # Check parameter descriptions
+                for param in operation.get("parameters", []):
+                    if not param.get("description"):
+                        findings.append(ReadinessFinding(
+                            title="Undocumented Parameter",
+                            description=f"Parameter '{param.get('name')}' in {method.upper()} {path} has no description.",
+                            level=ReadinessLevel.LOW,
+                            category=ReadinessCategory.DOCUMENTATION,
+                            path=path,
+                            recommendation=f"Add a description for the '{param.get('name')}' parameter."
+                        ))
+        
+        return findings
+    
+    async def _evaluate_standards(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+        """Evaluate API standards compliance.
+        
+        Args:
+            spec: API specification
+            
+        Returns:
+            List of standards findings
+        """
+        findings = []
+        
+        # Check for OpenAPI version
+        openapi_version = spec.get("openapi", spec.get("swagger", ""))
+        if not openapi_version:
+            findings.append(ReadinessFinding(
+                title="Missing OpenAPI Version",
+                description="The API specification doesn't declare an OpenAPI or Swagger version.",
+                level=ReadinessLevel.MEDIUM,
+                category=ReadinessCategory.STANDARDS,
+                recommendation="Add an 'openapi' field with the appropriate version (e.g., '3.0.0')."
+            ))
+        elif openapi_version.startswith("2."):
+            findings.append(ReadinessFinding(
+                title="Outdated OpenAPI Version",
+                description=f"The API uses OpenAPI/Swagger version {openapi_version}, which is outdated.",
+                level=ReadinessLevel.LOW,
+                category=ReadinessCategory.STANDARDS,
+                recommendation="Consider upgrading to OpenAPI 3.x for access to newer features and better tooling support."
+            ))
+        
+        # Check URL pattern consistency
+        url_styles = {"kebab-case": 0, "snake_case": 0, "camelCase": 0}
+        for path in spec.get("paths", {}):
+            parts = [p for p in path.split("/") if p and not p.startswith("{")]
+            for part in parts:
+                if "-" in part:
+                    url_styles["kebab-case"] += 1
+                elif "_" in part:
+                    url_styles["snake_case"] += 1
+                elif part != part.lower() and part[0].islower():
+                    url_styles["camelCase"] += 1
+        
+        # Determine dominant style
+        dominant_style = max(url_styles.items(), key=lambda x: x[1])[0] if any(url_styles.values()) else None
+        inconsistent = sum(1 for count in url_styles.values() if count > 0) > 1
+        
+        if inconsistent:
+            findings.append(ReadinessFinding(
+                title="Inconsistent URL Naming Conventions",
+                description="The API uses inconsistent URL naming conventions, mixing different styles.",
+                level=ReadinessLevel.MEDIUM,
+                category=ReadinessCategory.STANDARDS,
+                recommendation=f"Standardize on a single URL naming convention, preferably {dominant_style if dominant_style else 'kebab-case'}."
+            ))
+        
+        return findings
+    
+    async def _evaluate_observability(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+        """Evaluate API observability readiness.
+        
+        Args:
+            spec: API specification
+            
+        Returns:
+            List of observability findings
+        """
+        findings = []
+        
+        # Check for health check endpoint
+        has_health_endpoint = False
+        for path in spec.get("paths", {}):
+            if path.lower().find("health") >= 0:
+                has_health_endpoint = True
+                break
+        
+        if not has_health_endpoint:
+            findings.append(ReadinessFinding(
+                title="Missing Health Check Endpoint",
+                description="The API doesn't provide a health check endpoint, which is essential for monitoring and orchestration.",
+                level=ReadinessLevel.MEDIUM,
+                category=ReadinessCategory.OBSERVABILITY,
+                recommendation="Add a '/health' endpoint that returns the operational status of the API and its dependencies."
+            ))
+        
+        # Check for metrics or monitoring endpoint
+        has_metrics_endpoint = False
+        for path in spec.get("paths", {}):
+            if path.lower().find("metric") >= 0 or path.lower().find("monitor") >= 0:
+                has_metrics_endpoint = True
+                break
+        
+        if not has_metrics_endpoint:
+            findings.append(ReadinessFinding(
+                title="Missing Metrics Endpoint",
+                description="The API doesn't provide a metrics endpoint for monitoring performance and usage.",
+                level=ReadinessLevel.MEDIUM,
+                category=ReadinessCategory.OBSERVABILITY,
+                recommendation="Add a '/metrics' endpoint that returns operational metrics in a standard format (e.g., Prometheus)."
+            ))
+        
+        # Check for correlation ID/request ID
+        has_correlation_id = False
+        for path, path_item in spec.get("paths", {}).items():
+            for method, operation in path_item.items():
+                if method not in ["get", "post", "put", "delete", "patch"]:
+                    continue
+                
+                for status_code in operation.get("responses", {}):
+                    headers = operation["responses"][status_code].get("headers", {})
+                    correlation_headers = ["x-correlation-id", "x-request-id", "request-id"]
+                    if any(header.lower() in correlation_headers for header in headers):
+                        has_correlation_id = True
+                        break
+        
+        if not has_correlation_id:
+            findings.append(ReadinessFinding(
+                title="Missing Correlation ID",
+                description="The API doesn't use correlation IDs, which makes it difficult to trace requests across distributed systems.",
+                level=ReadinessLevel.LOW,
+                category=ReadinessCategory.OBSERVABILITY,
+                recommendation="Add a 'X-Correlation-ID' or 'X-Request-ID' header to all responses for request tracing."
+            ))
+        
+        return findings 

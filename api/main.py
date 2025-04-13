@@ -1,7 +1,5 @@
 """
-PepperPy API Server
-
-Main FastAPI application entry point.
+Main FastAPI application for PepperPy API Server.
 """
 
 import logging
@@ -9,26 +7,26 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
-from api.routes import governance, a2a
+from api.routes import governance, a2a, workflows
 
-# Setup logging
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("api")
 
-# Create FastAPI app
+# Create FastAPI application
 app = FastAPI(
-    title="PepperPy API",
-    description="API for PepperPy workflows and services",
+    title="PepperPy API Server",
+    description="REST API for PepperPy workflows and services",
     version="0.1.0",
 )
 
-# Add CORS middleware
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development only
+    allow_origins=["*"],  # In production, replace with specific origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,6 +35,7 @@ app.add_middleware(
 # Include routers
 app.include_router(governance.router)
 app.include_router(a2a.router)
+app.include_router(workflows.router)
 
 @app.get("/", tags=["root"])
 async def root():
@@ -47,20 +46,37 @@ async def root():
         "description": "API for PepperPy workflows and services",
         "endpoints": {
             "governance": "/governance",
-            "a2a": "/a2a"
+            "a2a": "/a2a",
+            "workflows": "/workflows"
         }
     }
 
 # Health check endpoint
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy"}
+    """
+    Health check endpoint.
+    """
+    return {"status": "ok"}
 
 # Serve static files if they exist
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend/dist")
 if os.path.exists(static_dir):
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Perform initialization on startup.
+    """
+    logger.info("Starting PepperPy API Server")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """
+    Perform cleanup on shutdown.
+    """
+    logger.info("Shutting down PepperPy API Server")
 
 if __name__ == "__main__":
     import uvicorn
