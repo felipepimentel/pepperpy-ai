@@ -13,8 +13,9 @@ import aiohttp
 import yaml
 
 from pepperpy.core.logging import get_logger
-from pepperpy.core.workflow import ProviderPlugin, WorkflowProvider
-from pepperpy.core.llm import create_llm_provider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.workflow import WorkflowProvider
+from pepperpy.llm import create_provider as create_llm_provider
 
 logger = get_logger(__name__)
 

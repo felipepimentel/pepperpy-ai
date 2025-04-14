@@ -16,53 +16,70 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Protocol, Set, Tuple, cast
 
-# Instead of importing ProviderPlugin, create a simplified adapter base
-class WorkflowAdapter:
-    """Base class for workflow adapters."""
-    
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize with configuration options."""
-        self.config = kwargs
-        self.initialized = False
-    
-    async def initialize(self) -> None:
-        """Initialize resources."""
-        pass
-    
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        pass
-    
-    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute the workflow."""
-        raise NotImplementedError("Subclasses must implement execute()")
+from pepperpy.workflow import BaseWorkflowProvider
+from pepperpy.plugin import ProviderPlugin
 
 logger = logging.getLogger(__name__)
 
-# Mock client for demo purposes
-class SimulatedClient:
-    """Simulated client for workflow demonstration."""
+class ResearchClient:
+    """Research client that uses PepperPy services for real research capabilities."""
     
-    def __init__(self, model_id: str = "gpt-4") -> None:
-        """Initialize the simulated client.
+    def __init__(self, model_id: str = "gpt-4", api_key: Optional[str] = None) -> None:
+        """Initialize the research client.
         
         Args:
             model_id: LLM model identifier
+            api_key: API key for services (optional)
         """
         self.model_id = model_id
+        self.api_key = api_key
         self.initialized = False
-        logger.info(f"Created simulated client with model {model_id}")
+        self.llm_client = None
+        self.search_client = None
+        logger.info(f"Created research client with model {model_id}")
     
     async def initialize(self) -> None:
         """Initialize client resources."""
-        logger.info(f"Initializing simulated client with model {self.model_id}")
-        await asyncio.sleep(0.5)  # Simulate initialization time
+        from pepperpy import PepperPy
+        
+        logger.info(f"Initializing research client with model {self.model_id}")
+        
+        # Initialize PepperPy core with required services
+        self.pepperpy = PepperPy.create()
+        
+        # Add LLM provider
+        if self.api_key:
+            self.pepperpy = self.pepperpy.with_llm(
+                "openai" if "gpt" in self.model_id else "anthropic", 
+                model=self.model_id,
+                api_key=self.api_key
+            )
+        else:
+            self.pepperpy = self.pepperpy.with_llm(
+                "openai" if "gpt" in self.model_id else "anthropic",
+                model=self.model_id
+            )
+        
+        # Add search provider
+        self.pepperpy = self.pepperpy.with_search()
+        
+        # Build the core
+        self.pepperpy = await self.pepperpy.build()
+        
+        # Get clients
+        self.llm_client = self.pepperpy.llm
+        self.search_client = self.pepperpy.search
+        
         self.initialized = True
+        logger.info(f"Research client initialized with model {self.model_id}")
         
     async def close(self) -> None:
         """Close client resources."""
-        logger.info("Closing simulated client")
-        await asyncio.sleep(0.1)  # Simulate cleanup time
+        logger.info("Closing research client")
+        if self.pepperpy:
+            await self.pepperpy.cleanup()
+        self.llm_client = None
+        self.search_client = None
         self.initialized = False
     
     async def find_information(self, topic: str, max_sources: int = 5) -> List[Dict[str, Any]]:
@@ -76,19 +93,27 @@ class SimulatedClient:
             List of information sources
         """
         logger.info(f"Finding information on: {topic} (max sources: {max_sources})")
-        await asyncio.sleep(1.0)  # Simulate research time
         
-        # Generate simulated sources
+        # Use search provider to find real information
+        if not self.search_client:
+            raise ValueError("Search client not initialized")
+            
+        search_results = await self.search_client.search(
+            query=topic, 
+            max_results=max_sources
+        )
+        
+        # Format search results
         sources = []
-        for i in range(max_sources):
+        for i, result in enumerate(search_results[:max_sources]):
             sources.append({
-                "id": f"source-{i+1}",
-                "title": f"{'Research' if i % 2 == 0 else 'Study'} on {topic} - Part {i+1}",
-                "url": f"https://example.com/research/{topic.replace(' ', '_').lower()}/{i+1}",
-                "type": "article" if i % 3 != 0 else "paper",
-                "relevance": 0.95 - (i * 0.1),
-                "snippet": f"This {'comprehensive' if i % 2 == 0 else 'detailed'} {topic} overview covers key aspects and recent developments...",
-                "published_date": f"2023-{(i % 12) + 1:02d}-{(i % 28) + 1:02d}"
+                "id": result.get("id", f"source-{i+1}"),
+                "title": result.get("title", f"Resource on {topic}"),
+                "url": result.get("url", ""),
+                "type": result.get("type", "article"),
+                "relevance": result.get("relevance", 0.95 - (i * 0.05)),
+                "snippet": result.get("snippet", ""),
+                "published_date": result.get("published_date", "")
             })
         
         return sources
@@ -104,33 +129,65 @@ class SimulatedClient:
             Analysis results
         """
         logger.info(f"Analyzing content for: {topic} ({len(sources)} sources)")
-        await asyncio.sleep(1.5)  # Simulate analysis time
         
-        # Generate simulated analysis
-        key_points = [
-            f"The core concept of {topic} involves several key principles",
-            f"Recent developments in {topic} show significant progress in application",
-            f"Experts in {topic} disagree on the optimal approach for implementation",
-            f"Future trends in {topic} indicate potential growth in several sectors"
-        ]
+        if not self.llm_client:
+            raise ValueError("LLM client not initialized")
         
-        concepts = [
-            {"name": f"{topic} framework", "importance": "high", 
-             "description": f"Foundational structure for understanding {topic}"},
-            {"name": f"{topic} methodology", "importance": "medium", 
-             "description": f"Approach to implementing {topic} in practice"},
-            {"name": f"{topic} evaluation", "importance": "medium", 
-             "description": f"Metrics and techniques for assessing {topic} effectiveness"}
-        ]
+        # Prepare context from sources
+        context = "\n\n".join([
+            f"Source {i+1}: {source['title']}\n{source['snippet']}\nURL: {source['url']}"
+            for i, source in enumerate(sources)
+        ])
         
-        return {
-            "key_points": key_points,
-            "concepts": concepts,
-            "sentiment": "positive" if len(topic) % 2 == 0 else "neutral",
-            "complexity": "moderate",
-            "completeness": 0.85,
-            "source_quality": 0.78
-        }
+        # Create prompt for analysis
+        prompt = f"""
+        Analyze the following sources about "{topic}" and extract key information:
+        
+        {context}
+        
+        Please provide a comprehensive analysis including:
+        1. 4-6 key points about {topic}
+        2. 3-5 important concepts related to {topic} with descriptions
+        3. Overall sentiment about the topic (positive, negative, neutral)
+        4. Complexity assessment of the subject (basic, moderate, complex)
+        5. A completeness score (0.0-1.0) for how well the sources cover the topic
+        6. A source quality score (0.0-1.0)
+        
+        Format your response as a structured JSON with these exact keys:
+        "key_points", "concepts", "sentiment", "complexity", "completeness", "source_quality"
+        
+        Make each concept in "concepts" a dictionary with "name", "importance", and "description" keys.
+        """
+        
+        # Get analysis from LLM
+        result = await self.llm_client.complete(prompt)
+        
+        # Parse the response (assuming JSON format)
+        try:
+            # Extract JSON from the response
+            json_text = result.strip()
+            # If the response has markdown code block formatting, extract just the JSON
+            if "```json" in json_text:
+                json_text = json_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in json_text:
+                json_text = json_text.split("```")[1].split("```")[0].strip()
+                
+            analysis = json.loads(json_text)
+            return analysis
+        except (json.JSONDecodeError, IndexError) as e:
+            logger.error(f"Failed to parse analysis result: {e}")
+            # Fallback with basic structure if parsing fails
+            return {
+                "key_points": [f"The core concept of {topic} involves several key principles"],
+                "concepts": [
+                    {"name": f"{topic} framework", "importance": "high", 
+                     "description": f"Foundational structure for understanding {topic}"}
+                ],
+                "sentiment": "neutral",
+                "complexity": "moderate",
+                "completeness": 0.7,
+                "source_quality": 0.7
+            }
     
     async def generate_report(
         self, 
@@ -149,60 +206,47 @@ class SimulatedClient:
             Generated report
         """
         logger.info(f"Generating {format} report for: {topic}")
-        await asyncio.sleep(2.0)  # Simulate report generation time
         
-        # Generate simulated report in markdown format
-        report = f"""# {topic.title()} Research Report
-
-## Overview
-
-This report presents a comprehensive analysis of {topic}, covering key concepts,
-recent developments, and future directions.
-
-## Key Points
-
-"""
+        if not self.llm_client:
+            raise ValueError("LLM client not initialized")
         
-        # Add key points
-        for point in analysis.get("key_points", []):
-            report += f"- {point}\n"
+        # Format analysis for the prompt
+        key_points = "\n".join([f"- {point}" for point in analysis.get("key_points", [])])
         
-        report += f"""
-## Main Concepts
-
-"""
-        
-        # Add concepts
+        concepts_text = ""
         for concept in analysis.get("concepts", []):
-            report += f"### {concept['name']}\n"
-            report += f"_{concept['importance'].title()} importance_\n\n"
-            report += f"{concept['description']}\n\n"
+            concepts_text += f"- {concept.get('name', '')}: {concept.get('description', '')}\n"
+            concepts_text += f"  Importance: {concept.get('importance', 'medium')}\n\n"
         
-        report += f"""
-## Analysis
-
-The overall sentiment regarding {topic} is {analysis.get('sentiment', 'neutral')},
-with a {analysis.get('complexity', 'moderate')} level of complexity in the literature.
-The research coverage appears to be {analysis.get('completeness', 0.7) * 100:.0f}% complete
-based on the sources analyzed.
-
-## Conclusion
-
-{topic.title()} continues to be an important area with significant implications.
-Further research could explore practical applications and integration with related domains.
-"""
+        # Create prompt for report generation
+        prompt = f"""
+        Generate a comprehensive research report on "{topic}" using the following analysis:
         
-        # Convert to requested format (simplified for demo)
-        if format == "html":
-            # Very simplified conversion
-            report = report.replace("# ", "<h1>").replace("\n\n", "</h1>\n")
-            report = report.replace("## ", "<h2>").replace("\n\n", "</h2>\n")
-            report = report.replace("### ", "<h3>").replace("\n\n", "</h3>\n")
-            report = report.replace("- ", "<li>").replace("\n", "</li>\n")
-        elif format == "text":
-            # Strip markdown formatting (simplified)
-            report = report.replace("# ", "").replace("## ", "").replace("### ", "")
-            report = report.replace("_", "")
+        KEY POINTS:
+        {key_points}
+        
+        CONCEPTS:
+        {concepts_text}
+        
+        ASSESSMENT:
+        - Sentiment: {analysis.get('sentiment', 'neutral')}
+        - Complexity: {analysis.get('complexity', 'moderate')}
+        - Completeness: {analysis.get('completeness', 0.7)}
+        - Source Quality: {analysis.get('source_quality', 0.7)}
+        
+        Create a well-structured report with the following sections:
+        1. Introduction/Overview
+        2. Key Points
+        3. Main Concepts
+        4. Analysis
+        5. Conclusion
+        
+        Format the report in {format} format. Write in a professional, analytical style.
+        If research appears incomplete, acknowledge limitations and suggest further research areas.
+        """
+        
+        # Get report from LLM
+        report = await self.llm_client.complete(prompt)
         
         return report
     
@@ -211,42 +255,64 @@ Further research could explore practical applications and integration with relat
         
         Args:
             topic: Research topic
-            report: Report to review
+            report: Generated report to review
             
         Returns:
-            Review results with suggestions
+            Review results with strengths and improvement suggestions
         """
         logger.info(f"Reviewing report for: {topic}")
-        await asyncio.sleep(1.0)  # Simulate review time
         
-        # Generate simulated review
-        feedback = {
-            "overall_quality": 0.82,
-            "strengths": [
-                "Comprehensive coverage of the topic",
-                "Well-structured presentation of concepts",
-                "Clear analysis of research findings"
-            ],
-            "areas_for_improvement": [
-                "Could provide more specific examples",
-                "Additional data visualization would enhance clarity",
-                "Further exploration of practical applications recommended"
-            ],
-            "accuracy": 0.9,
-            "completeness": 0.85,
-            "clarity": 0.88
-        }
+        if not self.llm_client:
+            raise ValueError("LLM client not initialized")
         
-        suggestions = [
-            "Add case studies to illustrate real-world applications",
-            "Include a section on current challenges and limitations",
-            "Provide more detailed recommendations for future research"
-        ]
+        # Create prompt for review
+        prompt = f"""
+        Review the following research report on "{topic}":
         
-        return {
-            "feedback": feedback,
-            "suggestions": suggestions
-        }
+        {report}
+        
+        Provide a critical assessment including:
+        1. 3-5 strengths of the report
+        2. 3-5 specific suggestions for improvement
+        3. An overall quality rating (0.0-1.0)
+        
+        Format your response as a structured JSON with these exact keys:
+        "feedback" (with nested "strengths" array), "suggestions" array, and "quality_rating" (number)
+        """
+        
+        # Get review from LLM
+        result = await self.llm_client.complete(prompt)
+        
+        # Parse the response (assuming JSON format)
+        try:
+            # Extract JSON from the response
+            json_text = result.strip()
+            # If the response has markdown code block formatting, extract just the JSON
+            if "```json" in json_text:
+                json_text = json_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in json_text:
+                json_text = json_text.split("```")[1].split("```")[0].strip()
+                
+            review = json.loads(json_text)
+            return review
+        except (json.JSONDecodeError, IndexError) as e:
+            logger.error(f"Failed to parse review result: {e}")
+            # Fallback with basic structure if parsing fails
+            return {
+                "feedback": {
+                    "strengths": [
+                        "The report covers essential information about the topic",
+                        "The structure is logical and easy to follow",
+                        "Key concepts are explained adequately"
+                    ]
+                },
+                "suggestions": [
+                    "Add more specific examples to illustrate concepts",
+                    "Include more recent developments in the field",
+                    "Consider addressing potential criticisms or limitations"
+                ],
+                "quality_rating": 0.75
+            }
 
 
 class ResearchWorkflowStatus(str, Enum):
@@ -292,11 +358,11 @@ class ResearchResult:
         }
 
 
-class ResearchAssistantAdapter(WorkflowAdapter):
-    """Research Assistant workflow adapter.
+class ResearchAssistantAdapter(BaseWorkflowProvider, ProviderPlugin):
+    """Research assistant workflow implementation.
     
-    This workflow automates the research process by:
-    1. Finding relevant information on a topic
+    This workflow automates the research process through four stages:
+    1. Finding information from trusted sources
     2. Analyzing content from multiple sources
     3. Generating a comprehensive report
     4. Optionally reviewing and improving the report
@@ -307,6 +373,12 @@ class ResearchAssistantAdapter(WorkflowAdapter):
         
         Args:
             **kwargs: Configuration options
+                - model_id: LLM model to use (default: gpt-3.5-turbo)
+                - research_depth: Depth of research (default: standard)
+                - max_sources: Maximum number of sources (default: 5)
+                - report_format: Format for report (default: markdown)
+                - include_critique: Whether to include review (default: True)
+                - api_key: API key for services (optional)
         """
         super().__init__(**kwargs)
         
@@ -316,6 +388,7 @@ class ResearchAssistantAdapter(WorkflowAdapter):
         self.max_sources = self.config.get("max_sources", 5)
         self.report_format = self.config.get("report_format", "markdown")
         self.include_critique = self.config.get("include_critique", True)
+        self.api_key = self.config.get("api_key")
         
         # Initialize state
         self.client = None
@@ -330,8 +403,8 @@ class ResearchAssistantAdapter(WorkflowAdapter):
         logger.info("Initializing Research Assistant workflow")
         
         try:
-            # Initialize client
-            self.client = SimulatedClient(model_id=self.model_id)
+            # Initialize real client
+            self.client = ResearchClient(model_id=self.model_id, api_key=self.api_key)
             await self.client.initialize()
             
             self.initialized = True

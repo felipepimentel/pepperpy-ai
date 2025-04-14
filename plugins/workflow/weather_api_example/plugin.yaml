@@ -1,0 +1,39 @@
+name: weather_api_example
+version: 0.1.0
+description: Example workflow using the OpenWeather API integration
+author: PepperPy Team
+
+plugin_type: workflow
+category: example
+provider_name: weather_api_example
+entry_point: provider.WeatherAPIWorkflow
+
+config_schema:
+  type: object
+  properties:
+    api_key:
+      type: string
+      description: API key for OpenWeather API
+    units:
+      type: string
+      enum: ["standard", "metric", "imperial"]
+      description: Units for temperature (standard=Kelvin, metric=Celsius, imperial=Fahrenheit)
+      default: "metric"
+    include_forecast:
+      type: boolean
+      description: Whether to include forecast data in the response
+      default: false
+    forecast_days:
+      type: integer
+      description: Number of days for forecast (max 5)
+      default: 3
+    cache_ttl:
+      type: integer
+      description: Time to live for cache in seconds
+      default: 1800
+
+default_config:
+  units: "metric"
+  include_forecast: false
+  forecast_days: 3
+  cache_ttl: 1800 

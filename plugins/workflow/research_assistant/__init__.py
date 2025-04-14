@@ -1,7 +1,9 @@
-"""Research Assistant workflow plugin for PepperPy.
+"""Research Assistant Workflow Plugin.
 
-This workflow provides automated research capabilities including
-information gathering, content analysis, and report generation.
+This plugin provides a workflow for automated research, content analysis,
+and report generation on any topic.
 """
 
-__version__ = "0.1.0"
+from .provider import ResearchAssistantAdapter
+
+__all__ = ["ResearchAssistantAdapter"]

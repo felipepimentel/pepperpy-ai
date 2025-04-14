@@ -1,0 +1,30 @@
+name: embedding_test
+version: 0.1.0
+description: Test workflow for embedding capabilities
+author: PepperPy Team
+
+plugin_type: workflow
+category: test
+provider_name: embedding_test
+entry_point: provider.EmbeddingTestWorkflow
+
+config_schema:
+  type: object
+  properties:
+    model:
+      type: string
+      description: Model to use for embeddings
+      default: text-embedding-ada-002
+    batch_size:
+      type: integer
+      description: Batch size for processing
+      default: 100
+    normalize:
+      type: boolean
+      description: Whether to normalize embeddings
+      default: true
+
+default_config:
+  model: text-embedding-ada-002
+  batch_size: 100
+  normalize: true 

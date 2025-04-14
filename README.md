@@ -124,3 +124,86 @@ MIT
 ## Contributing
 
 Contributions are welcome! Please follow the coding standards and submit pull requests.
+
+## Using the CLI
+
+PepperPy comes with a built-in command line interface that makes it easy to work with workflows:
+
+### Listing Available Workflows
+
+```bash
+python -m pepperpy.cli workflow list
+```
+
+### Getting Workflow Information
+
+```bash
+python -m pepperpy.cli workflow info workflow/content_generator
+```
+
+### Running a Workflow
+
+```bash
+# Basic execution
+python -m pepperpy.cli workflow run workflow/content_generator --topic "Artificial Intelligence"
+
+# With additional parameters 
+python -m pepperpy.cli workflow run workflow/content_generator \
+  --topic "Climate Change" \
+  --params style=informative outline_type=article \
+  --output result.json
+
+# Using JSON for complex inputs
+python -m pepperpy.cli workflow run workflow/content_generator \
+  --input '{"topic": "Machine Learning", "keywords": ["AI", "algorithms", "data"]}' \
+  --config '{"model": "gpt-4", "max_length": 2000}'
+```
+
+When using Poetry for development:
+
+```bash
+poetry run python -m pepperpy.cli workflow run workflow/content_generator --topic "Python Programming"
+```
+
+## Troubleshooting CLI Commands
+
+If you encounter issues when running the CLI commands, try these solutions:
+
+### Plugin Discovery Not Working
+
+If no plugins are found when running `workflow list`:
+
+```bash
+# Ensure all dependencies are installed
+poetry install
+
+# Check for missing dependencies and add them
+poetry add rich pyyaml
+
+# Verify plugin structure - ensure each plugin has:
+# 1. A valid plugin.yaml file with the correct entry_point
+# 2. The specified class in the entry_point file
+# 3. All required dependencies installed
+```
+
+### Permission Issues
+
+If you don't have permission to execute the CLI:
+
+```bash
+# Make the CLI script executable
+chmod +x bin/pepperpy-cli
+
+# Or run directly with Python
+poetry run python -m pepperpy.cli
+```
+
+### Environment Setup
+
+When switching between environments:
+
+```bash
+# Recreate the virtual environment if it appears broken
+poetry env remove --all
+poetry install
+```

@@ -1,0 +1,30 @@
+name: llm_test
+version: 0.1.0
+description: Test workflow for LLM capabilities
+author: PepperPy Team
+
+plugin_type: workflow
+category: test
+provider_name: llm_test
+entry_point: provider.LLMTestWorkflow
+
+config_schema:
+  type: object
+  properties:
+    model:
+      type: string
+      description: LLM model to use
+      default: gpt-3.5-turbo
+    temperature:
+      type: number
+      description: Sampling temperature
+      default: 0.7
+    max_tokens:
+      type: integer
+      description: Maximum tokens to generate
+      default: 1000
+
+default_config:
+  model: gpt-3.5-turbo
+  temperature: 0.7
+  max_tokens: 1000 

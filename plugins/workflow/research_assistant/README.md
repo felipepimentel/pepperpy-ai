@@ -1,147 +1,165 @@
 # Research Assistant Workflow
 
-## Overview
+This PepperPy workflow plugin automates the process of conducting research on a topic, analyzing information, and generating comprehensive reports.
 
-The Research Assistant workflow is a PepperPy workflow plugin that automates the research process, from finding information to generating comprehensive reports. It demonstrates the capabilities of the PepperPy framework for creating complex, multi-step AI workflows.
+## Features
 
-## Key Features
-
-- **Automated Research**: Find relevant information on any topic
-- **Content Analysis**: Extract key points and concepts from multiple sources
-- **Report Generation**: Create well-structured reports in various formats
-- **Quality Review**: Automatically review and provide suggestions for improvement
-- **Flexible Configuration**: Customize research depth, report format, and more
+- **Information Gathering**: Finds relevant information on a topic using real search services
+- **Content Analysis**: Analyzes content from multiple sources using LLM capabilities
+- **Report Generation**: Creates professional research reports with key findings and insights
+- **Report Review**: Optionally provides a critique with improvement suggestions
 
 ## Usage
 
-### Direct Usage
+### Basic Usage
 
-For development and testing, you can use the workflow directly:
+```python
+from pepperpy import PepperPy
+
+# Initialize PepperPy with the research_assistant workflow
+pepperpy = PepperPy.create().with_workflow("research_assistant").build()
+
+# Execute research
+result = await pepperpy.workflow.execute({
+    "task": "research",
+    "topic": "Artificial Intelligence Ethics"
+})
+
+# Get the research results
+research_id = result["research_id"]
+research_results = await pepperpy.workflow.execute({
+    "task": "get_result",
+    "research_id": research_id
+})
+
+# Print the report
+print(research_results["research"]["report"])
+```
+
+### Direct Adapter Usage
+
+For development or testing, you can use the adapter directly:
 
 ```python
 from plugins.workflow.research_assistant.provider import ResearchAssistantAdapter
 
-async def run_research():
-    # Create and initialize the adapter
-    adapter = ResearchAssistantAdapter(
-        model_id="gpt-4",
-        max_sources=5,
-        report_format="markdown"
-    )
-    await adapter.initialize()
+# Create and initialize the adapter
+adapter = ResearchAssistantAdapter(
+    model_id="gpt-4", 
+    max_sources=5,
+    api_key="your-api-key"
+)
+await adapter.initialize()
+
+try:
+    # Execute research
+    result = await adapter.execute({
+        "task": "research",
+        "topic": "Climate Change Solutions"
+    })
     
-    try:
-        # Execute research task
-        result = await adapter.execute({
-            "task": "research",
-            "topic": "artificial intelligence"
+    # Get full research results
+    if result["status"] == "success":
+        research_id = result["research_id"]
+        research_results = await adapter.execute({
+            "task": "get_result",
+            "research_id": research_id
         })
-        
-        # Print research report
-        if result["status"] == "success":
-            print(f"Research ID: {result['research_id']}")
-            
-            # Get complete result with report content
-            complete = await adapter.execute({
-                "task": "get_result",
-                "research_id": result["research_id"]
-            })
-            
-            if complete["status"] == "success":
-                print(complete["research"]["report"])
-    finally:
-        # Clean up resources
-        await adapter.cleanup()
+        print(research_results["research"]["report"])
+finally:
+    # Clean up resources
+    await adapter.cleanup()
 ```
 
-### Command Line Demo
+## CLI Demo
 
-A simple command-line demo is included:
+A command-line demo script is provided to showcase the workflow:
 
 ```bash
 # Basic usage
-python plugins/workflow/research_assistant/run_research_demo.py "Artificial Intelligence"
+python run_research_demo.py "Quantum Computing"
 
-# Specify format and max sources
-python plugins/workflow/research_assistant/run_research_demo.py "Machine Learning" --format html --max-sources 3
+# Advanced options
+python run_research_demo.py "Machine Learning Applications" --format markdown --max-sources 5 --model gpt-4 --api-key "your-api-key"
 ```
 
-## Workflow Configuration
+## Configuration
 
-The workflow accepts the following configuration options:
+Configure the workflow through the PepperPy API or plugin.yaml:
 
-| Parameter | Type | Description | Default |
-|-----------|------|-------------|---------|
-| model_id | string | LLM model to use | gpt-3.5-turbo |
-| research_depth | string | Depth of research (basic, standard, comprehensive) | standard |
-| max_sources | integer | Maximum number of sources to retrieve | 5 |
-| report_format | string | Format of the report (markdown, html, text) | markdown |
-| include_critique | boolean | Whether to include review feedback | true |
-
-## Tasks
-
-The workflow supports the following tasks:
-
-### 1. Research
-
-```python
-result = await adapter.execute({
-    "task": "research",
-    "topic": "artificial intelligence",
-    "max_sources": 5,  # optional
-    "report_format": "markdown",  # optional
-    "include_critique": True  # optional
-})
-```
-
-Returns:
-```json
-{
-    "status": "success",
-    "research_id": "unique-research-id",
-    "topic": "artificial intelligence",
-    "sources_count": 5,
-    "report_length": 1542,
-    "duration_seconds": 6.5,
-    "has_review": true
-}
-```
-
-### 2. Get Result
-
-```python
-result = await adapter.execute({
-    "task": "get_result",
-    "research_id": "unique-research-id"
-})
-```
-
-Returns the complete research result including the report content and all analysis.
-
-### 3. Status
-
-```python
-result = await adapter.execute({
-    "task": "status"
-})
-```
-
-Returns the current workflow status including configuration and any active research.
+| Option | Description | Default |
+|--------|-------------|---------|
+| `model_id` | LLM model to use | `gpt-3.5-turbo` |
+| `research_depth` | Depth of research (basic, standard, comprehensive) | `standard` |
+| `max_sources` | Maximum number of sources to retrieve | `5` |
+| `report_format` | Format of the generated report (markdown, html, text) | `markdown` |
+| `include_critique` | Whether to include a critique/review of the report | `true` |
+| `api_key` | API key for services | Environment variable |
 
 ## Implementation Details
 
-This workflow demonstrates several core PepperPy capabilities:
+This workflow uses real services:
 
-1. **Workflow Orchestration**: Coordinating multi-step processes
-2. **Resource Management**: Proper initialization and cleanup
-3. **Error Handling**: Graceful error handling with detailed feedback
-4. **Configurability**: Flexible parameter handling
+1. **LLM Integration**: Uses OpenAI or Anthropic models for content analysis and report generation
+2. **Search Integration**: Connects to search providers to find relevant information
+3. **Pipeline Approach**: Implements a multi-stage research pipeline
+4. **Resource Management**: Properly handles resource initialization and cleanup
+5. **Error Handling**: Provides robust error handling and fallback mechanisms
 
-## Demo Implementation Note
+## Requirements
 
-The current implementation uses simulated responses for demonstration purposes. In a real-world implementation, this would integrate with:
+- PepperPy core framework
+- Access to LLM API (OpenAI or Anthropic)
+- Access to search API
+- Python 3.10+
 
-- LLM providers for analysis and report generation
-- Search APIs for information retrieval
-- Vector databases for relevant content lookup
-- Document processing for analyzing retrieved content 
+## Dependencies
+
+- `pepperpy`: Core framework
+- `asyncio`: For asynchronous operations
+
+## Integration Examples
+
+### Web Application
+
+```python
+from fastapi import FastAPI
+from pepperpy import PepperPy
+
+app = FastAPI()
+pepperpy = PepperPy.create().with_workflow("research_assistant").build()
+
+@app.post("/research")
+async def research(topic: str):
+    result = await pepperpy.workflow.execute({
+        "task": "research",
+        "topic": topic
+    })
+    return result
+```
+
+### Jupyter Notebook
+
+```python
+import asyncio
+from pepperpy import PepperPy
+
+# Initialize PepperPy
+pepperpy = await PepperPy.create().with_workflow("research_assistant").build()
+
+# Research a topic
+topic = "Renewable Energy"
+result = await pepperpy.workflow.execute({
+    "task": "research",
+    "topic": topic
+})
+
+# Display the research report
+from IPython.display import Markdown
+research_id = result["research_id"]
+full_result = await pepperpy.workflow.execute({
+    "task": "get_result", 
+    "research_id": research_id
+})
+Markdown(full_result["research"]["report"])
+``` 

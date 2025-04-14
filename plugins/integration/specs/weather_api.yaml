@@ -1,0 +1,32 @@
+info:
+  description: API for retrieving weather information
+  title: Weather API
+  version: 1.0.0
+openapi: 3.0.0
+paths:
+  /weather/current:
+    get:
+      description: Get the current weather for a location
+      parameters:
+      - description: Location name or coordinates
+        in: query
+        name: location
+        required: true
+        schema:
+          type: string
+      - description: Temperature units (celsius or fahrenheit)
+        in: query
+        name: units
+        required: false
+        schema:
+          default: celsius
+          enum:
+          - celsius
+          - fahrenheit
+          type: string
+      responses:
+        '200':
+          description: Successful response
+      summary: Get current weather
+servers:
+- url: https://api.weather.example.com/v1

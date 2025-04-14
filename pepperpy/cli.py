@@ -8,9 +8,12 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any, Protocol
+
+import yaml
 
 from pepperpy.core.errors import PepperpyError
 from pepperpy.orchestration import WorkflowOrchestrator
@@ -137,7 +140,12 @@ class CLI:
         )
         run_workflow.add_argument(
             "workflow_id",
-            help="ID of the workflow to run (<type>/<name>)",
+            help="ID of the workflow to run (name or type/name)",
+        )
+        run_workflow.add_argument(
+            "--topic",
+            "-t",
+            help="Topic or main input for the workflow",
         )
         run_workflow.add_argument(
             "--input",
@@ -153,6 +161,16 @@ class CLI:
             "--params",
             nargs="*",
             help="Additional parameters for the workflow (key=value format)",
+        )
+        run_workflow.add_argument(
+            "--output",
+            "-o",
+            help="Output file for the result (JSON format)",
+        )
+        run_workflow.add_argument(
+            "--task",
+            default="default",
+            help="Task to execute within the workflow (defaults to 'default')",
         )
 
         return parser
@@ -291,6 +309,10 @@ class CLI:
             else:
                 input_data = {}
 
+            # If topic is provided, add it to the input
+            if hasattr(args, "topic") and args.topic:
+                input_data["topic"] = args.topic
+
             # Process config from JSON string or file
             if args.config:
                 config = self._load_json_data(args.config)
@@ -299,7 +321,6 @@ class CLI:
 
             # If params are provided via command line, process them
             if hasattr(args, "params") and args.params:
-                print(f"Raw params: {args.params}")
                 for param in args.params:
                     if "=" in param:
                         key, value = param.split("=", 1)
@@ -321,9 +342,21 @@ class CLI:
 
                         # Add to input data
                         input_data[key] = value
-                        print(f"Added parameter: {key}={value}")
+                        self.logger.debug(f"Added parameter: {key}={value}")
 
-            await self._run_workflow(args.workflow_id, input_data, config)
+            # Get output file if specified
+            output_file = getattr(args, "output", None)
+
+            # Get task name if specified
+            task_name = getattr(args, "task", "default")
+
+            await self._run_workflow(
+                args.workflow_id,
+                input_data,
+                config,
+                output_file=output_file,
+                task_name=task_name,
+            )
         else:
             self.parser.error("Invalid workflow command")
 
@@ -359,38 +392,66 @@ class CLI:
         # Discover plugins
         await discovery.discover_plugins()
 
-        plugins = get_registry().list_plugins()
+        # Get the registry to access both loaded plugins and plugin info
+        registry = get_registry()
 
-        workflow_plugins = plugins.get("workflow", {})
+        # Access the plugin info directly from the registry for unloaded plugins
+        plugin_infos = registry._plugin_info.get("workflow", {})
 
-        if not workflow_plugins:
+        if not plugin_infos:
             print("No workflow plugins found.")
             return
 
         print("Available Workflows:")
         print("-------------------")
 
-        for name, plugin_class in sorted(workflow_plugins.items()):
-            plugin_id = f"workflow/{name}"
-            plugin_info = getattr(plugin_class, "__plugin_info__", {})
-            description = plugin_info.get("description", "No description")
-            print(f"  - {plugin_id}: {description}")
+        # Filter out duplicates and ensure consistent naming
+        unique_workflows = {}
+        for name, plugin_info in plugin_infos.items():
+            # Standardize the workflow ID format
+            if "/" in name:
+                # Already has domain prefix
+                parts = name.split("/", 1)
+                if parts[0] == "workflow":
+                    # Use the name without the workflow/ prefix for display
+                    workflow_id = parts[1]
+                else:
+                    # Keep other prefixes as is
+                    workflow_id = name
+            else:
+                # No prefix, use as is
+                workflow_id = name
+
+            # Skip duplicates and prefer the version without prefix
+            if name.startswith("workflow/") and name[9:] in unique_workflows:
+                continue
+
+            unique_workflows[workflow_id] = plugin_info
+
+        # Display workflows sorted by name
+        for workflow_id, plugin_info in sorted(unique_workflows.items()):
+            description = plugin_info.description
+            print(f"  - {workflow_id}: {description}")
 
     async def _show_workflow_info(self, workflow_id: str) -> None:
         """Show information about a workflow.
 
         Args:
-            workflow_id: Workflow ID (<type>/<name>)
+            workflow_id: Workflow ID (name or type/name)
         """
-        try:
-            workflow_type, workflow_name = workflow_id.split("/", 1)
-        except ValueError:
-            self.logger.error("Invalid workflow ID format. Use <type>/<name>")
-            return
-
-        if workflow_type != "workflow":
-            self.logger.error(f"Invalid workflow type: {workflow_type}")
-            return
+        # Normalize workflow_id to ensure it has the proper prefix
+        if "/" in workflow_id:
+            parts = workflow_id.split("/", 1)
+            if parts[0] != "workflow":
+                # If it has a different prefix, add workflow prefix
+                workflow_type, workflow_name = "workflow", workflow_id
+            else:
+                # Already has workflow/ prefix
+                workflow_type, workflow_name = parts
+        else:
+            # No prefix, assume it's a workflow name
+            workflow_type = "workflow"
+            workflow_name = workflow_id
 
         # Initialize plugin discovery
         discovery = PluginDiscoveryProvider()
@@ -399,103 +460,120 @@ class CLI:
         # Discover plugins
         await discovery.discover_plugins()
 
-        plugins = get_registry().list_plugins()
+        # Get registry to access plugin info for lazy-loaded plugins
+        registry = get_registry()
 
-        workflow_plugins = plugins.get("workflow", {})
+        # Try to find the plugin info in the registry
+        plugin_info = None
+        full_id = f"{workflow_type}/{workflow_name}"
+        if full_id in registry._plugin_info.get("workflow", {}):
+            plugin_info = registry._plugin_info["workflow"][full_id]
+        elif workflow_name in registry._plugin_info.get("workflow", {}):
+            plugin_info = registry._plugin_info["workflow"][workflow_name]
 
-        if workflow_name not in workflow_plugins:
+        if not plugin_info:
             self.logger.error(f"Workflow '{workflow_id}' not found")
             return
 
-        plugin_class = workflow_plugins[workflow_name]
-        plugin_info = getattr(plugin_class, "__plugin_info__", {})
+        # Load the plugin.yaml file for additional information
+        plugin_yaml_data = {}
+        if plugin_info.module_path:
+            plugin_dir = os.path.dirname(plugin_info.module_path)
+            yaml_path = os.path.join(plugin_dir, "plugin.yaml")
+            if os.path.exists(yaml_path):
+                try:
+                    with open(yaml_path) as f:
+                        plugin_yaml_data = yaml.safe_load(f)
+                except Exception as e:
+                    self.logger.warning(f"Error loading plugin.yaml: {e}")
 
         print(f"Workflow: {workflow_id}")
         print("-" * (len(workflow_id) + 10))
-        print(f"Name: {plugin_info.get('name', workflow_id)}")
-        print(f"Version: {plugin_info.get('version', 'unknown')}")
-        print(f"Description: {plugin_info.get('description', 'No description')}")
-        print(f"Author: {plugin_info.get('author', 'unknown')}")
+        print(f"Name: {plugin_info.name}")
+        print(f"Version: {plugin_info.version}")
+        print(f"Description: {plugin_info.description}")
+        print(f"Author: {plugin_yaml_data.get('author', 'unknown')}")
         print()
 
-        if "config_schema" in plugin_info:
+        if "config_schema" in plugin_yaml_data:
             print("Configuration schema:")
             print("---------------------")
-            schema = plugin_info["config_schema"]
-            if schema.get("properties"):
-                for name, prop in schema["properties"].items():
-                    default = prop.get("default", "none")
-                    required = name in schema.get("required", [])
-                    req_str = "(required)" if required else "(optional)"
-                    print(f"  - {name} {req_str}: {prop.get('description', '')}")
-                    print(f"    Type: {prop.get('type', 'any')}, Default: {default}")
-            else:
-                print("  No configuration properties defined")
+            schema = plugin_yaml_data["config_schema"]
+            for name, props in schema.items():
+                required = props.get("required", False)
+                req_str = "(required)" if required else "(optional)"
+                print(f"  - {name} {req_str}: {props.get('description', '')}")
+                print(
+                    f"    Type: {props.get('type', 'any')}, Default: {props.get('default', 'none')}"
+                )
             print()
 
-        if "documentation" in plugin_info:
+        if "documentation" in plugin_yaml_data:
             print("Documentation:")
             print("--------------")
-            print(plugin_info["documentation"])
-
-        if "usage" in plugin_info:
-            print("\nUsage examples:")
-            print("--------------")
-            print(plugin_info["usage"])
+            print(plugin_yaml_data["documentation"])
 
     async def _run_workflow(
-        self, workflow_id: str, input_data: dict[str, Any], config: dict[str, Any]
+        self,
+        workflow_id: str,
+        input_data: dict[str, Any],
+        config: dict[str, Any],
+        output_file: str | None = None,
+        task_name: str = "default",
     ) -> None:
         """Run a workflow.
 
         Args:
-            workflow_id: Workflow ID (<type>/<n>)
+            workflow_id: ID of the workflow to run
             input_data: Input data for the workflow
             config: Configuration for the workflow
+            output_file: Path to write the output to (if specified)
+            task_name: Name of the task to execute (defaults to "default")
         """
         try:
-            workflow_type, workflow_name = workflow_id.split("/", 1)
-        except ValueError:
-            self.logger.error("Invalid workflow ID format. Use <type>/<n>")
-            return
+            # Normalize workflow_id to ensure it has the proper prefix
+            if "/" in workflow_id:
+                parts = workflow_id.split("/", 1)
+                if parts[0] != "workflow":
+                    # If it has a different prefix, use it as is
+                    workflow_type, workflow_name = parts
+                else:
+                    # Already has workflow/ prefix
+                    workflow_type, workflow_name = parts
+            else:
+                # No prefix, assume it's a workflow name
+                workflow_type = "workflow"
+                workflow_name = workflow_id
 
-        if workflow_type != "workflow":
-            self.logger.error(f"Invalid workflow type: {workflow_type}")
-            return
-
-        # Import the discovery module
-
-        try:
-            print(f"Running workflow: {workflow_id}")
-            print("------------------------" + "-" * len(workflow_id))
-
-            # Format input data for workflow execution
-            task = input_data.pop("task", "default")
-
-            # Structure the input data properly for the workflow
-            task_input = {
-                "task": task,
-                "input": input_data.copy(),  # Use a copy to prevent modifying the original
-                "options": input_data.pop("options", {}),
+            # Structure the task input format
+            task_input: dict[str, Any] = {
+                "task": task_name,
             }
 
-            # Print the task input for debugging
-            print(f"Task input: {task_input}")
+            # Either directly use the topic (if provided) or include all options
+            if "topic" in input_data:
+                task_input["topic"] = input_data["topic"]
+                # Also add remaining options if any exist
+                remaining_options = {
+                    k: v for k, v in input_data.items() if k != "topic"
+                }
+                if remaining_options:
+                    task_input["options"] = remaining_options
+            else:
+                # No topic specified, include all input data as options
+                task_input["options"] = input_data
 
-            # Load just the specific workflow plugin we need
-            try:
-                # Try to load the specific workflow plugin
-                print(f"Loading workflow plugin: {workflow_name}")
-                workflow_class = await load_specific_plugin("workflow", workflow_name)
+            # Load the workflow plugin
+            workflow_provider = await load_specific_plugin(workflow_type, workflow_name)
 
-                # Create an instance of the workflow provider class
-                workflow_provider = workflow_class(**config)
-            except Exception as e:
-                self.logger.error(f"Failed to load workflow plugin: {e}")
+            if not workflow_provider:
+                self.logger.error(f"Workflow not found: {workflow_id}")
                 return
 
-            # Ensure the plugin implements the correct protocol
-            workflow_provider_typed: WorkflowProviderProtocol = workflow_provider  # type: ignore
+            self.logger.info(f"Running workflow: {workflow_id}")
+            workflow_provider_typed: WorkflowProviderProtocol = workflow_provider(
+                **config
+            )  # type: ignore
 
             # Initialize the provider
             await workflow_provider_typed.initialize()
@@ -503,6 +581,18 @@ class CLI:
             # Execute the workflow
             try:
                 result = await workflow_provider_typed.execute(task_input)
+
+                # Save result to file if requested
+                if output_file:
+                    # Convert to dict if needed
+                    if hasattr(result, "to_dict"):
+                        result_dict = result.to_dict()
+                    else:
+                        result_dict = result
+
+                    with open(output_file, "w") as f:
+                        json.dump(result_dict, f, indent=2, default=str)
+                    self.logger.info(f"Result saved to: {output_file}")
 
                 # Print the result
                 if hasattr(result, "to_dict"):

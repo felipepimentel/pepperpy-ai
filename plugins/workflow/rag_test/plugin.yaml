@@ -1,0 +1,35 @@
+name: rag_test
+version: 0.1.0
+description: Test workflow for RAG capabilities
+author: PepperPy Team
+
+plugin_type: workflow
+category: test
+provider_name: rag_test
+entry_point: provider.RAGTestWorkflow
+
+config_schema:
+  type: object
+  properties:
+    collection:
+      type: string
+      description: Collection name for document storage
+      default: test_collection
+    embedding_model:
+      type: string
+      description: Model to use for embeddings
+      default: text-embedding-ada-002
+    chunk_size:
+      type: integer
+      description: Size of text chunks for processing
+      default: 1000
+    chunk_overlap:
+      type: integer
+      description: Overlap between chunks
+      default: 200
+
+default_config:
+  collection: test_collection
+  embedding_model: text-embedding-ada-002
+  chunk_size: 1000
+  chunk_overlap: 200 
