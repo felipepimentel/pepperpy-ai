@@ -1,123 +1,250 @@
+"""Workflow Service for PepperPy API
+
+This module defines the workflow service interface and implementation for
+managing and executing PepperPy workflows.
 """
-Workflow Service
 
-This module provides a service to access workflow functionality
-without exposing direct plugin implementations.
-"""
+import importlib
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-import logging
-from typing import Any, Dict, Optional, List
+import yaml
 
-from pepperpy import PepperPy
+from .base import BaseService
 
-logger = logging.getLogger(__name__)
 
-class WorkflowService:
+class WorkflowService(BaseService):
+    """Service for workflow operations.
+
+    This service provides methods for discovering available workflows,
+    retrieving workflow metadata, and executing workflows.
     """
-    Service for managing workflow operations.
-    
-    This service provides an abstraction over different workflow plugins,
-    handling configuration and orchestration while keeping the API
-    independent from specific implementations.
-    """
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
         """Initialize the workflow service."""
-        self._pepperpy = None
-        self._initialized = False
-        logger.info("Workflow service created")
-    
+        super().__init__()
+        self._workflows: dict[str, dict[str, Any]] = {}
+
     async def initialize(self) -> None:
-        """Initialize the workflow service resources."""
+        """Initialize workflow service resources."""
         if self._initialized:
             return
-            
+
         try:
-            # Initialize PepperPy with workflow capabilities
-            # The specific workflow provider is determined by configuration
-            self._pepperpy = PepperPy().with_workflow()
+            # Load available workflows from plugin directory
+            await self._load_workflows()
+
             self._initialized = True
-            logger.info("Workflow service initialized")
+            self.logger.info("Workflow service initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize workflow service: {e}")
+            self.logger.error(f"Failed to initialize workflow service: {e}")
             raise
-    
+
     async def cleanup(self) -> None:
         """Clean up workflow service resources."""
         if not self._initialized:
             return
-            
-        # Release resources if any
-        self._initialized = False
-        logger.info("Workflow service resources cleaned up")
-    
-    async def get_available_workflows(self) -> List[str]:
-        """
-        Get a list of available workflow types.
-        
-        Returns:
-            List of available workflow types.
-        """
-        if not self._initialized:
-            await self.initialize()
-            
-        # This would typically query the framework for registered workflows
-        # For now, returning a sample list
-        return ["api_governance", "api_blueprint", "api_evolution", "api_mock", "a2a_demo"]
-    
-    async def execute_workflow(self, 
-                              workflow_type: str, 
-                              input_data: Dict[str, Any],
-                              config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Execute a workflow with the given input data.
-        
-        Args:
-            workflow_type: The type of workflow to execute
-            input_data: The input data for the workflow
-            config: Optional configuration overrides
-            
-        Returns:
-            The workflow execution results.
-        """
-        if not self._initialized:
-            await self.initialize()
-            
+
         try:
-            # Create a pepperpy instance with the requested workflow
-            # Configuration determines which specific implementation is used
-            pepper = self._pepperpy.with_workflow(workflow_type, **(config or {}))
-            
-            # Execute the workflow
-            result = await pepper.workflow.execute(input_data)
-            return result
+            # Clean up any resources (workflow providers, etc.)
+            self._workflows = {}
+
+            self._initialized = False
+            self.logger.info("Workflow service cleaned up")
         except Exception as e:
-            logger.error(f"Error executing workflow '{workflow_type}': {e}")
-            return {
-                "status": "error",
-                "message": f"Failed to execute workflow: {str(e)}"
-            }
-    
-    async def get_workflow_status(self, workflow_id: str) -> Dict[str, Any]:
-        """
-        Get the status of a workflow execution.
-        
-        Args:
-            workflow_id: The ID of the workflow execution
-            
+            self.logger.error(f"Error during workflow service cleanup: {e}")
+
+    async def get_workflows(self) -> list[dict[str, Any]]:
+        """Get all available workflows.
+
         Returns:
-            Status information for the workflow.
+            List of workflow metadata
         """
         if not self._initialized:
             await self.initialize()
-            
-        # This would typically query the workflow status
-        # For now, returning a sample status
+
+        return [
+            {
+                "id": workflow_id,
+                "name": details.get("name", ""),
+                "description": details.get("description", ""),
+                "category": details.get("category", "other"),
+                "version": details.get("version", "0.1.0"),
+            }
+            for workflow_id, details in self._workflows.items()
+        ]
+
+    async def get_workflow_schema(self, workflow_id: str) -> dict[str, Any]:
+        """Get the schema for a specific workflow.
+
+        Args:
+            workflow_id: ID of the workflow
+
+        Returns:
+            Workflow schema
+
+        Raises:
+            ValueError: If workflow not found
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        if workflow_id not in self._workflows:
+            raise ValueError(f"Workflow not found: {workflow_id}")
+
+        workflow = self._workflows[workflow_id]
         return {
             "id": workflow_id,
-            "status": "completed",
-            "progress": 100
+            "name": workflow.get("name", ""),
+            "description": workflow.get("description", ""),
+            "schema": workflow.get("schema", {}),
+            "version": workflow.get("version", "0.1.0"),
         }
 
-# Singleton instance
-workflow_service = WorkflowService() 
+    async def execute_workflow(
+        self,
+        workflow_id: str,
+        input_data: dict[str, Any],
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Execute a workflow.
+
+        Args:
+            workflow_id: ID of the workflow to execute
+            input_data: Input data for the workflow
+            config: Optional configuration for the workflow
+
+        Returns:
+            Workflow execution result
+
+        Raises:
+            ValueError: If workflow not found
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        if workflow_id not in self._workflows:
+            raise ValueError(f"Workflow not found: {workflow_id}")
+
+        try:
+            # Get workflow provider
+            provider = await self._get_workflow_provider(workflow_id, config)
+
+            # Execute workflow
+            start_time = datetime.now()
+            result = await provider.execute(input_data)
+            execution_time = (datetime.now() - start_time).total_seconds()
+
+            # Clean up provider
+            await provider.cleanup()
+
+            # Return result with metadata
+            return {
+                "status": "success",
+                "workflow_id": workflow_id,
+                "execution_time": execution_time,
+                "timestamp": datetime.now().isoformat(),
+                "result": result,
+            }
+        except Exception as e:
+            self.logger.error(f"Error executing workflow {workflow_id}: {e}")
+            return {
+                "status": "error",
+                "workflow_id": workflow_id,
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e),
+            }
+
+    async def _load_workflows(self) -> None:
+        """Load available workflows from plugins directory."""
+        self._workflows = {}
+
+        # Get plugin directory from environment or use default
+        plugin_dir = os.environ.get("PEPPERPY_PLUGIN_DIR", "plugins")
+        workflow_dir = Path(plugin_dir) / "workflow"
+
+        if not workflow_dir.exists():
+            self.logger.warning(f"Workflow directory not found: {workflow_dir}")
+            return
+
+        for plugin_dir in workflow_dir.iterdir():
+            if not plugin_dir.is_dir():
+                continue
+
+            # Check for plugin.yaml
+            plugin_yaml = plugin_dir / "plugin.yaml"
+            if not plugin_yaml.exists():
+                continue
+
+            try:
+                # Load plugin metadata
+                with open(plugin_yaml) as f:
+                    plugin_data = yaml.safe_load(f)
+
+                # Extract workflow information
+                workflow_id = plugin_data.get("name", "").lower().replace(" ", "_")
+                workflow_info = {
+                    "id": workflow_id,
+                    "name": plugin_data.get("name", ""),
+                    "description": plugin_data.get("description", ""),
+                    "version": plugin_data.get("version", "0.1.0"),
+                    "category": plugin_data.get("category", "other"),
+                    "entry_point": plugin_data.get("entry_point", ""),
+                    "config_schema": plugin_data.get("config_schema", {}),
+                    "schema": plugin_data.get("config_schema", {}),
+                }
+
+                # Register workflow
+                self._workflows[workflow_id] = workflow_info
+                self.logger.info(f"Registered workflow: {workflow_id}")
+            except Exception as e:
+                self.logger.error(f"Error loading workflow from {plugin_dir}: {e}")
+
+    async def _get_workflow_provider(
+        self, workflow_id: str, config: dict[str, Any] | None = None
+    ) -> Any:
+        """Get workflow provider instance.
+
+        Args:
+            workflow_id: ID of the workflow
+            config: Optional configuration for the workflow
+
+        Returns:
+            Workflow provider instance
+        """
+        workflow = self._workflows[workflow_id]
+        entry_point = workflow.get("entry_point", "")
+
+        if not entry_point or "." not in entry_point:
+            raise ValueError(
+                f"Invalid entry point for workflow {workflow_id}: {entry_point}"
+            )
+
+        # Parse entry point
+        module_path, class_name = entry_point.split(".", 1)
+        module_path = f"plugins.workflow.{workflow_id}.{module_path}"
+
+        try:
+            # Import module
+            module = importlib.import_module(module_path)
+
+            # Get provider class
+            provider_class = getattr(module, class_name)
+
+            # Create provider instance with config
+            config = config or {}
+            provider = provider_class(**config)
+
+            # Initialize provider
+            await provider.initialize()
+
+            return provider
+        except Exception as e:
+            self.logger.error(f"Error creating provider for {workflow_id}: {e}")
+            raise
+
+
+# Create a singleton instance
+workflow_service = WorkflowService()

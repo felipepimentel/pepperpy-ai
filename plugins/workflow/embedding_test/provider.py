@@ -30,12 +30,14 @@ class EmbeddingTestWorkflow(WorkflowProvider):
 
         try:
             if not self.embedding_provider:
-                raise ValueError("Embedding provider not initialized")
+                return WorkflowResult(
+                    success=False, error="Embedding provider not initialized"
+                )
 
             embeddings = await self.embedding_provider.get_embeddings(
                 texts, batch_size=self.batch_size
             )
-            result = {"embeddings": embeddings}
+            result: dict[str, Any] = {"embeddings": embeddings}
 
             if query:
                 query_embedding = await self.embedding_provider.get_embeddings(
