@@ -1,7 +1,7 @@
 """
-Command-line interface for PepperPy.
+PepperPy Command Line Interface.
 
-This module provides a command-line interface for interacting with PepperPy.
+This module provides the main CLI for the PepperPy framework.
 """
 
 import argparse
@@ -11,14 +11,16 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, cast
 
 import yaml
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core.base import PepperpyError
 from pepperpy.orchestration import WorkflowOrchestrator
+from pepperpy.plugin import get_plugin, list_plugins
 from pepperpy.plugin.discovery import PluginDiscoveryProvider, load_specific_plugin
 from pepperpy.plugin.registry import get_registry
+from pepperpy.plugin.testing import PluginRunner
 
 
 # Define a protocol for workflow providers
@@ -106,6 +108,105 @@ class CLI:
             help="Plugin ID to show info for",
         )
 
+        # Agent commands
+        agent_parser = subparsers.add_parser(
+            "agent",
+            help="Manage agents",
+        )
+        agent_subparsers = agent_parser.add_subparsers(
+            title="agent commands",
+            dest="agent_command",
+            help="Agent command to execute",
+        )
+
+        # List agents
+        list_agents = agent_subparsers.add_parser(
+            "list",
+            help="List available agents",
+        )
+
+        # Info agent
+        info_agent = agent_subparsers.add_parser(
+            "info",
+            help="Show agent information",
+        )
+        info_agent.add_argument(
+            "agent_id",
+            help="ID of the agent to show info for",
+        )
+
+        # Run agent
+        run_agent = agent_subparsers.add_parser(
+            "run",
+            help="Run an agent with a specific task",
+        )
+        run_agent.add_argument(
+            "agent_id",
+            help="ID of the agent to run",
+        )
+        run_agent.add_argument(
+            "--task",
+            "-t",
+            required=True,
+            help="Task to execute",
+        )
+        run_agent.add_argument(
+            "--model",
+            help="Model to use (overrides default)",
+        )
+        run_agent.add_argument(
+            "--config",
+            type=str,
+            help="Configuration for the agent (JSON string or path to JSON file)",
+        )
+        run_agent.add_argument(
+            "--pretty",
+            action="store_true",
+            help="Pretty print the output",
+        )
+
+        # Test agent
+        test_agent = agent_subparsers.add_parser(
+            "test",
+            help="Test an agent with examples from plugin.yaml",
+        )
+        test_agent.add_argument(
+            "agent_id",
+            help="ID of the agent to test",
+        )
+        test_agent.add_argument(
+            "--example",
+            help="Name of specific example to run (default: run all examples)",
+        )
+        test_agent.add_argument(
+            "--pretty",
+            action="store_true",
+            help="Pretty print the output",
+        )
+
+        # Chat with agent
+        chat_agent = agent_subparsers.add_parser(
+            "chat",
+            help="Start an interactive chat session with an agent",
+        )
+        chat_agent.add_argument(
+            "agent_id",
+            help="ID of the agent to chat with",
+        )
+        chat_agent.add_argument(
+            "--model",
+            help="Model to use (overrides default)",
+        )
+        chat_agent.add_argument(
+            "--system",
+            help="System prompt to initialize the chat",
+        )
+        chat_agent.add_argument(
+            "--config",
+            type=str,
+            help="Configuration for the agent (JSON string or path to JSON file)",
+        )
+
         # Workflow commands
         workflow_parser = subparsers.add_parser(
             "workflow",
@@ -130,7 +231,7 @@ class CLI:
         )
         info_workflow.add_argument(
             "workflow_id",
-            help="ID of the workflow to show info for (<type>/<name>)",
+            help="ID of the workflow to show info for (<type>/<n>)",
         )
 
         # Run workflow
@@ -611,6 +712,309 @@ class CLI:
         except Exception as e:
             self.logger.error(f"Error running workflow: {e}")
 
+    async def _handle_agent_command(self, args: argparse.Namespace) -> None:
+        """Handle agent-related commands.
+
+        Args:
+            args: Parsed command-line arguments
+        """
+        if args.agent_command == "list":
+            await self._handle_agent_list()
+        elif args.agent_command == "info":
+            await self._handle_agent_info(args.agent_id)
+        elif args.agent_command == "run":
+            await self._handle_agent_run(args)
+        elif args.agent_command == "test":
+            await self._handle_agent_test(args)
+        elif args.agent_command == "chat":
+            await self._handle_agent_chat(args)
+        else:
+            self.parser.error(f"Unknown agent command: {args.agent_command}")
+
+    async def _handle_agent_list(self) -> None:
+        """List available agent plugins."""
+        self.logger.info("Available agent plugins:")
+
+        agents = list_plugins("agent")
+        if not agents:
+            self.logger.info("No agent plugins found")
+            return
+
+        # Format and display the list
+        for agent in agents:
+            if isinstance(agent, dict):
+                plugin_type = agent.get("plugin_type", "agent")
+                provider_name = agent.get("provider_name", "unknown")
+                description = agent.get("description", "No description")
+                self.logger.info(f"  {plugin_type}/{provider_name} - {description}")
+
+    async def _handle_agent_info(self, agent_id: str) -> None:
+        """Show information about an agent plugin.
+
+        Args:
+            agent_id: Agent identifier (type/name)
+        """
+        if "/" not in agent_id:
+            self.logger.error(
+                f"Invalid agent ID format: {agent_id}. Use 'type/name' format."
+            )
+            return
+
+        plugin_type, provider_name = agent_id.split("/", 1)
+        if plugin_type != "agent":
+            plugin_type = "agent"
+
+        self.logger.info(f"Info for agent: {plugin_type}/{provider_name}")
+
+        # Get plugin metadata
+        metadata = get_plugin(plugin_type, provider_name)
+        if not metadata:
+            self.logger.error(f"Agent not found: {plugin_type}/{provider_name}")
+            return
+
+        # Garantir que metadata é um dicionário
+        metadata_dict = cast(dict[str, Any], metadata)
+
+        # Display detailed information
+        self.logger.info(f"  Name: {metadata_dict.get('name', 'N/A')}")
+        self.logger.info(f"  Description: {metadata_dict.get('description', 'N/A')}")
+        self.logger.info(f"  Version: {metadata_dict.get('version', 'N/A')}")
+        self.logger.info(f"  Author: {metadata_dict.get('author', 'N/A')}")
+
+        # Display configuration schema if available
+        config_schema = metadata_dict.get("config_schema", {})
+        if config_schema:
+            self.logger.info("  Configuration options:")
+            for prop_name, prop_info in config_schema.get("properties", {}).items():
+                default = prop_info.get("default", "None")
+                self.logger.info(
+                    f"    {prop_name}: {prop_info.get('description', 'No description')} (default: {default})"
+                )
+
+    async def _handle_agent_run(self, args: argparse.Namespace) -> None:
+        """Run an agent with a specific task.
+
+        Args:
+            args: Command-line arguments
+        """
+        agent_id = args.agent_id
+        if "/" not in agent_id:
+            self.logger.error(
+                f"Invalid agent ID format: {agent_id}. Use 'type/name' format."
+            )
+            return
+
+        # Parse configuration
+        config = self._parse_json_arg(args.config) if args.config else {}
+
+        # Add model if specified
+        if args.model:
+            config["model"] = args.model
+
+        # Prepare task input
+        task_input = {"task": args.task, "config": config}
+
+        self.logger.info(f"Running agent {agent_id} with task: {args.task}")
+
+        try:
+            # Use PluginRunner to execute the agent
+            agent_type, agent_name = agent_id.split("/", 1)
+            plugin_path = f"plugins/{agent_type}/{agent_name}"
+
+            result = await PluginRunner.run_plugin(plugin_path, task_input)
+
+            # Display the result
+            if args.pretty:
+                print(json.dumps(result, indent=2))
+            else:
+                print(result)
+
+        except Exception as e:
+            self.logger.error(f"Error running agent: {e}")
+            sys.exit(1)
+
+    async def _handle_agent_test(self, args: argparse.Namespace) -> None:
+        """Test an agent with examples from plugin.yaml.
+
+        Args:
+            args: Command-line arguments
+        """
+        agent_id = args.agent_id
+        if "/" not in agent_id:
+            self.logger.error(
+                f"Invalid agent ID format: {agent_id}. Use 'type/name' format."
+            )
+            return
+
+        agent_type, agent_name = agent_id.split("/", 1)
+        plugin_path = f"plugins/{agent_type}/{agent_name}"
+
+        # Check if plugin.yaml exists and has examples
+        plugin_yaml_path = os.path.join(plugin_path, "plugin.yaml")
+        if not os.path.exists(plugin_yaml_path):
+            self.logger.error(f"Plugin configuration not found: {plugin_yaml_path}")
+            return
+
+        try:
+            with open(plugin_yaml_path) as f:
+                plugin_config = yaml.safe_load(f)
+
+            examples = plugin_config.get("examples", [])
+            if not examples:
+                self.logger.error(f"No examples found in {plugin_yaml_path}")
+                return
+
+            # Filter by example name if specified
+            if args.example:
+                examples = [ex for ex in examples if ex.get("name") == args.example]
+                if not examples:
+                    self.logger.error(
+                        f"Example '{args.example}' not found in {plugin_yaml_path}"
+                    )
+                    return
+
+            self.logger.info(f"Running {len(examples)} example(s) for agent {agent_id}")
+
+            for i, example in enumerate(examples):
+                name = example.get("name", f"Example {i + 1}")
+                description = example.get("description", "No description")
+                input_data = example.get("input", {})
+                expected = example.get("expected_output", {})
+
+                self.logger.info(f"  Running example '{name}': {description}")
+
+                # Run the example
+                result = await PluginRunner.run_plugin(plugin_path, input_data)
+
+                # Check if result matches expected output
+                all_matched = True
+                for key, value in expected.items():
+                    if key not in result or result[key] != value:
+                        all_matched = False
+                        self.logger.warning(
+                            f"    Expected {key}={value}, got {result.get(key, 'missing')}"
+                        )
+
+                if all_matched:
+                    self.logger.info("    ✓ Test passed")
+                else:
+                    self.logger.warning("    ✗ Test failed")
+
+                # Display the result
+                if args.pretty:
+                    print(json.dumps(result, indent=2))
+
+        except Exception as e:
+            self.logger.error(f"Error testing agent: {e}")
+            sys.exit(1)
+
+    async def _handle_agent_chat(self, args: argparse.Namespace) -> None:
+        """Start an interactive chat session with an agent.
+
+        Args:
+            args: Command-line arguments
+        """
+        agent_id = args.agent_id
+        if "/" not in agent_id:
+            self.logger.error(
+                f"Invalid agent ID format: {agent_id}. Use 'type/name' format."
+            )
+            return
+
+        # Parse configuration
+        config = self._parse_json_arg(args.config) if args.config else {}
+
+        # Add model if specified
+        if args.model:
+            config["model"] = args.model
+
+        # Prepare for chat session
+        agent_type, agent_name = agent_id.split("/", 1)
+        plugin_path = f"plugins/{agent_type}/{agent_name}"
+
+        self.logger.info(f"Starting chat session with agent {agent_id}")
+        self.logger.info("Type 'exit' or 'quit' to end the session")
+
+        try:
+            # Initialize agent
+            agent_instance = await self._create_agent_instance(plugin_path, config)
+
+            # Add system message if provided
+            messages = []
+            if args.system:
+                messages.append({"role": "system", "content": args.system})
+
+            # Start interactive loop
+            while True:
+                # Get user input
+                user_input = input("\nYou: ")
+                if user_input.lower() in ["exit", "quit", "q"]:
+                    break
+
+                # Add to messages
+                messages.append({"role": "user", "content": user_input})
+
+                # Prepare task input with conversation history
+                task_input = {"task": "chat", "messages": messages, "config": config}
+
+                # Send to agent
+                print("\nAgent is thinking...")
+                result = await agent_instance.execute(task_input)
+
+                # Extract and display response
+                response = result.get("response", result.get("content", "No response"))
+                print(f"\nAgent: {response}")
+
+                # Add to messages
+                messages.append({"role": "assistant", "content": response})
+
+        except Exception as e:
+            self.logger.error(f"Error in chat session: {e}")
+            return
+
+    async def _create_agent_instance(self, plugin_path: str, config: dict) -> Any:
+        """Create and initialize an agent instance.
+
+        Args:
+            plugin_path: Path to the plugin
+            config: Agent configuration
+
+        Returns:
+            Initialized agent instance
+        """
+        provider_class, plugin_config = await PluginRunner._resolve_plugin(plugin_path)
+
+        # Merge configurations
+        if plugin_config:
+            config = {**plugin_config, **config}
+
+        # Create instance
+        instance = provider_class(**config)
+
+        # Initialize
+        await instance.initialize()
+
+        return instance
+
+    def _parse_json_arg(self, arg: str) -> dict[str, Any]:
+        """Parse a JSON argument from string or file.
+
+        Args:
+            arg: JSON string or path to JSON file
+
+        Returns:
+            Parsed JSON as dictionary
+        """
+        if os.path.isfile(arg):
+            with open(arg) as f:
+                return json.load(f)
+        else:
+            try:
+                return json.loads(arg)
+            except json.JSONDecodeError:
+                self.logger.error(f"Invalid JSON: {arg}")
+                return {}
+
     async def run_async(self) -> None:
         """Run CLI asynchronously."""
         args = self.parser.parse_args()
@@ -623,6 +1027,8 @@ class CLI:
                 await self._handle_plugin_command(args)
             elif args.command == "workflow":
                 await self._handle_workflow_command(args)
+            elif args.command == "agent":
+                await self._handle_agent_command(args)
             else:
                 self.parser.print_help()
         except PepperpyError as e:

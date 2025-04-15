@@ -1,30 +1,67 @@
-name: agents/autogen
+name: agent/autogen
 version: 0.1.0
-description: Provider for Autogen for agents tasks
+description: AutoGen provider for autonomous agents
 author: PepperPy Team
-plugin_type: agents
-default_config: null
-config_schema: null
-documentation:
-  usage: 'Autogen provider for agents tasks.
 
-
-    Example usage:
-
-    ```python
-
-    from pepperpy import create_provider
-
-
-    provider = create_provider("agents", "autogen")
-
-
-    # Usage example here
-
-    ```
-
-    '
-category: agents
+plugin_type: agent
+category: provider
 provider_name: autogen
 entry_point: provider.AutoGenAgent
-required_config_keys: []
+
+config_schema:
+  type: object
+  properties:
+    model:
+      type: string
+      description: LLM model to use
+      default: gpt-3.5-turbo
+    temperature:
+      type: number
+      description: Temperature for sampling
+      default: 0.7
+    max_tokens:
+      type: integer
+      description: Maximum number of tokens
+      default: 1000
+    system_prompt:
+      type: string
+      description: System prompt for initialization
+      default: "You are a helpful assistant."
+
+default_config:
+  model: gpt-3.5-turbo
+  temperature: 0.7
+  max_tokens: 1000
+  system_prompt: "You are a helpful assistant."
+
+# Examples for testing the plugin
+examples:
+  - name: "basic_question"
+    description: "Basic question test"
+    input:
+      task: "What is 2+2?"
+      config:
+        model: "gpt-3.5-turbo"
+    expected_output:
+      status: "success"
+
+  - name: "code_generation"
+    description: "Code generation test"
+    input:
+      task: "Write a Python function to calculate fibonacci numbers"
+      config:
+        model: "gpt-4"
+        temperature: 0.2
+    expected_output:
+      status: "success"
+
+  - name: "chat_conversation"
+    description: "Multi-turn conversation test"
+    input:
+      task: "chat"
+      messages: [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, how are you?"}
+      ]
+    expected_output:
+      status: "success"
