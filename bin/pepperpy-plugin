@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""
+CLI tool for running PepperPy plugins.
+
+This tool provides a simple command-line interface for running
+plugins without requiring additional setup.
+"""
+
+import argparse
+import asyncio
+import os
+import sys
+
+# Add the parent directory to the path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from pepperpy.plugin.testing import PluginRunner
+
+
+async def run_command(args: argparse.Namespace) -> None:
+    """Run a plugin with the given input."""
+    try:
+        result = await PluginRunner.run_plugin(args.plugin_path, args.input)
+        if args.pretty:
+            import json
+
+            print(json.dumps(result, indent=2))
+        else:
+            print(result)
+    except Exception as e:
+        print(f"Error running plugin: {e}")
+        sys.exit(1)
+
+
+def main() -> None:
+    """Main entry point for CLI."""
+    parser = argparse.ArgumentParser(
+        description="CLI tool for running PepperPy plugins",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+
+    # Run command
+    run_parser = subparsers.add_parser("run", help="Run a plugin")
+    run_parser.add_argument(
+        "plugin_path",
+        help="Plugin path (module.Class) or directory containing plugin.yaml",
+    )
+    run_parser.add_argument(
+        "--input",
+        "-i",
+        help="JSON input data or path to JSON file",
+        default="{}",
+    )
+    run_parser.add_argument(
+        "--pretty",
+        "-p",
+        action="store_true",
+        help="Pretty print output",
+    )
+    run_parser.set_defaults(func=run_command)
+
+    args = parser.parse_args()
+
+    if not hasattr(args, "func"):
+        parser.print_help()
+        sys.exit(1)
+
+    import json
+
+    # Handle input data
+    if hasattr(args, "input"):
+        if os.path.isfile(args.input):
+            with open(args.input) as f:
+                args.input = json.load(f)
+        else:
+            try:
+                args.input = json.loads(args.input)
+            except json.JSONDecodeError:
+                args.input = args.input  # Treat as string if not valid JSON
+
+    # Run the command
+    asyncio.run(args.func(args))
+
+
+if __name__ == "__main__":
+    main()

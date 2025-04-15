@@ -1,3 +1,0 @@
-"""
-SQLite Storage Provider Tests.
-"""

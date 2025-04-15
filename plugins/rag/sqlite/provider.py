@@ -225,10 +225,11 @@ def __init__(
         Returns:
             Embedding vector
         """
-        # Generate random vector for mock implementation
-        vector = np.random.randn(self.embedding_dim)
-        vector = vector / np.linalg.norm(vector)
-        return vector.tolist()
+        # Real applications should use a proper embedding provider
+        raise NotImplementedError(
+            "SQLiteRAGProvider does not implement embedding functionality. "
+            "Please use a real embedding provider through the framework."
+        )
 
     async def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """Embed multiple documents.
@@ -239,8 +240,11 @@ def __init__(
         Returns:
             List of embedding vectors
         """
-        # Ensure we're using the same dimension as embed_query
-        return [await self.embed_query(text) for text in texts]
+        # Real applications should use a proper embedding provider
+        raise NotImplementedError(
+            "SQLiteRAGProvider does not implement embedding functionality. "
+            "Please use a real embedding provider through the framework."
+        )
 
     async def store_documents(self, documents: List[Document]) -> None:
         """Store documents in the RAG context.

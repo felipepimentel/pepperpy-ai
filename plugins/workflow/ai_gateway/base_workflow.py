@@ -11,7 +11,7 @@ from pepperpy.core.types import ModelProvider
 
 from .metrics import MetricsCollector
 from .retry import RetryConfig, with_retry
-from .validation import ValidationResult, WorkflowValidator
+from .validation.validator import ValidationResult, WorkflowValidator
 from .workflow_state import WorkflowState, WorkflowStateManager
 
 T = TypeVar("T")
@@ -61,7 +61,7 @@ class BaseWorkflow:
         retry_config: RetryConfig | None = None,
         state_path: str = "/tmp/workflow_states",
         metrics_path: str = "/tmp/workflow_metrics",
-        llm_provider: str = "mock",
+        llm_provider: str = "basic",
         llm_model: str | None = None,
         use_rag: bool = False,
         use_vision: bool = False,
@@ -125,9 +125,12 @@ class BaseWorkflow:
         # Validate step
         validation = self._validate_step(step)
         if validation and not validation.is_valid:
-            raise ValueError(
-                f"Invalid step configuration: {validation.errors[0].message}"
-            )
+            # Get error issues
+            error_issues = [i for i in validation.issues if i.is_error]
+            error_message = "Invalid step configuration"
+            if error_issues:
+                error_message = f"Invalid step configuration: {error_issues[0].message}"
+            raise ValueError(error_message)
 
         provider = self._check_initialized()
         step_type = step["type"]
@@ -176,8 +179,15 @@ class BaseWorkflow:
         if self.validator:
             validation = self.validator.validate_chain(list(steps))
             if not validation.is_valid:
+                error_message = "Invalid chain configuration"
+                # Get error issues
+                error_issues = [i for i in validation.issues if i.is_error]
+                if error_issues:
+                    error_message = (
+                        f"Invalid chain configuration: {error_issues[0].message}"
+                    )
                 return WorkflowResult.error(
-                    f"Invalid chain configuration: {validation.errors[0].message}",
+                    error_message,
                     validation,
                 )
 
@@ -186,17 +196,21 @@ class BaseWorkflow:
         for step in steps:
             try:
                 result = await self.execute_step(step)
-                results.append({
-                    "type": step["type"],
-                    "result": result,
-                    "success": True,
-                })
+                results.append(
+                    {
+                        "type": step["type"],
+                        "result": result,
+                        "success": True,
+                    }
+                )
             except Exception as e:
-                results.append({
-                    "type": step["type"],
-                    "error": str(e),
-                    "success": False,
-                })
+                results.append(
+                    {
+                        "type": step["type"],
+                        "error": str(e),
+                        "success": False,
+                    }
+                )
                 # Don't break chain on error unless specified
                 if step.get("break_on_error", False):
                     break
@@ -212,8 +226,15 @@ class BaseWorkflow:
         if self.validator:
             validation = self.validator.validate_parallel(operations)
             if not validation.is_valid:
+                error_message = "Invalid parallel configuration"
+                # Get error issues
+                error_issues = [i for i in validation.issues if i.is_error]
+                if error_issues:
+                    error_message = (
+                        f"Invalid parallel configuration: {error_issues[0].message}"
+                    )
                 return WorkflowResult.error(
-                    f"Invalid parallel configuration: {validation.errors[0].message}",
+                    error_message,
                     validation,
                 )
 

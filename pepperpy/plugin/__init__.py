@@ -5,6 +5,7 @@ This module provides plugin management and discovery for the PepperPy framework.
 """
 
 # Import base interfaces and classes
+# Import factory function
 from pepperpy.plugin.base import (
     PepperpyPlugin,
     PluginDiscoveryProtocol,
@@ -15,6 +16,7 @@ from pepperpy.plugin.base import (
     ResourceError,
     ResourceMixin,
     ResourceType,
+    create_provider_instance,
 )
 
 # Import discovery functions
@@ -38,6 +40,7 @@ from pepperpy.plugin.registry import (
     register_plugin,
 )
 
+# Define __all__ without testing utilities initially
 __all__ = [
     # Base interfaces and classes
     "PepperpyPlugin",
@@ -66,7 +69,11 @@ __all__ = [
     "create_provider_instance",
 ]
 
-# Factory function
-from pepperpy.plugin.base import create_provider_instance
+# Try to import testing utilities if available
+try:
+    from pepperpy.plugin.testing import PluginRunner, PluginTester
 
-__all__.append("create_provider_instance")
+    __all__.extend(["PluginRunner", "PluginTester"])
+except ImportError:
+    # Testing module may not be available yet
+    pass

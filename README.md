@@ -117,6 +117,73 @@ plugins/workflow/my_workflow/
 └── provider.py
 ```
 
+## Plugin Testing
+
+PepperPy uses a unique approach for testing plugins without requiring separate test files in plugin directories. Instead, plugins define examples directly in their `plugin.yaml` files:
+
+### Plugin Examples
+
+```yaml
+# In plugin.yaml
+examples:
+  - name: "simple_example"
+    description: "Basic example"
+    input:
+      param1: "value1"
+    expected_output:
+      status: "success"
+```
+
+### Testing via CLI
+
+Test plugins using the CLI tool:
+
+```bash
+# Test all examples in a plugin
+bin/pepperpy-plugin test plugins/domain/provider_name
+
+# Run a plugin with custom input
+bin/pepperpy-plugin run plugins/domain/provider_name --input '{"param": "value"}'
+```
+
+### Centralized Test Structure
+
+Tests are kept in a centralized location, separate from plugin directories:
+
+```
+tests/
+├── plugins/                # Plugin tests
+│   ├── conftest.py         # Common test fixtures
+│   └── domain/             # Tests for domain plugins
+│       └── provider/       # Tests for specific provider
+│           └── test_provider.py  # Test implementation
+```
+
+### Test Fixtures for Easy Implementation
+
+```python
+# In a test file
+@pytest.mark.asyncio
+async def test_provider_with_examples(plugin_examples, plugin_runner):
+    """Test provider using examples from plugin.yaml."""
+    examples = plugin_examples("domain", "provider")
+    
+    for example in examples:
+        result = await plugin_runner("domain", "provider", example["input"])
+        # Validate against expected output
+        assert result["status"] == example["expected_output"]["status"]
+```
+
+### Key Benefits
+
+- **No Test Files in Plugin Directories**: Keeps plugin directories clean
+- **Examples as Documentation**: Examples serve as both tests and documentation
+- **CLI-Based Testing**: Easy manual testing through command line
+- **Centralized Test Framework**: Consistent testing approach
+- **Real-World Patterns**: Based on lessons from large plugin ecosystems
+
+For more details, see our [Plugin Testing Guide](docs/plugin-testing.md).
+
 ## License
 
 MIT

@@ -1,54 +1,48 @@
-"""Example of simplified AI Gateway workflow usage with corrected imports."""
+"""Example AI Gateway workflow using real providers.
+
+This example demonstrates using the AI Gateway adapter directly
+with real providers for testing or development.
+"""
 
 import asyncio
-import uuid
+import os
 
-from pepperpy.core.base import PepperpyError
-from plugins.workflow.ai_gateway.gateway import (
-    GatewayRequest,
-    GatewayStatus,
-)
-from plugins.workflow.ai_gateway.run_mesh import MockModelProvider
+from plugins.workflow.ai_gateway.adapter import AIGatewayAdapter
 
 
-async def simple_example() -> None:
-    """Simple chat example with mock provider."""
-    # Create a mock provider directly
-    provider = MockModelProvider(model_id="mock-gpt")
-    await provider.initialize()
+async def run_example() -> None:
+    """Simple chat example with provider."""
+    # Get provider type from environment variable or use default
+    provider_type = os.environ.get("PEPPERPY_LLM_PROVIDER", "openai")
+    model_id = os.environ.get("PEPPERPY_LLM_MODEL", "gpt-3.5-turbo")
 
-    try:
-        # Create a request with request ID and target
-        request = GatewayRequest(
-            request_id=str(uuid.uuid4()),
-            operation="chat",
-            target="mock-gpt",  # Required field
-            parameters={
+    print(
+        f"Creating AIGatewayAdapter with provider_type={provider_type}, model_id={model_id}"
+    )
+
+    # Use the adapter pattern
+    async with AIGatewayAdapter(
+        provider_type=provider_type, model_id=model_id
+    ) as adapter:
+        # Create a chat request
+        result = await adapter.execute(
+            {
+                "operation": "chat",
+                "target": model_id,  # Required field
                 "messages": [
-                    {"role": "user", "content": "What is the capital of France?"}
-                ]
-            },
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": "Tell me about PepperPy framework."},
+                ],
+            }
         )
 
-        # Execute the request
-        response = await provider.execute(request)
-
-        # Print the result
-        if response.status == GatewayStatus.SUCCESS:
-            print(f"Chat Response: {response.outputs}")
+        print("\nChat Result:")
+        print(f"Status: {result.get('status')}")
+        if result.get("status") == "success":
+            print(f"Response: {result.get('data', {}).get('message')}")
         else:
-            print(f"Error: {response.error}")
-    finally:
-        await provider.cleanup()
-
-
-async def main() -> None:
-    """Run the example."""
-    try:
-        await simple_example()
-    except PepperpyError as e:
-        print(f"Error: {e}")
+            print(f"Error: {result.get('error')}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(run_example())

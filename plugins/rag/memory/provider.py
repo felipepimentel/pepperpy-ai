@@ -1,13 +1,17 @@
-"""Simple in-memory RAG provider for testing and examples."""
+"""Simple in-memory RAG provider for development and demonstrations.
+
+This provider implements a lightweight in-memory vector store that requires no external
+dependencies. It's designed for development, prototyping, and demonstration purposes.
+"""
 
 import uuid
 from collections.abc import Sequence
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
 
 
-def cosine_similarity(a: List[float], b: List[float]) -> float:
+def cosine_similarity(a: list[float], b: list[float]) -> float:
     """Calculate cosine similarity between two vectors.
 
     Args:
@@ -20,7 +24,7 @@ def cosine_similarity(a: List[float], b: List[float]) -> float:
     if not a or not b:
         return 0.0
 
-    dot_product = sum(x * y for x, y in zip(a, b))
+    dot_product = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = sum(x * x for x in a) ** 0.5
     norm_b = sum(y * y for y in b) ** 0.5
 
@@ -37,8 +41,8 @@ class DocumentEntry:
         self,
         id: str,
         text: str,
-        metadata: Dict[str, Any],
-        vector: Optional[List[float]] = None,
+        metadata: dict[str, Any],
+        vector: list[float] | None = None,
     ) -> None:
         """Initialize document entry.
 
@@ -55,7 +59,11 @@ class DocumentEntry:
 
 
 class InMemoryProvider(RAGProvider):
-    """Simple in-memory RAG provider for testing and examples."""
+    """Simple in-memory RAG provider for development and demonstrations.
+
+    This provider stores documents and vectors in memory without requiring external
+    databases or services. Ideal for prototyping, development, and demonstrations.
+    """
 
     name = "memory"
 
@@ -76,7 +84,7 @@ class InMemoryProvider(RAGProvider):
         super().__init__(**kwargs)
 
         self.collection_name = collection_name
-        self._documents: Dict[str, DocumentEntry] = {}
+        self._documents: dict[str, DocumentEntry] = {}
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -89,8 +97,8 @@ class InMemoryProvider(RAGProvider):
     async def store_document(
         self,
         text: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        document_id: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        document_id: str | None = None,
         **kwargs: Any,
     ) -> str:
         """Store a document in memory.
@@ -124,7 +132,7 @@ class InMemoryProvider(RAGProvider):
         self,
         document_id: str,
         **kwargs: Any,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Retrieve a document by ID.
 
         Args:
@@ -168,8 +176,8 @@ class InMemoryProvider(RAGProvider):
     async def update_document(
         self,
         document_id: str,
-        text: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        text: str | None = None,
+        metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Update a document's text or metadata.
@@ -199,9 +207,9 @@ class InMemoryProvider(RAGProvider):
         self,
         query: str,
         limit: int = 5,
-        filter_metadata: Optional[Dict[str, Any]] = None,
+        filter_metadata: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for documents.
 
         Args:
@@ -238,10 +246,10 @@ class InMemoryProvider(RAGProvider):
 
     async def _vector_search(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         limit: int = 5,
-        filter_metadata: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        filter_metadata: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """Search using vector similarity.
 
         Args:
@@ -292,8 +300,8 @@ class InMemoryProvider(RAGProvider):
         self,
         query: str,
         limit: int = 5,
-        filter_metadata: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        filter_metadata: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """Search using simple text matching.
 
         Args:
@@ -349,7 +357,7 @@ class InMemoryProvider(RAGProvider):
         return results
 
     def _matches_filter(
-        self, metadata: Dict[str, Any], filter_metadata: Dict[str, Any]
+        self, metadata: dict[str, Any], filter_metadata: dict[str, Any]
     ) -> bool:
         """Check if metadata matches filter.
 
@@ -377,10 +385,10 @@ class InMemoryProvider(RAGProvider):
 
     async def add_texts(
         self,
-        texts: List[str],
-        metadatas: Optional[List[Dict[str, Any]]] = None,
+        texts: list[str],
+        metadatas: list[dict[str, Any]] | None = None,
         **kwargs: Any,
-    ) -> List[str]:
+    ) -> list[str]:
         """Add multiple texts at once.
 
         Args:
@@ -414,8 +422,8 @@ class InMemoryProvider(RAGProvider):
 
     async def add_embeddings(
         self,
-        document_ids: List[str],
-        embeddings: List[List[float]],
+        document_ids: list[str],
+        embeddings: list[list[float]],
         **kwargs: Any,
     ) -> None:
         """Add embeddings for documents.
@@ -442,7 +450,7 @@ class InMemoryProvider(RAGProvider):
         limit: int = 100,
         offset: int = 0,
         **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List all documents.
 
         Args:
@@ -501,7 +509,7 @@ class InMemoryProvider(RAGProvider):
 
         return len(self._documents)
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get statistics about the vector store.
 
         Returns:
@@ -516,7 +524,7 @@ class InMemoryProvider(RAGProvider):
             ),
         }
 
-    async def store(self, docs: Union[Document, List[Document]]) -> None:
+    async def store(self, docs: Document | list[Document]) -> None:
         """Store documents in the RAG context.
 
         Args:
@@ -533,7 +541,7 @@ class InMemoryProvider(RAGProvider):
 
     async def search(
         self,
-        query: Union[str, Query],
+        query: str | Query,
         limit: int = 5,
         **kwargs: Any,
     ) -> Sequence[SearchResult]:
@@ -579,7 +587,7 @@ class InMemoryProvider(RAGProvider):
         results.sort(key=lambda x: x.score, reverse=True)
         return results[:limit]
 
-    async def get(self, doc_id: str) -> Optional[Document]:
+    async def get(self, doc_id: str) -> Document | None:
         """Get a document by ID.
 
         Args:

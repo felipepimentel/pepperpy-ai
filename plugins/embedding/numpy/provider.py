@@ -1,7 +1,7 @@
 """Numpy-based embeddings provider for basic text embeddings."""
 
 import hashlib
-from typing import Any, List, Union
+from typing import Any
 
 import numpy as np
 
@@ -15,7 +15,7 @@ class NumpyEmbeddingFunction:
         """Initialize with a provider instance."""
         self._provider = provider
 
-    def __call__(self, input: Union[str, List[str]]) -> List[List[float]]:
+    def __call__(self, input: str | list[str]) -> list[list[float]]:
         """Generate embeddings for input text(s).
 
         Args:
@@ -49,14 +49,15 @@ class NumpyEmbeddingFunction:
 class NumpyProvider(EmbeddingsProvider):
     """A lightweight embeddings provider that uses numpy for basic text embeddings.
 
-    This provider is meant for testing and development purposes only.
-    It creates simple embeddings based on character frequencies.
+    This provider is designed for development, demonstrations, and prototyping purposes.
+    It creates simple embeddings based on character frequencies, making it suitable for
+    environments where advanced semantic understanding is not required.
     """
 
-    
     # Attributes auto-bound from plugin.yaml com valores padrão como fallback
     api_key: str
-def __init__(self, embedding_dim: int = 64):
+
+    def __init__(self, embedding_dim: int = 64):
         """Initialize the numpy embeddings provider.
 
         Args:
@@ -87,14 +88,14 @@ def __init__(self, embedding_dim: int = 64):
 
         # Create a frequency vector
         freq_vec = np.zeros(self.embedding_dim)
-        for char, count in zip(chars, counts):
+        for char, count in zip(chars, counts, strict=False):
             # Use character's hash as index
             idx = int(hashlib.md5(char.encode()).hexdigest(), 16) % self.embedding_dim
             freq_vec[idx] = count / len(text)
 
         return freq_vec
 
-    async def embed_text(self, text: str) -> List[float]:
+    async def embed_text(self, text: str) -> list[float]:
         """Create an embedding for the given text.
 
         Args:
@@ -105,7 +106,7 @@ def __init__(self, embedding_dim: int = 64):
         """
         return NumpyEmbeddingFunction(self)([text])[0]
 
-    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Create embeddings for multiple texts.
 
         Args:

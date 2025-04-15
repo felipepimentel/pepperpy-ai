@@ -16,16 +16,9 @@ import sys
 from typing import Any
 
 # Core imports
-from pepperpy.core.plugin import ProviderPlugin
-
 # Local imports
 from plugins.workflow.ai_gateway.create_tool import create_tool
 from plugins.workflow.ai_gateway.gateway import (
-    GatewayComponentType,
-    GatewayRequest,
-    GatewayResponse,
-    ModelCapability,
-    ModelProvider,
     create_auth_provider,
     create_model_provider,
     create_routing_provider,
@@ -34,102 +27,6 @@ from plugins.workflow.ai_gateway.gateway import (
 # Add the project root to sys.path if needed
 if os.path.exists(os.path.join(os.path.dirname(__file__), "..", "..", "..")):
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-
-
-class MockModelProvider(ModelProvider, ProviderPlugin):
-    """Mock model provider for testing.
-
-    Implements both ModelProvider and ProviderPlugin interfaces.
-    """
-
-    # Type-annotated config attributes as per coding standards
-    model_id: str
-    temperature: float = 0.7
-    max_tokens: int = 1000
-
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize the mock model provider."""
-        super().__init__(**kwargs)
-        self.model_id = kwargs.get("model_id", "mock-model")
-        self.initialized = False
-        self.logger.debug(f"Created MockModelProvider with model_id={self.model_id}")
-
-    async def initialize(self) -> None:
-        """Initialize provider resources."""
-        if self.initialized:
-            return
-
-        self.logger.debug("Initializing mock provider")
-        self.initialized = True
-
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        if not self.initialized:
-            return
-
-        self.logger.debug("Cleaning up mock provider")
-        self.initialized = False
-
-    def get_component_type(self) -> GatewayComponentType:
-        """Get the component type."""
-        return GatewayComponentType.MODEL
-
-    def get_model_id(self) -> str:
-        """Get the model identifier."""
-        return self.model_id
-
-    def get_capabilities(self) -> list[ModelCapability]:
-        """Get the model capabilities."""
-        return [ModelCapability.CHAT]
-
-    async def execute(self, request: GatewayRequest) -> GatewayResponse:
-        """Execute a model request.
-
-        Args:
-            request: The gateway request
-
-        Returns:
-            Gateway response
-
-        Raises:
-            DomainError: If operation is not supported
-        """
-        if not self.initialized:
-            await self.initialize()
-
-        try:
-            if request.operation == "chat":
-                return await self.chat(request)
-            raise ValueError(f"Unsupported operation: {request.operation}")
-        except Exception as e:
-            return GatewayResponse.error(request.request_id, str(e))
-
-    async def chat(self, request: GatewayRequest) -> GatewayResponse:
-        """Process a chat request.
-
-        Args:
-            request: The chat request
-
-        Returns:
-            Chat response with mock data
-        """
-        mock_response = {
-            "message": "This is a mock response for testing purposes",
-            "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
-            "model": self.model_id,
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-        }
-        return GatewayResponse.success(request.request_id, mock_response)
-
-
-async def create_mock_provider() -> ModelProvider:
-    """Create a mock model provider for testing.
-
-    Returns:
-        Mock model provider instance
-    """
-    return MockModelProvider()
 
 
 # Test client function
@@ -336,11 +233,13 @@ async def run_ai_mesh(config_path=None, host=None, port=None, debug=False, test=
             loop.add_signal_handler(
                 sig,
                 lambda: asyncio.create_task(
-                    _cleanup_resources([
-                        r
-                        for r in resources.values()
-                        if hasattr(r, "cleanup") and callable(r.cleanup)
-                    ])
+                    _cleanup_resources(
+                        [
+                            r
+                            for r in resources.values()
+                            if hasattr(r, "cleanup") and callable(r.cleanup)
+                        ]
+                    )
                 ),
             )
 
@@ -353,11 +252,13 @@ async def run_ai_mesh(config_path=None, host=None, port=None, debug=False, test=
         # If running in test mode, just run tests
         if test:
             await _run_service_tests(host, port, config, logger)
-            await _cleanup_resources([
-                r
-                for r in resources.values()
-                if hasattr(r, "cleanup") and callable(r.cleanup)
-            ])
+            await _cleanup_resources(
+                [
+                    r
+                    for r in resources.values()
+                    if hasattr(r, "cleanup") and callable(r.cleanup)
+                ]
+            )
             return 0
 
         # Start services in multiport mode if configured
@@ -385,11 +286,13 @@ async def run_ai_mesh(config_path=None, host=None, port=None, debug=False, test=
         return 1
     finally:
         # Clean up resources
-        await _cleanup_resources([
-            r
-            for r in resources.values()
-            if hasattr(r, "cleanup") and callable(r.cleanup)
-        ])
+        await _cleanup_resources(
+            [
+                r
+                for r in resources.values()
+                if hasattr(r, "cleanup") and callable(r.cleanup)
+            ]
+        )
 
     return 0
 

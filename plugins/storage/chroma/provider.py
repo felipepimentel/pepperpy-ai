@@ -6,7 +6,7 @@ using ChromaDB for persistent vector storage and retrieval.
 
 import hashlib
 import uuid
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any
 
 from chromadb.api.types import (
     Documents,
@@ -21,7 +21,7 @@ from chromadb.api.types import (
 from ..base import StorageError, StorageProvider
 
 
-def _to_dict(metadata: Optional[Metadata]) -> Dict[str, Any]:
+def _to_dict(metadata: Metadata | None) -> dict[str, Any]:
     """Convert metadata to dictionary."""
     if metadata is None:
         return {}
@@ -29,8 +29,8 @@ def _to_dict(metadata: Optional[Metadata]) -> Dict[str, Any]:
 
 
 def _to_embedding(
-    embedding: Optional[Union[Embedding, List[float]]],
-) -> Optional[List[float]]:
+    embedding: Embedding | list[float] | None,
+) -> list[float] | None:
     """Convert embedding to list of floats."""
     if embedding is None:
         return None
@@ -39,7 +39,7 @@ def _to_embedding(
     return list(embedding)
 
 
-def _get_embeddings(result: Union[GetResult, QueryResult]) -> Optional[List[Embedding]]:
+def _get_embeddings(result: GetResult | QueryResult) -> list[Embedding] | None:
     """Get embeddings from result."""
     if "embeddings" not in result:
         return None
@@ -50,7 +50,13 @@ def _get_embeddings(result: Union[GetResult, QueryResult]) -> Optional[List[Embe
 
 
 class HashEmbeddingFunction(EmbeddingFunction):
-    """Simple embedding function that uses SHA-256 hash for testing purposes."""
+    """Simple embedding function that uses SHA-256 hash for development and
+    demonstration purposes.
+
+    This embedding function creates vector representations using hash values,
+    making it suitable for development, demonstrations, and prototyping scenarios
+    where advanced semantic understanding is not required.
+    """
 
     def __init__(self, dimension: int = 64) -> None:
         """Initialize the hash embedding function.
@@ -89,130 +95,126 @@ class ChromaStorageProvider(StorageProvider):
 
     name = "chroma"
 
-    
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    # Attributes auto-bound from plugin.yaml with default values as fallback
     api_key: str
-    client: Optional[httpx.AsyncClient] = None
-def __init__(
+    client = None  # Will be set to ChromaDB client in __init__
+
+    def __init__(
         self,
-        collection_name: str = "pepperpy",
-        persist_directory: Optional[str] = None,
-        embedding_function: Optional[Union[str, EmbeddingFunction]] = None,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize the Chroma storage provider.
+        collection_name: str = "default",
+        persist_directory: str | None = None,
+        embedding_function: EmbeddingFunction | None = None,
+    ):
+        """Initialize the ChromaStorageProvider.
 
         Args:
-            collection_name: Name of the ChromaDB collection (default: pepperpy)
-            persist_directory: Directory to persist vectors (default: None, in-memory)
-            embedding_function: Name or instance of embedding function (default: None, uses hash-based)
-            **kwargs: Additional configuration options
-
-        Raises:
-            StorageError: If required dependencies are not installed
+            collection_name: Name of the collection to use
+            persist_directory: Directory to persist the database. If None, uses memory
+            embedding_function: Function to use for embedding. If None, no embedding
         """
-        super().__init__(name=name, **kwargs)
-        try:
-            import chromadb
-            from chromadb.config import Settings
-        except ImportError:
-            raise StorageError(
-                "Chroma provider requires chromadb. Install with: pip install chromadb"
-            )
+        import chromadb
 
-        # Store persist_directory for capabilities
+        self.client = chromadb.Client()
+        self.collection_name = collection_name
         self.persist_directory = persist_directory
+        self.embedding_function = embedding_function
+        self._collection = None
 
-        # Initialize ChromaDB client
-        settings = Settings(
-            persist_directory=persist_directory,
-            anonymized_telemetry=False,
-            **kwargs,
-        )
-        self.client = chromadb.Client(settings)
+    async def initialize(self):
+        """Initialize the client and collection."""
+        self._collection = await self._get_or_create_collection()
 
-        # Initialize embedding function
-        if isinstance(embedding_function, str):
-            try:
-                from chromadb.utils import embedding_functions
+    async def _get_or_create_collection(self):
+        """Get or create the collection."""
+        # Check if client is initialized
+        if self.client is None:
+            raise StorageError("Client not initialized")
 
-                self.embeddings = getattr(embedding_functions, embedding_function)()
-            except (ImportError, AttributeError) as e:
-                raise StorageError(f"Failed to initialize embedding function: {e}")
-        elif isinstance(embedding_function, EmbeddingFunction):
-            self.embeddings = embedding_function
-        else:
-            # Use simple hash-based embeddings by default
-            self.embeddings = HashEmbeddingFunction()
-
-        # Get or create collection
-        self.collection = self.client.get_or_create_collection(
-            name=collection_name,
-            embedding_function=self.embeddings,
-            metadata={"hnsw:space": "cosine"},
-        )
+        # ChromaDB's client doesn't have async methods, so we need to use
+        # synchronous methods
+        try:
+            return self.client.get_or_create_collection(
+                name=self.collection_name,
+                embedding_function=self.embedding_function,
+            )
+        except Exception as e:
+            raise StorageError(f"Failed to get or create collection: {e}") from e
 
     async def store_vectors(
         self,
-        vectors: Sequence[List[float]],
-        metadata: Optional[List[Dict[str, Any]]] = None,
+        vectors: list[list[float]],
+        metadata: list[dict[str, Any]],
+        vector_ids: list[str] | None = None,
         **kwargs: Any,
-    ) -> List[str]:
-        """Store vectors with optional metadata."""
-        if not vectors:
-            return []
+    ) -> list[str]:
+        """Store vectors in the collection."""
+        # Generate IDs if not provided
+        if vector_ids is None:
+            vector_ids = [str(uuid.uuid4()) for _ in range(len(vectors))]
 
-        # Generate IDs for vectors
-        ids = [str(uuid.uuid4()) for _ in vectors]
+        # Ensure IDs match vector count
+        if len(vector_ids) != len(vectors):
+            raise StorageError(
+                f"Number of IDs ({len(vector_ids)}) must match vectors ({len(vectors)})"
+            )
 
         # Add to collection
-        self.collection.add(
-            ids=ids,
+        if self._collection is None:
+            raise StorageError("Collection not initialized")
+
+        self._collection.add(
+            ids=vector_ids,
             embeddings=vectors,
             metadatas=metadata,
             **kwargs,
         )
 
-        return ids
+        return vector_ids
 
-    async def retrieve_vectors(
-        self,
-        vector_ids: List[str],
-        **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
+    async def get_vectors(
+        self, vector_ids: list[str], **kwargs: Any
+    ) -> list[dict[str, Any]]:
         """Retrieve vectors by ID."""
-        result = self.collection.get(
+        if self._collection is None:
+            raise StorageError("Collection not initialized")
+
+        result = self._collection.get(
             ids=vector_ids,
             include_embeddings=True,
             **kwargs,
         )
 
-        vectors = []
-        for i, vector_id in enumerate(result["ids"]):
-            vectors.append({
-                "id": vector_id,
-                "vector": result["embeddings"][i],
-                "metadata": _to_dict(result["metadatas"][i]),
-            })
-        return vectors
+        # Format results
+        return [
+            {
+                "id": id,
+                "embedding": embedding,
+                "metadata": metadata,
+            }
+            for id, embedding, metadata in zip(
+                result["ids"], result["embeddings"], result["metadatas"], strict=False
+            )
+        ]
 
-    async def delete_vectors(
-        self,
-        vector_ids: List[str],
-        **kwargs: Any,
-    ) -> None:
+    async def delete_vectors(self, vector_ids: list[str], **kwargs: Any) -> None:
         """Delete vectors by ID."""
-        self.collection.delete(ids=vector_ids, **kwargs)
+        if self._collection is None:
+            raise StorageError("Collection not initialized")
+
+        self._collection.delete(ids=vector_ids, **kwargs)
 
     async def search_vectors(
         self,
-        query_vector: List[float],
+        query_vector: list[float],
         limit: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for similar vectors."""
-        results = self.collection.query(
+        if self._collection is None:
+            raise StorageError("Collection not initialized")
+
+        results = self._collection.query(
             query_embeddings=[query_vector],
             n_results=limit,
             where=filter,
@@ -220,42 +222,61 @@ def __init__(
             **kwargs,
         )
 
-        matches = []
-        for i, vector_id in enumerate(results["ids"][0]):
-            matches.append({
-                "id": vector_id,
-                "vector": results["embeddings"][0][i],
-                "metadata": _to_dict(results["metadatas"][0][i]),
-                "score": float(results["distances"][0][i]),
-            })
-        return matches
+        # Format results
+        return [
+            {
+                "id": id,
+                "embedding": embedding,
+                "metadata": metadata,
+                "distance": distance,
+            }
+            for id, embedding, metadata, distance in zip(
+                results["ids"][0],
+                results["embeddings"][0],
+                results["metadatas"][0],
+                results["distances"][0],
+                strict=False,
+            )
+        ]
 
     async def list_vectors(
         self,
-        limit: int = 100,
+        limit: int | None = None,
         offset: int = 0,
-        filter: Optional[Dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
-        """List stored vectors."""
+    ) -> list[dict[str, Any]]:
+        """List vectors with optional filtering."""
+        if self._collection is None:
+            raise StorageError("Collection not initialized")
+
         # Note: ChromaDB doesn't support offset/limit directly
         # We'll fetch all and slice
-        result = self.collection.get(
+        result = self._collection.get(
             where=filter,
             include_embeddings=True,
             **kwargs,
         )
 
-        vectors = []
-        for i, vector_id in enumerate(result["ids"][offset : offset + limit]):
-            vectors.append({
-                "id": vector_id,
-                "vector": result["embeddings"][i],
-                "metadata": _to_dict(result["metadatas"][i]),
-            })
-        return vectors
+        # Apply offset and limit manually
+        start = offset
+        end = None if limit is None else offset + limit
 
-    def get_capabilities(self) -> Dict[str, Any]:
+        return [
+            {
+                "id": id,
+                "embedding": embedding,
+                "metadata": metadata,
+            }
+            for id, embedding, metadata in zip(
+                result["ids"][start:end],
+                result["embeddings"][start:end],
+                result["metadatas"][start:end],
+                strict=False,
+            )
+        ]
+
+    def get_capabilities(self) -> dict[str, Any]:
         """Get Chroma storage provider capabilities."""
         return {
             "persistent": bool(self.persist_directory),
@@ -263,6 +284,8 @@ def __init__(
             "supports_filters": True,
             "supports_persistence": True,
             "embedding_function": (
-                self.embeddings.__class__.__name__ if self.embeddings else "hash-based"
+                self.embedding_function.__class__.__name__
+                if self.embedding_function
+                else "hash-based"
             ),
         }

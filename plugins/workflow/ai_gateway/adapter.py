@@ -2,13 +2,13 @@
 
 import asyncio
 import logging
-from typing import Any, cast
+import os
+from typing import Any
 
 from pepperpy.core.base import PepperpyError
 from pepperpy.core.types import ComponentType
 
-from .gateway import GatewayRequest
-from .run_mesh import MockModelProvider, create_mock_provider
+from .gateway import GatewayRequest, ModelProvider
 
 
 class AIGatewayAdapter:
@@ -25,8 +25,16 @@ class AIGatewayAdapter:
         """
         self.config = kwargs
         self.logger = logging.getLogger(__name__)
-        self.provider: MockModelProvider | None = None
+        self.provider: ModelProvider | None = None
         self.initialized = False
+
+        # Configuration
+        self.provider_type = kwargs.get(
+            "provider_type", os.environ.get("PEPPERPY_LLM_PROVIDER", "openai")
+        )
+        self.model_id = kwargs.get(
+            "model_id", os.environ.get("PEPPERPY_LLM_MODEL", "gpt-3.5-turbo")
+        )
 
     async def __aenter__(self) -> "AIGatewayAdapter":
         """Async context manager entry."""
@@ -47,11 +55,13 @@ class AIGatewayAdapter:
             return
 
         try:
-            provider = await create_mock_provider()
-            self.provider = cast(MockModelProvider, provider)
-            await self.provider.initialize()
+            self.provider = await self._get_provider()
+            if self.provider:
+                await self.provider.initialize()
             self.initialized = True
-            self.logger.debug("Initialized AI Gateway adapter")
+            self.logger.debug(
+                f"Initialized AI Gateway adapter with provider {self.provider_type}"
+            )
         except Exception as e:
             self.provider = None
             self.initialized = False
@@ -102,14 +112,40 @@ class AIGatewayAdapter:
         except Exception as e:
             raise PepperpyError(f"Execution failed: {e}") from e
 
+    async def _get_provider(self) -> ModelProvider | None:
+        """Get provider based on configuration.
+
+        Returns:
+            Model provider instance
+        """
+        # Import gateway module for provider creation
+        from .gateway import create_model_provider
+
+        try:
+            # Use real provider based on configuration
+            return await create_model_provider(
+                provider_type=self.provider_type, model_id=self.model_id, **self.config
+            )
+        except ImportError as e:
+            self.logger.error(f"Failed to import provider {self.provider_type}: {e}")
+            raise PepperpyError(f"Provider {self.provider_type} not available") from e
+
 
 async def run_direct() -> None:
     """Run adapter directly for testing."""
-    async with AIGatewayAdapter() as adapter:
-        result = await adapter.execute({
-            "operation": "chat",
-            "messages": [{"role": "user", "content": "Test message"}],
-        })
+    # Use environment variables or default to a real provider
+    provider_type = os.environ.get("PEPPERPY_LLM_PROVIDER", "openai")
+    model_id = os.environ.get("PEPPERPY_LLM_MODEL", "gpt-3.5-turbo")
+
+    async with AIGatewayAdapter(
+        provider_type=provider_type, model_id=model_id
+    ) as adapter:
+        result = await adapter.execute(
+            {
+                "operation": "chat",
+                "messages": [{"role": "user", "content": "Test message"}],
+            }
+        )
         print(f"Result: {result}")
 
 

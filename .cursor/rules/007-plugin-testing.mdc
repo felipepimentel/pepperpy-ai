@@ -1,0 +1,226 @@
+# Plugin Testing Architecture
+
+This document defines the standard approach for testing plugins in PepperPy without including test files within plugin directories.
+
+## Core Principles
+
+1. **No Test Files in Plugin Directories**: Test files should not be included in plugin directories
+2. **Examples as Configuration**: Examples should be defined in configuration files, not test scripts
+3. **CLI-Based Testing**: Plugins should be testable via CLI commands
+4. **Centralized Test Infrastructure**: Tests should use a centralized test framework
+
+## Examples Configuration
+
+Each plugin should include examples directly in its `plugin.yaml` file:
+
+```yaml
+# Regular plugin configuration
+name: domain/provider_name
+# ... other configuration ...
+
+# Examples section
+examples:
+  - name: "basic_example"
+    description: "Basic usage example"
+    input:
+      parameter1: "value1"
+      parameter2: "value2"
+    expected_output:
+      status: "success"
+      result: "expected result pattern"
+  
+  - name: "advanced_example"
+    description: "More complex example"
+    input:
+      complex_parameter:
+        nested: "value"
+    expected_output:
+      status: "success"
+```
+
+## Plugin Tests Directory Structure
+
+Keep all test files in the central `tests` directory, never in the plugin directories:
+
+```
+tests/
+├── plugins/                # Plugin tests
+│   ├── conftest.py         # Common test fixtures
+│   └── domain/             # Tests for domain plugins
+│       └── provider/       # Tests for specific provider
+│           └── test_provider.py  # Test implementation
+```
+
+## Anti-patterns to Avoid
+
+❌ **NEVER** create test files in plugin directories:
+```
+plugins/
+└── domain/
+    └── provider/
+        ├── plugin.yaml
+        ├── provider.py
+        └── test_provider.py  # WRONG - Should not exist here
+```
+
+❌ **NEVER** create mock implementations in plugin directories:
+```
+plugins/
+└── domain/
+    └── provider/
+        ├── plugin.yaml
+        ├── provider.py
+        └── mock_provider.py  # WRONG - Should not exist here
+```
+
+❌ **NEVER** include test utilities in plugin directories:
+```
+plugins/
+└── domain/
+    └── provider/
+        ├── plugin.yaml
+        ├── provider.py
+        └── test_utils.py  # WRONG - Should not exist here
+```
+
+## CLI Testing Tool
+
+The CLI tool (`bin/pepperpy-plugin`) provides commands for testing plugins:
+
+```bash
+# Test all examples in a plugin
+bin/pepperpy-plugin test plugins/domain/provider
+
+# Run a plugin with custom input
+bin/pepperpy-plugin run plugins/domain/provider --input '{"param": "value"}'
+
+# Run with input from a file
+bin/pepperpy-plugin run plugins/domain/provider --input input.json --pretty
+```
+
+## Test Fixtures
+
+Use the standardized test fixtures from `tests/plugins/conftest.py`:
+
+```python
+# In your test file
+@pytest.mark.asyncio
+async def test_provider_with_examples(plugin_examples, plugin_runner):
+    """Test provider using examples from plugin.yaml."""
+    examples = plugin_examples("domain", "provider")
+    
+    for example in examples:
+        input_data = example.get("input", {})
+        expected = example.get("expected_output", {})
+        
+        # Run the plugin with the example input
+        result = await plugin_runner("domain", "provider", input_data)
+        
+        # Validate the result
+        for key, value in expected.items():
+            assert key in result
+            assert result[key] == value
+```
+
+## Real-world Testing Needs
+
+For more complex testing scenarios:
+
+1. **Integration Tests**: Place in `tests/integration/domain/`
+2. **Performance Tests**: Place in `tests/performance/domain/`
+3. **Mock Replacements**: Use dependency injection or configuration to replace real implementations
+
+### Testing with Third-party Services
+
+When testing with external services:
+
+```python
+# Use environment variables or configuration for credentials
+@pytest.mark.skipif(not os.environ.get("TEST_API_KEY"), 
+                    reason="API key not available")
+async def test_provider_with_real_service():
+    # Test using real service
+```
+
+### Testing Different Provider Types
+
+Test matrix for different providers:
+
+```python
+@pytest.mark.parametrize("provider_type", ["openai", "anthropic", "ollama"])
+async def test_with_different_providers(provider_type, plugin_runner):
+    result = await plugin_runner("llm", provider_type, input_data)
+    assert result["status"] == "success"
+```
+
+## Implementation Guidelines
+
+### For Plugin Authors
+
+1. **Focus on Examples**:
+   - Add comprehensive examples to plugin.yaml
+   - Cover both typical and edge cases
+   - Provide clear expected outputs
+
+2. **Keep Plugin Directory Clean**:
+   - No test files in plugin directories
+   - No mock implementations in plugin directories
+   - No test utilities in plugin directories
+
+3. **Use CLI for Testing During Development**:
+   ```bash
+   bin/pepperpy-plugin test plugins/your/plugin
+   ```
+
+### For Test Implementers
+
+1. **Centralize Test Implementation**:
+   - Create test files in `tests/plugins/domain/provider/`
+   - Use fixtures from `tests/plugins/conftest.py`
+   - Follow test naming conventions
+
+2. **Supplement with Standard Tests**:
+   - Build on examples from plugin.yaml
+   - Add specific edge cases
+   - Test error conditions
+
+## Benefits Over Traditional Approaches
+
+1. **Cleaner Repository Structure**:
+   - Plugin directories contain only implementation
+   - Test code is centralized and well-organized
+   - Mock implementations are separated from real code
+
+2. **Self-Documenting Examples**:
+   - Examples serve as both tests and documentation
+   - Input and expected output are clearly defined
+   - Examples are version-controlled with the plugin
+
+3. **Consistent Testing Approach**:
+   - All plugins use the same testing pattern
+   - Common fixtures simplify test implementation
+   - CLI tool provides uniform testing interface
+
+4. **Easier Maintenance**:
+   - Changes to testing approach can be made centrally
+   - No need to update multiple test files
+   - Example-driven testing is more resilient to API changes
+
+## Real-world Lessons
+
+These guidelines are based on experiences with large plugin ecosystems:
+
+1. **Test files in plugin directories lead to:**
+   - Inconsistent testing approaches
+   - Duplicate test utilities
+   - Difficult-to-maintain test code
+
+2. **Mock implementations in plugin directories lead to:**
+   - Production code accidentally using mocks
+   - Mocks diverging from real implementations
+   - Unclear separation of concerns
+
+3. **Example-driven testing leads to:**
+   - Better documentation
+   - More consistent APIs
+   - Easier onboarding for new developers 

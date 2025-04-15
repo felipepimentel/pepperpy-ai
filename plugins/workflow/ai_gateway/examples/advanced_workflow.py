@@ -32,7 +32,7 @@ class DocumentAnalyzer(BaseWorkflow):
         try:
             # Load and analyze document
             rag_result = await self.execute_rag(query=query, context_path=document_path)
-            if not rag_result.success:
+            if not rag_result.is_success:
                 return rag_result
 
             # Analyze images if provided
@@ -42,7 +42,7 @@ class DocumentAnalyzer(BaseWorkflow):
                     vision_result = await self.execute_vision(
                         prompt="Analyze this image in detail", image_path=image_path
                     )
-                    if vision_result.success:
+                    if vision_result.is_success:
                         image_results[image_path] = vision_result.data
 
             # Combine analysis
@@ -63,7 +63,7 @@ class DocumentAnalyzer(BaseWorkflow):
             )
 
         except Exception as e:
-            return WorkflowResult(success=False, error=str(e))
+            return WorkflowResult(is_success=False, error_message=str(e))
 
 
 class ToolChainExecutor(BaseWorkflow):
@@ -71,7 +71,9 @@ class ToolChainExecutor(BaseWorkflow):
 
     def __init__(self) -> None:
         """Initialize with tools and analysis capability."""
-        super().__init__(llm_provider="mock", tools=["calculator", "weather", "search"])
+        super().__init__(
+            llm_provider="basic", tools=["calculator", "weather", "search"]
+        )
 
     async def execute_chain(
         self, operations: list[dict[str, Any]]
@@ -91,10 +93,10 @@ class ToolChainExecutor(BaseWorkflow):
                 tool_result = await self.execute_tool(
                     tool_name=op["tool"], inputs=op.get("inputs", {})
                 )
-                if not tool_result.success:
+                if not tool_result.is_success:
                     return WorkflowResult(
-                        success=False,
-                        error=f"Tool execution failed: {tool_result.error}",
+                        is_success=False,
+                        error_message=f"Tool execution failed: {tool_result.error_message}",
                     )
 
                 # Analyze result
@@ -107,16 +109,18 @@ class ToolChainExecutor(BaseWorkflow):
                     ]
                 )
 
-                results.append({
-                    "tool": op["tool"],
-                    "result": tool_result.data,
-                    "analysis": analysis.data if analysis.success else None,
-                })
+                results.append(
+                    {
+                        "tool": op["tool"],
+                        "result": tool_result.data,
+                        "analysis": analysis.data if analysis.is_success else None,
+                    }
+                )
 
-            return WorkflowResult(success=True, data=results)
+            return WorkflowResult(is_success=True, data=results)
 
         except Exception as e:
-            return WorkflowResult(success=False, error=str(e))
+            return WorkflowResult(is_success=False, error_message=str(e))
 
 
 async def main() -> None:
@@ -129,22 +133,24 @@ async def main() -> None:
                 query="What are the key findings?",
                 image_paths=["path/to/chart1.png", "path/to/chart2.png"],
             )
-            if doc_result.success:
+            if doc_result.is_success:
                 print(f"Document Analysis: {doc_result.data}")
             else:
-                print(f"Analysis Error: {doc_result.error}")
+                print(f"Analysis Error: {doc_result.error_message}")
 
         # Tool chain example
         async with ToolChainExecutor() as executor:
-            chain_result = await executor.execute_chain([
-                {"tool": "calculator", "inputs": {"expression": "2 + 2"}},
-                {"tool": "weather", "inputs": {"location": "London"}},
-                {"tool": "search", "inputs": {"query": "latest AI news"}},
-            ])
-            if chain_result.success:
+            chain_result = await executor.execute_chain(
+                [
+                    {"tool": "calculator", "inputs": {"expression": "2 + 2"}},
+                    {"tool": "weather", "inputs": {"location": "London"}},
+                    {"tool": "search", "inputs": {"query": "latest AI news"}},
+                ]
+            )
+            if chain_result.is_success:
                 print(f"Tool Chain Results: {chain_result.data}")
             else:
-                print(f"Chain Error: {chain_result.error}")
+                print(f"Chain Error: {chain_result.error_message}")
 
     except PepperpyError as e:
         print(f"Error: {e}")

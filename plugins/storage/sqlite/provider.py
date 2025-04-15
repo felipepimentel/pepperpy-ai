@@ -1,30 +1,31 @@
-"""SQLite RAG provider implementation.
+"""SQLite storage provider implementation.
 
-This module provides a simple RAG provider implementation using SQLite
-for vector storage and scikit-learn for similarity search.
+This module provides a simple storage provider implementation using SQLite
+for persistent data storage.
 """
 
 import json
 import os
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.storage import StorageError, StorageProvider
+
 from ..document import Document
-from ..provider import RAGError
 from ..query import Query
 from ..result import RetrievalResult
 
 
-class SQLiteRAGProvider:
-    """Simple RAG provider using SQLite for vector storage.
+class SqliteProvider(StorageProvider, ProviderPlugin):
+    """Simple storage provider using SQLite.
 
     This provider is designed for simplicity and ease of use, suitable for
-    small to medium datasets. It uses SQLite for storage and scikit-learn
-    for vector similarity search.
+    small to medium datasets. It uses SQLite for storage.
 
     Args:
         data_dir: Directory to store SQLite database
@@ -36,16 +37,21 @@ class SQLiteRAGProvider:
         data_dir: str = ".pepperpy/sqlite",
         **kwargs: Any,
     ) -> None:
+        super().__init__(**kwargs)
         self.data_dir = Path(data_dir)
         self.db_path = self.data_dir / "vectors.db"
         self.conn = None
-        self.documents: Dict[str, Document] = {}
+        self.documents: dict[str, Document] = {}
+        self._initialized = False
 
     async def initialize(self) -> None:
         """Initialize the provider.
 
         Creates data directory and SQLite database if they don't exist.
         """
+        if self._initialized:
+            return
+
         try:
             # Create data directory if it doesn't exist
             os.makedirs(self.data_dir, exist_ok=True)
@@ -81,9 +87,10 @@ class SQLiteRAGProvider:
                 self.documents[doc_id] = doc
 
             self.conn.commit()
+            self._initialized = True
 
         except Exception as e:
-            raise RAGError(f"Failed to initialize SQLiteRAGProvider: {str(e)}") from e
+            raise StorageError(f"Failed to initialize SqliteProvider: {e!s}") from e
 
     async def shutdown(self) -> None:
         """Shut down the provider.
@@ -94,13 +101,18 @@ class SQLiteRAGProvider:
             if self.conn:
                 self.conn.close()
                 self.conn = None
+            self._initialized = False
 
         except Exception as e:
-            raise RAGError(f"Failed to shutdown SQLiteRAGProvider: {str(e)}") from e
+            raise StorageError(f"Failed to shutdown SqliteProvider: {e!s}") from e
+
+    async def cleanup(self) -> None:
+        """Alias for shutdown to conform to StorageProvider interface."""
+        await self.shutdown()
 
     async def add_documents(
         self,
-        documents: List[Document],
+        documents: list[Document],
         **kwargs: Any,
     ) -> None:
         """Add documents to the provider.
@@ -110,11 +122,14 @@ class SQLiteRAGProvider:
             **kwargs: Additional arguments (unused)
 
         Raises:
-            RAGError: If adding documents fails
+            StorageError: If adding documents fails
         """
         try:
+            if not self._initialized:
+                await self.initialize()
+
             if not self.conn:
-                raise RAGError("Provider not initialized")
+                raise StorageError("Provider not initialized")
 
             cursor = self.conn.cursor()
 
@@ -126,7 +141,7 @@ class SQLiteRAGProvider:
                     continue
 
                 if doc.embeddings is None:
-                    raise RAGError(f"Document {doc.id} has no embeddings")
+                    raise StorageError(f"Document {doc.id} has no embeddings")
 
                 # Store in SQLite
                 cursor.execute(
@@ -146,11 +161,11 @@ class SQLiteRAGProvider:
             self.conn.commit()
 
         except Exception as e:
-            raise RAGError(f"Failed to add documents: {str(e)}") from e
+            raise StorageError(f"Failed to add documents: {e!s}") from e
 
     async def remove_documents(
         self,
-        document_ids: List[str],
+        document_ids: list[str],
         **kwargs: Any,
     ) -> None:
         """Remove documents from the provider.
@@ -160,8 +175,11 @@ class SQLiteRAGProvider:
             **kwargs: Additional arguments (unused)
         """
         try:
+            if not self._initialized:
+                await self.initialize()
+
             if not self.conn:
-                raise RAGError("Provider not initialized")
+                raise StorageError("Provider not initialized")
 
             cursor = self.conn.cursor()
 
@@ -178,7 +196,7 @@ class SQLiteRAGProvider:
             self.conn.commit()
 
         except Exception as e:
-            raise RAGError(f"Failed to remove documents: {str(e)}") from e
+            raise StorageError(f"Failed to remove documents: {e!s}") from e
 
     async def search(
         self,
@@ -197,14 +215,17 @@ class SQLiteRAGProvider:
             Search results with documents and scores
 
         Raises:
-            RAGError: If search fails
+            StorageError: If search fails
         """
         try:
+            if not self._initialized:
+                await self.initialize()
+
             if not self.conn:
-                raise RAGError("Provider not initialized")
+                raise StorageError("Provider not initialized")
 
             if query.embeddings is None:
-                raise RAGError("Query has no embeddings")
+                raise StorageError("Query has no embeddings")
 
             if not self.documents:
                 return RetrievalResult(documents=[], scores=[])
@@ -245,13 +266,13 @@ class SQLiteRAGProvider:
             return RetrievalResult(documents=docs, scores=scores)
 
         except Exception as e:
-            raise RAGError(f"Failed to search: {str(e)}") from e
+            raise StorageError(f"Failed to search: {e!s}") from e
 
     async def get_document(
         self,
         document_id: str,
         **kwargs: Any,
-    ) -> Optional[Document]:
+    ) -> Document | None:
         """Get a document by ID.
 
         Args:
@@ -261,6 +282,9 @@ class SQLiteRAGProvider:
         Returns:
             Document if found, None otherwise
         """
+        if not self._initialized:
+            await self.initialize()
+
         return self.documents.get(document_id)
 
     async def list_documents(
@@ -268,7 +292,7 @@ class SQLiteRAGProvider:
         limit: int = 100,
         offset: int = 0,
         **kwargs: Any,
-    ) -> List[Document]:
+    ) -> list[Document]:
         """List documents in the provider.
 
         Args:
@@ -279,5 +303,8 @@ class SQLiteRAGProvider:
         Returns:
             List of documents
         """
+        if not self._initialized:
+            await self.initialize()
+
         docs = list(self.documents.values())
         return docs[offset : offset + limit]

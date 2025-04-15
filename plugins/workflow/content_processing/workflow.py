@@ -9,7 +9,6 @@ This workflow provides a comprehensive pipeline for processing textual content:
 """
 
 import importlib
-import inspect
 import os
 from typing import Any
 
@@ -70,58 +69,20 @@ class ContentProcessingWorkflow(WorkflowProvider, PepperpyPlugin):
             # Use importlib to avoid circular imports
             pepperpy_module = importlib.import_module("pepperpy")
 
-            # Instead of trying to use PepperPy class which doesn't exist,
-            # we'll create a simple object to track configurations
-            class SimpleProcessor:
-                def __init__(self, **kwargs):
-                    self.output_dir = kwargs.get("output_dir", "./output/content")
-                    self.log_level = kwargs.get("log_level", "INFO")
-                    self.log_to_console = kwargs.get("log_to_console", True)
-                    self.auto_save_results = kwargs.get("auto_save_results", True)
-                    self.results = {}
+            # Get the PepperPy class
+            PepperPy = getattr(pepperpy_module, "PepperPy", None)
+            if not PepperPy:
+                raise ImportError("Could not import PepperPy class")
 
-                def processor(self, processor_type):
-                    # Return a simple processor object that supports method chaining
-                    return MockProcessor(processor_type)
+            # Create PepperPy instance
+            self.pepper = PepperPy.create()
 
-                async def run_processors(self, processors):
-                    # Mock implementation that just logs what would be processed
-                    for proc in processors:
-                        self.results[proc.name] = f"Processed content with {proc.name}"
-                    return self.results
+            # Configure based on workflow settings
+            if self.auto_save_results:
+                self.pepper.with_output_dir(self.output_dir)
 
-            # Mock processor class that supports method chaining
-            class MockProcessor:
-                def __init__(self, name):
-                    self.name = name
-                    self.input_text = ""
-                    self.prompt_text = ""
-                    self.params = {}
-                    self.output_path = None
-                    self.result = f"Results from {name} processor"
-
-                def prompt(self, text):
-                    self.prompt_text = text
-                    return self
-
-                def input(self, text):
-                    self.input_text = text
-                    return self
-
-                def parameters(self, params):
-                    self.params = params
-                    return self
-
-                def output(self, path):
-                    self.output_path = path
-                    return self
-
-            self.pepper = SimpleProcessor(
-                output_dir=self.output_dir,
-                log_level=self.log_level,
-                log_to_console=self.log_to_console,
-                auto_save_results=self.auto_save_results,
-            )
+            # Build the configured instance
+            self.pepper = self.pepper.build()
 
             self.initialized = True
             self.logger.info("Content processing workflow initialized")
@@ -221,57 +182,33 @@ class ContentProcessingWorkflow(WorkflowProvider, PepperpyPlugin):
 
         try:
             # Execute all processors
-            run_processors = getattr(self.pepper, "run_processors", None)
-            if not callable(run_processors):
-                raise RuntimeError(
-                    "PepperPy instance does not have a 'run_processors' method"
-                )
-
-            # Check if run_processors is a coroutine function or not
-            if inspect.iscoroutinefunction(run_processors):
-                results_dict = await run_processors(processors)
-            else:
-                # If it's not a coroutine function, just call it normally
-                results_dict = run_processors(processors)
-
-            # Collect results
             results = {}
+
             for processor in processors:
-                # Get processor type and output path
-                processor_type = getattr(processor, "name", "unknown")
+                try:
+                    # Execute the processor
+                    processor_type = getattr(processor, "name", "unknown")
+                    self.logger.info(f"Executing processor: {processor_type}")
 
-                # Use the processor result directly
-                results[processor_type] = getattr(
-                    processor, "result", "No result available"
-                )
+                    # Use the real execute method
+                    result = await processor.execute()
 
-            # Build a meaningful result structure
-            processed_text = "The PepperPy framework is a powerful abstraction for AI that follows the plugin architecture."
+                    # Store the result
+                    results[processor_type] = result
 
-            return {
-                "results": {
-                    "text_extraction": "Extracted key concepts: Framework, Abstraction, AI, Plugin Architecture",
-                    "text_normalization": f"Normalized text: {processed_text}",
-                    "content_summarization": f"Summary: {processed_text}",
-                },
-                "article": {
-                    "title": "PepperPy Framework Overview",
-                    "type": "article",
-                    "content": processed_text,
-                    "references": [
-                        "https://example.com/pepperpy/docs",
-                        "https://example.com/pepperpy/plugins",
-                    ],
-                    "refinements": [
-                        "Consider adding examples of plugin usage",
-                        "Expand on architecture details",
-                    ],
-                },
-                "success": True,
-            }
+                    self.logger.info(
+                        f"Processor {processor_type} completed successfully"
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        f"Error executing processor {processor_type}: {e}"
+                    )
+                    results[processor_type] = {"error": str(e)}
+
+            return results
         except Exception as e:
             self.logger.error(f"Error processing content: {e}")
-            return {"error": str(e), "success": False}
+            raise
 
     async def execute(self, data: dict[str, Any]) -> dict[str, Any]:
         """Execute the content processing workflow.

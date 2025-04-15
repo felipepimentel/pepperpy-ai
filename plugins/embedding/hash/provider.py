@@ -1,12 +1,12 @@
-"""Hash-based embedding provider for testing.
+"""Hash-based embedding provider for development and demonstration.
 
 This module provides a simple hash-based embedding provider that converts text into vectors
-using hash values. It's useful for testing and development, but should not be used in
-production as it doesn't capture semantic meaning.
+using hash values. It's useful for development, demonstrations, and prototyping, but should
+not be used in production as it doesn't capture semantic meaning.
 """
 
 import hashlib
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pepperpy.embeddings import (
     EmbeddingError,
@@ -20,8 +20,8 @@ class HashEmbeddingProvider(EmbeddingsProvider):
     """Simple embedding provider that uses hash values.
 
     This is a lightweight embedding provider that converts text into vectors
-    using hash values. It's useful for testing and development, but should
-    not be used in production as it doesn't capture semantic meaning.
+    using hash values. It's useful for development, demonstrations, and prototyping,
+    but should not be used in production as it doesn't capture semantic meaning.
     """
 
     # Attributes auto-bound from plugin.yaml com valores padrão como fallback
@@ -30,7 +30,7 @@ class HashEmbeddingProvider(EmbeddingsProvider):
     def __init__(
         self,
         embedding_dim: int = 1536,
-        provider_name: Optional[str] = None,
+        provider_name: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize the hash embedding provider.
@@ -61,7 +61,7 @@ class HashEmbeddingProvider(EmbeddingsProvider):
         """
         pass
 
-    async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
+    async def embed_text(self, text: str | list[str]) -> list[list[float]]:
         """Create embeddings for the given text.
 
         Args:
@@ -77,7 +77,7 @@ class HashEmbeddingProvider(EmbeddingsProvider):
             results = await self.embed_batch(text)
             return [r.embedding for r in results]
 
-    async def embed_query(self, text: str) -> List[float]:
+    async def embed_query(self, text: str) -> list[float]:
         """Create an embedding for a single query text.
 
         Args:
@@ -89,7 +89,7 @@ class HashEmbeddingProvider(EmbeddingsProvider):
         result = await self.embed(text)
         return result.embedding
 
-    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Create embeddings for multiple texts.
 
         Args:
@@ -108,13 +108,13 @@ class HashEmbeddingProvider(EmbeddingsProvider):
             A callable that generates embeddings
         """
 
-        async def embed_fn(text: str) -> List[float]:
+        async def embed_fn(text: str) -> list[float]:
             return await self.embed_query(text)
 
         return embed_fn
 
     async def embed(
-        self, text: str, options: Optional[EmbeddingOptions] = None
+        self, text: str, options: EmbeddingOptions | None = None
     ) -> EmbeddingResult:
         """Convert text into a vector embedding.
 
@@ -152,8 +152,8 @@ class HashEmbeddingProvider(EmbeddingsProvider):
             raise EmbeddingError(f"Failed to generate hash embedding: {e}") from e
 
     async def embed_batch(
-        self, texts: List[str], options: Optional[EmbeddingOptions] = None
-    ) -> List[EmbeddingResult]:
+        self, texts: list[str], options: EmbeddingOptions | None = None
+    ) -> list[EmbeddingResult]:
         """Convert multiple texts into vector embeddings.
 
         Args:
@@ -172,7 +172,7 @@ class HashEmbeddingProvider(EmbeddingsProvider):
             results.append(result)
         return results
 
-    def get_config(self) -> Dict[str, Any]:
+    def get_config(self) -> dict[str, Any]:
         """Get the provider configuration.
 
         Returns:
@@ -180,7 +180,7 @@ class HashEmbeddingProvider(EmbeddingsProvider):
         """
         return self._config.copy()
 
-    def get_capabilities(self) -> Dict[str, Any]:
+    def get_capabilities(self) -> dict[str, Any]:
         """Get the provider capabilities.
 
         Returns:
