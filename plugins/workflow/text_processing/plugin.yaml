@@ -2,102 +2,107 @@ name: workflow/text_processing
 version: 0.1.0
 description: Ready-to-use workflow for processing text using NLP tools
 author: PepperPy Team
-license: MIT
+
 plugin_type: workflow
 category: workflow
 provider_name: text_processing
-entry_point: workflow.TextProcessingWorkflow
-required_config_keys: []
+entry_point: provider.TextProcessingProvider
+
+config_schema:
+  type: object
+  properties:
+    processor:
+      type: string
+      description: NLP processor to use (spacy, nltk, transformers)
+      enum: ["spacy", "nltk", "transformers"]
+      default: "spacy"
+    model:
+      type: string
+      description: Model name to use with the selected processor
+    language:
+      type: string
+      description: Language code for text processing (e.g., en, es, fr)
+      default: "en"
+    device:
+      type: string
+      description: Device to run on (cpu, cuda)
+      enum: ["cpu", "cuda"]
+      default: "cpu"
+    batch_size:
+      type: integer
+      description: Batch size for processing
+      default: 32
+    normalize_text:
+      type: boolean
+      description: Whether to normalize text (remove special chars, standardize whitespace)
+      default: true
+    extract_entities:
+      type: boolean
+      description: Whether to extract named entities from text
+      default: true
+    extract_keywords:
+      type: boolean
+      description: Whether to extract keywords from text
+      default: true
+    summarize:
+      type: boolean
+      description: Whether to generate a summary of the text
+      default: true
+    max_summary_length:
+      type: integer
+      description: Maximum length of generated summaries in words
+      default: 200
+      minimum: 50
+      maximum: 1000
+
 default_config:
-  language: en
+  processor: "spacy"
+  language: "en"
+  device: "cpu"
+  batch_size: 32
   normalize_text: true
   extract_entities: true
   extract_keywords: true
   summarize: true
   max_summary_length: 200
-config_schema:
-  language:
-    description: Language code for text processing (e.g., en, es, fr)
-    required: false
-    default: en
-    type: string
-  normalize_text:
-    description: Whether to normalize text (remove special chars, standardize whitespace)
-    required: false
-    default: true
-    type: boolean
-  extract_entities:
-    description: Whether to extract named entities from text
-    required: false
-    default: true
-    type: boolean
-  extract_keywords:
-    description: Whether to extract keywords from text
-    required: false
-    default: true
-    type: boolean
-  summarize:
-    description: Whether to generate a summary of the text
-    required: false
-    default: true
-    type: boolean
-  max_summary_length:
-    description: Maximum length of generated summaries in words
-    required: false
-    default: 200
-    type: integer
-    min: 50
-    max: 1000
-documentation: |
-  # Text Processing Workflow
 
-  This workflow provides a complete pipeline for processing text using various NLP tools.
-
-  ## Features
-
-  - Text normalization
-  - Named entity extraction
-  - Keyword extraction
-  - Text summarization
-
-  ## Configuration
-
-  - `language`: Language code for text processing (default: en)
-  - `normalize_text`: Enable text normalization (default: true)
-  - `extract_entities`: Enable named entity extraction (default: true)
-  - `extract_keywords`: Enable keyword extraction (default: true)
-  - `summarize`: Enable text summarization (default: true)
-  - `max_summary_length`: Maximum summary length in words (default: 200)
-
-  ## Usage
-
-  ```python
-  from pepperpy import plugin_manager
-
-  # Create workflow
-  workflow = plugin_manager.create_provider(
-      "workflow", "text_processing",
-      language="en",
-      max_summary_length=150
-  )
-
-  # Process a single text
-  result = await workflow.process_text("Your text to process")
-  print(f"Summary: {result['summary']}")
-  print(f"Keywords: {result['keywords']}")
-  print(f"Entities: {result['entities']}")
-
-  # Process multiple texts
-  results = await workflow.process_batch([
-      "First text to process",
-      "Second text to process"
-  ])
-  ```
-
-  ## Output Format
-
-  The workflow returns a dictionary with these keys:
-  - `normalized_text`: Cleaned and normalized text
-  - `entities`: List of extracted named entities
-  - `keywords`: List of extracted keywords
-  - `summary`: Generated text summary
+# Examples for testing
+examples:
+  - name: "process_single_text"
+    description: "Process a single text with default settings"
+    input:
+      task: "process_text"
+      text: "PepperPy is a unified framework for AI/LLM ecosystems. It provides abstractions for LLMs, RAG, embeddings, and various NLP tasks."
+      options:
+        normalize_text: true
+        extract_entities: true
+    expected_output:
+      status: "success"
+      result:
+        entities: ["PepperPy", "AI", "LLM", "RAG", "NLP"]
+  
+  - name: "process_batch"
+    description: "Process multiple texts in batch mode"
+    input:
+      task: "process_batch"
+      text: [
+        "Natural language processing is a subfield of artificial intelligence.",
+        "Machine learning models can be used to process and understand human language."
+      ]
+      options:
+        extract_keywords: true
+    expected_output:
+      status: "success"
+      results:
+        - keywords: ["natural language processing", "artificial intelligence"]
+        - keywords: ["machine learning", "human language"]
+  
+  - name: "error_invalid_input"
+    description: "Test error handling with invalid input"
+    input:
+      task: "process_text"
+      options:
+        normalize_text: true
+    expected_output:
+      status: "error"
+      message: "Input must contain 'text' field"

@@ -1,33 +1,25 @@
 """Weather tool provider implementation."""
 
-import logging
-import random
 from typing import Any
 
 from pepperpy.plugin.provider import BasePluginProvider
-from pepperpy.tool.base import ToolProvider
-from plugins.workflow.ai_gateway.gateway import GatewayRequest, GatewayResponse
 
 
-class WeatherProvider(ToolProvider, BasePluginProvider):
-    """Provider for weather information.
+class WeatherProvider(BasePluginProvider):
+    """Provider for weather information."""
 
-    ALWAYS inherit from both domain provider and BasePluginProvider.
-    """
+    async def initialize(self) -> None:
+        """Initialize the provider.
 
-    default_temperature: int = 22
-    default_condition: str = "partly cloudy"
-    use_static_data: bool = True
-
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize with configuration.
-
-        Args:
-            **kwargs: Configuration parameters
+        This method is called automatically when the provider is first used.
         """
-        super().__init__(**kwargs)
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.initialized = False
+        if self.initialized:
+            return
+
+        # Get configuration values from self.config
+        self.default_temperature = self.config.get("default_temperature", 22)
+        self.default_condition = self.config.get("default_condition", "partly cloudy")
+        self.use_static_data = self.config.get("use_static_data", True)
 
         # Weather conditions for random generation
         self.conditions = [
@@ -41,55 +33,80 @@ class WeatherProvider(ToolProvider, BasePluginProvider):
             "windy",
         ]
 
-    async def initialize(self) -> None:
-        """Initialize provider resources.
-
-        ALWAYS check initialization flag.
-        NEVER initialize in constructor.
-        """
-        if self.initialized:
-            return
-
         self.logger.info("Weather tool initialized")
-        self.initialized = True
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        self.initialized = False
+        """Clean up resources.
+
+        This method is called automatically when the context manager exits.
+        """
         self.logger.info("Weather tool cleaned up")
 
-    def get_tool_id(self) -> str:
-        """Get the tool identifier."""
-        return "weather"
-
-    async def execute(self, request: GatewayRequest) -> GatewayResponse:
-        """Provide weather information.
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute a weather operation.
 
         Args:
-            request: Gateway request with location
+            input_data: Task data containing:
+                - task: Operation to perform (get_weather, get_forecast)
+                - location: Location to get weather for
+                - days: Number of days for forecast (optional)
 
         Returns:
-            Gateway response with weather data
+            Operation result
         """
         if not self.initialized:
-            return GatewayResponse.error(request.request_id, "Provider not initialized")
+            await self.initialize()
+
+        task = input_data.get("task")
+
+        if not task:
+            return {"status": "error", "message": "No task specified"}
 
         try:
-            location = request.inputs.get("location", "")
+            if task == "get_weather":
+                location = input_data.get("location")
 
-            if not location:
-                return GatewayResponse.error(request.request_id, "No location provided")
+                if not location:
+                    return {"status": "error", "message": "No location provided"}
 
-            # Generate weather data
-            if self.use_static_data:
-                weather = self._get_static_weather(location)
+                # Generate weather data
+                if self.use_static_data:
+                    weather = self._get_static_weather(location)
+                else:
+                    weather = self._get_random_weather(location)
+
+                return {"status": "success", "location": location, "weather": weather}
+
+            elif task == "get_forecast":
+                location = input_data.get("location")
+                days = input_data.get("days", 5)
+
+                if not location:
+                    return {"status": "error", "message": "No location provided"}
+
+                if not isinstance(days, int) or days < 1 or days > 10:
+                    return {
+                        "status": "error",
+                        "message": "Days must be between 1 and 10",
+                    }
+
+                # Generate forecast data
+                forecast = self._get_forecast(location, days)
+
+                return {"status": "success", "location": location, "forecast": forecast}
+
+            elif task == "get_capabilities":
+                return {
+                    "status": "success",
+                    "capabilities": ["get_weather", "get_forecast"],
+                }
+
             else:
-                weather = self._get_random_weather(location)
+                return {"status": "error", "message": f"Unknown task: {task}"}
 
-            return GatewayResponse.success(request.request_id, {"weather": weather})
         except Exception as e:
-            self.logger.error(f"Error getting weather: {e}")
-            return GatewayResponse.error(request.request_id, f"Weather error: {e!s}")
+            self.logger.error(f"Error executing task '{task}': {e}")
+            return {"status": "error", "message": str(e)}
 
     def _get_static_weather(self, location: str) -> dict[str, Any]:
         """Get static weather data.
@@ -117,6 +134,8 @@ class WeatherProvider(ToolProvider, BasePluginProvider):
         Returns:
             Weather data dictionary
         """
+        import random
+
         return {
             "location": location,
             "temperature": random.randint(0, 35),
@@ -124,3 +143,28 @@ class WeatherProvider(ToolProvider, BasePluginProvider):
             "humidity": random.randint(30, 90),
             "wind_speed": random.randint(0, 30),
         }
+
+    def _get_forecast(self, location: str, days: int) -> list[dict[str, Any]]:
+        """Get weather forecast for multiple days.
+
+        Args:
+            location: Location string
+            days: Number of days for forecast
+
+        Returns:
+            List of daily forecasts
+        """
+
+        forecast = []
+
+        for day in range(days):
+            if self.use_static_data:
+                daily = self._get_static_weather(location)
+                daily["day"] = day + 1
+            else:
+                daily = self._get_random_weather(location)
+                daily["day"] = day + 1
+
+            forecast.append(daily)
+
+        return forecast

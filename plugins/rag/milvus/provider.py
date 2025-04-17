@@ -1,241 +1,73 @@
-"""Milvus vector database provider for RAG."""
+"""
+Unknown plugin
 
-import uuid
-from typing import Any, List, Optional, Sequence, Union
+This provider implements a unknown plugin for the PepperPy framework.
+"""
 
-from pymilvus import (
-    Collection,
-    CollectionSchema,
-    DataType,
-    FieldSchema,
-    connections,
-    utility,
-)
+from typing import Any, Dict, List, Optional
 
-from pepperpy.core.base import ValidationError
-from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
+from pepperpy.unknown.base import ProviderBase
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class MilvusProvider(RAGProvider):
-    """Milvus vector database provider for RAG."""
+class UnknownProvider(ProviderBase, BasePluginProvider):
+    """
+    Unknown plugin
 
-    
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-def __init__(
-        self,
-        collection_name: str = "pepperpy",
-        host: str = "localhost",
-        port: int = 19530,
-        user: str = "",
-        password: str = "",
-        dimension: int = 1536,  # Default for text-embedding-3-small
-        **kwargs: Any,
-    ) -> None:
-        """Initialize Milvus provider.
-
-        Args:
-            collection_name: Name of the collection to use
-            host: Milvus server host
-            port: Milvus server port
-            user: Username for authentication
-            password: Password for authentication
-            dimension: Dimension of vectors (default 1536 for text-embedding-3-small)
-            **kwargs: Additional configuration parameters
-        """
-        super().__init__()
-        self.collection_name = collection_name
-        self.host = host
-        self.port = port
-        self.user = user
-        self.password = password
-        self.dimension = dimension
-        self.kwargs = kwargs
-        self._collection: Optional[Collection] = None
-
-    def _get_collection(self) -> Collection:
-        """Get the collection, raising an error if not initialized.
-
-        Returns:
-            The initialized collection
-
-        Raises:
-            ValidationError: If collection is not initialized
-        """
-        if self._collection is None:
-            raise ValidationError("Collection not initialized")
-        return self._collection
+    This provider implements unknown for unknown.
+    """
 
     async def initialize(self) -> None:
         """Initialize the provider.
 
-        Creates the collection if it doesn't exist.
+        This method is called automatically when the provider is first used.
         """
-        # Connect to Milvus
-        connections.connect(
-            alias="default",
-            host=self.host,
-            port=self.port,
-            user=self.user,
-            password=self.password,
-            **self.kwargs,
-        )
-
-        # Create collection if it doesn't exist
-        if not utility.has_collection(self.collection_name):
-            fields = [
-                FieldSchema(
-                    name="id",
-                    dtype=DataType.VARCHAR,
-                    is_primary=True,
-                    max_length=36,
-                ),
-                FieldSchema(
-                    name="text",
-                    dtype=DataType.VARCHAR,
-                    max_length=65535,
-                ),
-                FieldSchema(
-                    name="metadata",
-                    dtype=DataType.JSON,
-                ),
-                FieldSchema(
-                    name="vector",
-                    dtype=DataType.FLOAT_VECTOR,
-                    dim=self.dimension,
-                ),
-            ]
-            schema = CollectionSchema(
-                fields=fields,
-                description="PepperPy RAG collection",
-            )
-            collection = Collection(
-                name=self.collection_name,
-                schema=schema,
-            )
-            # Create index for vector field
-            index_params = {
-                "metric_type": "COSINE",
-                "index_type": "IVF_FLAT",
-                "params": {"nlist": 1024},
-            }
-            collection.create_index(
-                field_name="vector",
-                index_params=index_params,
-            )
-            self._collection = collection
-        else:
-            self._collection = Collection(self.collection_name)
-
-        # Load collection into memory
-        self._get_collection().load()
+        # Call the base class implementation first
+        await super().initialize()
+        
+        # Initialize resources
+        # TODO: Add initialization code
+        
+        self.logger.debug(f"Initialized with config={self.config}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        if self._collection is not None:
-            self._collection.release()
-        connections.disconnect("default")
+        """Clean up provider resources.
 
-    async def store(self, docs: Union[Document, List[Document]]) -> None:
-        """Store documents in Milvus.
-
-        Args:
-            docs: Document or list of documents to store
+        This method is called automatically when the context manager exits.
         """
-        if isinstance(docs, Document):
-            docs = [docs]
+        # Clean up resources
+        # TODO: Add cleanup code
+        
+        # Call the base class cleanup
+        await super().cleanup()
 
-        ids = []
-        texts = []
-        metadatas = []
-        vectors = []
-
-        for doc in docs:
-            if "embeddings" not in doc.metadata:
-                raise ValidationError("Document must have embeddings in metadata")
-
-            doc_id = str(uuid.uuid4())
-            ids.append(doc_id)
-            texts.append(doc.text)
-            metadatas.append(doc.metadata)
-            vectors.append(doc.metadata["embeddings"])
-
-        self._get_collection().insert([
-            ids,
-            texts,
-            metadatas,
-            vectors,
-        ])
-
-    async def search(
-        self,
-        query: Union[str, Query],
-        limit: int = 5,
-        **kwargs: Any,
-    ) -> Sequence[SearchResult]:
-        """Search for relevant documents.
-
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a task based on input data.
+        
         Args:
-            query: Search query text or Query object
-            limit: Maximum number of results to return
-            **kwargs: Additional search parameters
-
+            input_data: Input data containing task and parameters
+            
         Returns:
-            List of search results
+            Task execution result
         """
-        if isinstance(query, str):
-            query = Query(text=query)
+        # Get task type from input
+        task_type = input_data.get("task")
+        
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+            
+        try:
+            # Handle different task types
+            if task_type == "example_task":
+                # TODO: Implement task
+                return {
+                    "status": "success",
+                    "result": "Task executed successfully"
+                }
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                
+        except Exception as e:
+            self.logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)}
 
-        if not query.embeddings:
-            raise ValidationError("Query must have embeddings")
-
-        search_params = {
-            "metric_type": "COSINE",
-            "params": {"nprobe": 10},
-            **kwargs,
-        }
-
-        results = self._get_collection().search(
-            data=[query.embeddings],
-            anns_field="vector",
-            param=search_params,
-            limit=limit,
-            output_fields=["id", "text", "metadata"],
-        )
-
-        search_results = []
-        for hits in results:
-            for hit in hits:
-                search_results.append(
-                    SearchResult(
-                        id=hit.entity.get("id"),
-                        text=hit.entity.get("text"),
-                        metadata=hit.entity.get("metadata"),
-                        score=hit.score,
-                    )
-                )
-
-        return search_results
-
-    async def get(self, doc_id: str) -> Optional[Document]:
-        """Get a document by ID.
-
-        Args:
-            doc_id: ID of the document to get
-
-        Returns:
-            The document if found, None otherwise
-        """
-        results = self._get_collection().query(
-            expr=f'id == "{doc_id}"',
-            output_fields=["text", "metadata"],
-        )
-
-        if not results:
-            return None
-
-        result = results[0]
-        return Document(
-            text=result["text"],
-            metadata=result["metadata"],
-        )

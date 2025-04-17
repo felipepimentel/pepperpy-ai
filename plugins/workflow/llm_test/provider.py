@@ -1,73 +1,67 @@
 """LLM test workflow provider implementation."""
 
-import logging
 from typing import Any
 
 from pepperpy import PepperPy
 from pepperpy.core.base import PepperpyError
+from pepperpy.plugin.provider import BasePluginProvider
 from pepperpy.workflow.base import WorkflowProvider
-from pepperpy.workflow.decorators import workflow
 
 
 class WorkflowError(PepperpyError):
     """Base error for workflow errors."""
 
 
-@workflow(
-    name="llm_test",
-    description="Test workflow for LLM capabilities",
-    version="0.1.0",
-)
-class LLMTestWorkflow(WorkflowProvider):
+class LLMTestWorkflow(WorkflowProvider, BasePluginProvider):
     """Test workflow for LLM capabilities."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize with configuration."""
-        super().__init__(**kwargs)
+    async def initialize(self) -> None:
+        """Initialize resources."""
+        await super().initialize()
 
-        # Configuration values with defaults
-        self.config = kwargs
+        # Get configuration from self.config
         self.model = self.config.get("model", "gpt-3.5-turbo")
         self.temperature = self.config.get("temperature", 0.7)
         self.max_tokens = self.config.get("max_tokens", 1000)
 
         # Initialize state
-        self.initialized = False
         self.llm = None
-        self.logger = logging.getLogger(__name__)
         self.pepperpy = None
-
-    async def initialize(self) -> None:
-        """Initialize resources."""
-        if self.initialized:
-            return
 
         try:
             # Initialize LLM provider
             self.pepperpy = PepperPy()
-            self.llm = self.pepperpy.get_llm(
+            self.pepperpy = self.pepperpy.with_llm(
                 provider="openai",
                 model=self.model,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
             )
-            await self.llm.initialize()
-            self.initialized = True
-            self.logger.info("Initialized LLM test workflow")
+            self.pepperpy = await self.pepperpy.build()
+
+            # Get the LLM client
+            self.llm = self.pepperpy.llm
+
+            self.logger.debug(
+                f"Initialized LLM test workflow with model={self.model}, "
+                f"temperature={self.temperature}, max_tokens={self.max_tokens}"
+            )
         except Exception as e:
             self.logger.error(f"Failed to initialize LLM test workflow: {e}")
             raise WorkflowError("Failed to initialize LLM") from e
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        if not self.initialized:
-            return
-
         try:
-            if self.llm:
-                await self.llm.cleanup()
-            self.initialized = False
-            self.logger.info("Cleaned up LLM test workflow")
+            if hasattr(self, "pepperpy") and self.pepperpy:
+                await self.pepperpy.cleanup()
+                self.pepperpy = None
+                self.llm = None
+
+            # Always call parent cleanup
+            await super().cleanup()
+
+            self.logger.debug("Cleaned up LLM test workflow")
         except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
 
@@ -81,14 +75,10 @@ class LLMTestWorkflow(WorkflowProvider):
             Execution result with generated text
         """
         try:
-            # Initialize if needed
-            if not self.initialized:
-                await self.initialize()
-
             # Get prompt from input
             prompt = input_data.get("prompt")
             if not prompt:
-                raise WorkflowError("No prompt provided")
+                return {"status": "error", "message": "No prompt provided"}
 
             # Get optional parameters
             system_prompt = input_data.get(
@@ -99,7 +89,7 @@ class LLMTestWorkflow(WorkflowProvider):
 
             # Execute LLM call
             if not self.llm:
-                raise WorkflowError("LLM not initialized")
+                return {"status": "error", "message": "LLM not initialized"}
 
             response = await self.llm.generate(
                 prompt=prompt,

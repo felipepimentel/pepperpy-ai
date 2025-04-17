@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from pepperpy.plugin.provider import BasePluginProvider
 from pepperpy.workflow.base import PipelineContext, PipelineStage, WorkflowProvider
 
 
@@ -288,42 +289,123 @@ class ContentRefinementStage(PipelineStage):
         return content + citations
 
 
-class ContentGeneratorWorkflow(WorkflowProvider):
+class ContentGeneratorWorkflow(WorkflowProvider, BasePluginProvider):
     """Content generator workflow provider."""
-
-    def __init__(self, **config: Any) -> None:
-        """Initialize the content generator workflow.
-
-        Args:
-            **config: Configuration options
-                - outline_type: Type of content (article, blog_post, etc.)
-                - style: Writing style (informative, conversational, etc.)
-                - model: Language model to use for generation
-                - refinements: List of refinements to apply
-        """
-        super().__init__()
-        self._config = config
-        self._outline_type = config.get("outline_type", "article")
-        self._style = config.get("style", "informative")
-        self._model = config.get("model", "gpt-4")
-        self._refinements = config.get("refinements")
-
-        # Inicializar estágios do pipeline diretamente
-        self._research_stage = TopicResearchStage(
-            search_provider=config.get("search_provider", "google"),
-            num_sources=config.get("num_sources", 5),
-        )
-
-        self._outline_stage = ContentOutlineStage(outline_type=self._outline_type)
-
-        self._draft_stage = ContentDraftStage(model=self._model, style=self._style)
-
-        self._refinement_stage = ContentRefinementStage(refinements=self._refinements)
 
     async def initialize(self) -> None:
         """Initialize the workflow."""
-        # Nada a fazer, estágios já foram inicializados no __init__
-        pass
+        await super().initialize()
+
+        # Get configuration
+        self._outline_type = self.config.get("content_type", "article")
+        self._style = self.config.get("tone", "neutral")
+        self._model = self.config.get("model", "gpt-4")
+        self._refinements = self.config.get("refinements")
+
+        # Initialize pipeline stages
+        self._research_stage = TopicResearchStage(
+            search_provider=self.config.get("search_provider", "google"),
+            num_sources=self.config.get("num_sources", 5),
+        )
+
+        self._outline_stage = ContentOutlineStage(outline_type=self._outline_type)
+        self._draft_stage = ContentDraftStage(model=self._model, style=self._style)
+        self._refinement_stage = ContentRefinementStage(refinements=self._refinements)
+
+        self.logger.debug(
+            f"Content generator workflow initialized with outline_type={self._outline_type}, "
+            f"style={self._style}, model={self._model}"
+        )
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        # Clean up any resources if needed
+
+        # Always call parent cleanup
+        await super().cleanup()
+
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute the workflow with the given input.
+
+        Args:
+            input_data: Input data with the following structure:
+                {
+                    "task": str,  # Optional task type
+                    "topic": str,  # Topic to generate content about
+                    "options": Dict[str, Any]  # Additional options
+                }
+
+        Returns:
+            Dictionary with generated content
+        """
+        try:
+            # Check for specific task
+            task = input_data.get("task", "generate")
+
+            if task == "generate":
+                # Get topic and options
+                topic = input_data.get("topic") or "default topic"
+                options = input_data.get("options", {})
+
+                # Generate content
+                return await self.generate_content(topic, **options)
+
+            elif task == "list_workflows":
+                return {
+                    "status": "success",
+                    "workflows": [
+                        {"id": "content_generator", "name": "Content Generator"}
+                    ],
+                }
+
+            elif task == "get_workflow":
+                workflow_id = input_data.get("id")
+                if workflow_id == "content_generator" or not workflow_id:
+                    return {
+                        "status": "success",
+                        "workflow": {
+                            "id": "content_generator",
+                            "name": "Content Generator",
+                        },
+                    }
+                return {
+                    "status": "error",
+                    "message": f"Workflow not found: {workflow_id}",
+                }
+
+            else:
+                return {"status": "error", "message": f"Unknown task: {task}"}
+
+        except Exception as e:
+            self.logger.error(f"Error executing workflow: {e}")
+            return {"status": "error", "message": str(e)}
+
+    async def generate_content(self, topic: str, **options: Any) -> dict[str, Any]:
+        """Generate content on a specific topic.
+
+        Args:
+            topic: Topic to generate content about
+            **options: Additional options to override configuration
+
+        Returns:
+            Dictionary with generated content and metadata
+        """
+        # Create pipeline context
+        context = PipelineContext()
+
+        # Add options to context
+        for key, value in options.items():
+            context.set(key, value)
+
+        # Execute pipeline
+        research = await self._research_stage.process(topic, context)
+        outline = await self._outline_stage.process(research, context)
+        draft = await self._draft_stage.process(outline, context)
+        refined = await self._refinement_stage.process(draft, context)
+
+        # Add status field for consistent response format
+        refined["status"] = "success"
+        return refined
 
     async def create_workflow(self, workflow_config: dict[str, Any]) -> Any:
         """Create a workflow instance.
@@ -351,58 +433,6 @@ class ContentGeneratorWorkflow(WorkflowProvider):
         """
         # Delegamos para o método execute
         return await self.execute(input_data)
-
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        pass
-
-    async def generate_content(self, topic: str, **options: Any) -> dict[str, Any]:
-        """Generate content on a specific topic.
-
-        Args:
-            topic: Topic to generate content about
-            **options: Additional options to override configuration
-
-        Returns:
-            Dictionary with generated content and metadata
-        """
-        # Create pipeline context
-        context = PipelineContext()
-
-        # Add options to context
-        for key, value in options.items():
-            context.set(key, value)
-
-        # Execute pipeline
-        research = await self._research_stage.process(topic, context)
-        outline = await self._outline_stage.process(research, context)
-        draft = await self._draft_stage.process(outline, context)
-        refined = await self._refinement_stage.process(draft, context)
-
-        return refined
-
-    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
-        """Execute the workflow with the given input.
-
-        Args:
-            input_data: Input data with the following structure:
-                {
-                    "topic": str,  # Topic to generate content about
-                    "options": Dict[str, Any]  # Additional options
-                }
-
-        Returns:
-            Dictionary with generated content
-        """
-        # Add default topic if missing (for compatibility with other workflows)
-        topic = input_data.get("topic") or "default topic"
-        options = input_data.get("options", {})
-
-        # Use a default topic for validation instead of failing
-        if not topic:
-            topic = "default topic"
-
-        return await self.generate_content(topic, **options)
 
     async def get_workflow(self, workflow_id: str) -> Any:
         """Get workflow by ID.

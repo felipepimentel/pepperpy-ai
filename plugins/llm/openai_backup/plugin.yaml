@@ -1,0 +1,92 @@
+name: llm/openai
+version: 0.2.0
+description: OpenAI LLM provider for PepperPy
+author: PepperPy Team
+license: MIT
+
+plugin_type: llm
+category: provider
+provider_name: openai
+entry_point: provider.OpenAIProvider
+
+models:
+- gpt-4o
+- gpt-4-turbo
+- gpt-4
+- gpt-3.5-turbo
+
+config_schema:
+  type: object
+  required:
+  - api_key
+  properties:
+    api_key:
+      type: string
+      description: OpenAI API key
+    model:
+      type: string
+      description: OpenAI model to use
+      default: gpt-4-turbo
+    temperature:
+      type: number
+      description: Sampling temperature (0-1)
+      default: 0.7
+    max_tokens:
+      type: integer
+      description: Maximum number of tokens to generate
+      default: 1024
+    top_p:
+      type: number
+      description: Nucleus sampling parameter (0-1)
+      default: 1.0
+    presence_penalty:
+      type: number
+      description: Presence penalty (-2.0 to 2.0)
+      default: 0.0
+    frequency_penalty:
+      type: number
+      description: Frequency penalty (-2.0 to 2.0)
+      default: 0.0
+
+default_config:
+  model: gpt-4-turbo
+  temperature: 0.7
+  max_tokens: 1024
+  top_p: 1.0
+  presence_penalty: 0.0
+  frequency_penalty: 0.0
+
+# Examples for testing the plugin
+examples:
+  - name: "simple_completion"
+    description: "Basic text completion test"
+    input:
+      task: "generate"
+      messages:
+        - role: "user"
+          content: "What is artificial intelligence?"
+      config:
+        model: "gpt-3.5-turbo"
+    expected_output:
+      status: "success"
+
+  - name: "system_prompt"
+    description: "Query with system prompt"
+    input:
+      task: "generate"
+      messages:
+        - role: "system"
+          content: "You are an AI assistant specialized in science."
+        - role: "user"
+          content: "Explain quantum computing"
+      config:
+        model: "gpt-4"
+    expected_output:
+      status: "success"
+
+metadata:
+  provider_url: https://openai.com/
+  requires_api_key: true
+
+dependencies:
+- openai>=1.0.0

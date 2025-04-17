@@ -1,16 +1,14 @@
-name: basic_text_normalizer
+name: content/text_normalization/basic
 version: 0.1.0
 description: Basic text normalizer with common transformations
 author: PepperPy Team
 license: MIT
+
 plugin_type: content
 category: text_normalization
-provides:
-  - normalizer
 provider_name: basic
 entry_point: provider.BasicTextNormalizer
 
-# Configuration schema
 config_schema:
   type: object
   properties:
@@ -19,6 +17,11 @@ config_schema:
       description: List of transformation names to apply
       items:
         type: string
+      default:
+        - strip_whitespace
+        - normalize_unicode
+        - normalize_whitespace
+        - remove_control_chars
     custom_patterns:
       type: object
       description: Custom regex patterns for text cleaning
@@ -34,13 +37,34 @@ config_schema:
       description: Language code for language-specific processing
       default: en
 
-# Default configuration
 default_config:
   transformations:
     - strip_whitespace
     - normalize_unicode
     - normalize_whitespace
     - remove_control_chars
+  language: en
+
+# Examples for testing the plugin
+examples:
+  - name: "basic_normalization"
+    description: "Basic text normalization"
+    input:
+      task: "execute"
+      text: "Text with  multiple   spaces and Unicode characters: "quoted" text"
+    expected_output:
+      status: "success"
+      
+  - name: "custom_transformations"
+    description: "Custom transformation sequence"
+    input:
+      task: "execute"
+      text: "TEXT WITH UPPERCASE and numbers 12345"
+      transformations:
+        - lowercase
+        - remove_numbers
+    expected_output:
+      status: "success"
 
 # Documentation
 usage: |

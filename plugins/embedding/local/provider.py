@@ -1,189 +1,73 @@
-"""Local embeddings provider implementation using sentence-transformers."""
+"""
+Unknown plugin
 
-import logging
+This provider implements a unknown plugin for the PepperPy framework.
+"""
+
 from typing import Any, Dict, List, Optional
 
-from pepperpy.core.errors import EmbeddingError
-from pepperpy.plugin.plugin import PepperpyPlugin
-
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:
-    SentenceTransformer = None
-
-logger = logging.getLogger(__name__)
+from pepperpy.unknown.base import ProviderBase
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class LocalProvider(PepperpyPlugin):
-    """Local implementation of embeddings provider using sentence-transformers.
+class UnknownProvider(ProviderBase, BasePluginProvider):
+    """
+    Unknown plugin
 
-    This provider runs completely offline without requiring any API keys.
-    It uses the sentence-transformers library which provides high quality
-    multilingual embeddings.
+    This provider implements unknown for unknown.
     """
 
-    name = "local"
-    version = "0.1.0"
-    description = "Local embeddings provider using sentence-transformers"
-    author = "PepperPy Team"
-
-    def __init__(
-        self,
-        model_name: str = "all-MiniLM-L6-v2",
-        **kwargs: Any,
-    ) -> None:
+    async def initialize(self) -> None:
         """Initialize the provider.
 
-        Args:
-            model_name: Name of the sentence-transformer model to use
-            **kwargs: Additional configuration options
+        This method is called automatically when the provider is first used.
         """
-        super().__init__(**kwargs)
-        self.model_name = model_name
-        self._model: Optional[Any] = None
-
-    def _ensure_initialized(self) -> None:
-        """Ensure the model is initialized.
-
-        Raises:
-            EmbeddingError: If initialization fails
-        """
-        if not self._model:
-            try:
-                if SentenceTransformer is None:
-                    raise ImportError("sentence-transformers is not installed")
-                self._model = SentenceTransformer(self.model_name)
-            except Exception as e:
-                raise EmbeddingError(f"Failed to initialize model: {e}")
-
-    async def initialize(self) -> None:
-        """Initialize the provider."""
-        self._ensure_initialized()
-        self.initialized = True
+        # Call the base class implementation first
+        await super().initialize()
+        
+        # Initialize resources
+        # TODO: Add initialization code
+        
+        self.logger.debug(f"Initialized with config={self.config}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        self._model = None
-        self.initialized = False
+        """Clean up provider resources.
 
-    def _get_embedding_function(self) -> Any:
-        """Get the embedding function.
-
-        Returns:
-            The embedding function
-
-        Raises:
-            EmbeddingError: If model is not initialized
+        This method is called automatically when the context manager exits.
         """
-        self._ensure_initialized()
-        if not self._model:
-            raise EmbeddingError("Model not initialized")
-        return self._model
+        # Clean up resources
+        # TODO: Add cleanup code
+        
+        # Call the base class cleanup
+        await super().cleanup()
 
-    async def embed_text(self, text: str) -> List[float]:
-        """Generate embeddings for a single text.
-
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a task based on input data.
+        
         Args:
-            text: Text to embed
-
+            input_data: Input data containing task and parameters
+            
         Returns:
-            List of embedding values
-
-        Raises:
-            EmbeddingError: If embedding generation fails
+            Task execution result
         """
+        # Get task type from input
+        task_type = input_data.get("task")
+        
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+            
         try:
-            model = self._get_embedding_function()
-            embeddings = model.encode(text)
-            return embeddings.tolist()
+            # Handle different task types
+            if task_type == "example_task":
+                # TODO: Implement task
+                return {
+                    "status": "success",
+                    "result": "Task executed successfully"
+                }
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                
         except Exception as e:
-            raise EmbeddingError(f"Failed to generate embeddings: {e}")
+            self.logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)}
 
-    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for multiple texts.
-
-        Args:
-            texts: List of texts to embed
-
-        Returns:
-            List of embedding vectors
-
-        Raises:
-            EmbeddingError: If embedding generation fails
-        """
-        try:
-            model = self._get_embedding_function()
-            embeddings = model.encode(texts)
-            return embeddings.tolist()
-        except Exception as e:
-            raise EmbeddingError(f"Failed to generate embeddings: {e}")
-
-    async def embed_query(self, query: str) -> List[float]:
-        """Generate embeddings for a query.
-
-        Args:
-            query: Query text to embed
-
-        Returns:
-            List of embedding values
-
-        Raises:
-            EmbeddingError: If embedding generation fails
-        """
-        try:
-            model = self._get_embedding_function()
-            embeddings = model.encode(query)
-            return embeddings.tolist()
-        except Exception as e:
-            raise EmbeddingError(f"Failed to generate embeddings: {e}")
-
-    def get_dimensions(self) -> int:
-        """Get the dimensionality of the embeddings.
-
-        Returns:
-            Number of dimensions
-
-        Raises:
-            EmbeddingError: If model is not initialized
-        """
-        try:
-            model = self._get_embedding_function()
-            return model.get_sentence_embedding_dimension()
-        except Exception as e:
-            raise EmbeddingError(f"Failed to get dimensions: {e}")
-
-    def get_config(self) -> Dict[str, Any]:
-        """Get provider configuration.
-
-        Returns:
-            Provider configuration
-        """
-        return {
-            "model_name": self.model_name,
-            "is_initialized": self._model is not None,
-        }
-
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get the provider capabilities.
-
-        Returns:
-            A dictionary of provider capabilities
-        """
-        return {
-            "supports_batching": True,
-            "supports_multilingual": True,
-            "requires_gpu": False,
-            "is_local": True,
-            "max_sequence_length": 512,
-        }
-
-    def get_embedding_function(self) -> Any:
-        """Get the embedding function.
-
-        Returns:
-            The embedding function
-
-        Raises:
-            EmbeddingError: If model is not initialized
-        """
-        return self._get_embedding_function()

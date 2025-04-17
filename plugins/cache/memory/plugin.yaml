@@ -1,30 +1,186 @@
 name: cache/memory
 version: 0.1.0
-description: Provider for Memory for cache tasks
+description: In-memory cache provider implementation
 author: PepperPy Team
+
 plugin_type: cache
-default_config: null
-config_schema: null
-documentation:
-  usage: 'Memory provider for cache tasks.
-
-
-    Example usage:
-
-    ```python
-
-    from pepperpy import create_provider
-
-
-    provider = create_provider("cache", "memory")
-
-
-    # Usage example here
-
-    ```
-
-    '
-category: cache
+category: provider
 provider_name: memory
 entry_point: provider.MemoryCacheProvider
-required_config_keys: []
+
+config_schema:
+  type: object
+  properties:
+    max_entries:
+      type: integer
+      description: Maximum number of entries to store in cache
+      default: 10000
+      minimum: 1
+    default_ttl:
+      type: integer
+      description: Default time-to-live in seconds
+      default: 3600
+      minimum: 0
+  required: []
+  additionalProperties: false
+
+default_config:
+  max_entries: 10000
+  default_ttl: 3600
+
+# Examples for testing the plugin
+examples:
+  - name: "set_and_get"
+    description: "Set and retrieve a cached value"
+    input:
+      task: "set"
+      key: "test-key"
+      value: "test-value"
+    expected_output:
+      status: "success"
+      message: "Value cached"
+      
+  - name: "get_existing"
+    description: "Get an existing cached value"
+    input:
+      task: "get"
+      key: "test-key"
+    expected_output:
+      status: "success"
+      found: true
+      
+  - name: "get_nonexistent"
+    description: "Get a non-existent cached value"
+    input:
+      task: "get"
+      key: "nonexistent-key"
+      default: "default-value"
+    expected_output:
+      status: "success"
+      value: "default-value"
+      found: false
+      
+  - name: "delete_key"
+    description: "Delete a key from the cache"
+    input:
+      task: "delete"
+      key: "test-key"
+    expected_output:
+      status: "success"
+      message: "Key deleted"
+      
+  - name: "set_with_tags"
+    description: "Set a value with associated tags"
+    input:
+      task: "set"
+      key: "tagged-key"
+      value: "tagged-value"
+      tags: ["tag1", "tag2"]
+    expected_output:
+      status: "success"
+      message: "Value cached"
+      
+  - name: "set_with_metadata"
+    description: "Set a value with metadata"
+    input:
+      task: "set"
+      key: "metadata-key"
+      value: "metadata-value"
+      metadata:
+        category: "user"
+        priority: 1
+        is_active: true
+    expected_output:
+      status: "success"
+      message: "Value cached"
+      
+  - name: "search_by_metadata"
+    description: "Search for entries by metadata"
+    input:
+      task: "search"
+      query:
+        category: "user"
+    expected_output:
+      status: "success"
+      count: 1
+      
+  - name: "search_by_metadata_advanced"
+    description: "Search for entries by metadata with operators"
+    input:
+      task: "search"
+      query:
+        priority: {"$gt": 0}
+        is_active: true
+    expected_output:
+      status: "success"
+      
+  - name: "invalidate_tag"
+    description: "Invalidate all entries with a specific tag"
+    input:
+      task: "invalidate_tag"
+      tag: "tag1"
+    expected_output:
+      status: "success"
+      message: "Tag invalidated"
+      
+  - name: "clear_cache"
+    description: "Clear all entries from the cache"
+    input:
+      task: "clear"
+    expected_output:
+      status: "success"
+      message: "Cache cleared"
+      
+  - name: "purge_expired"
+    description: "Purge only expired entries from the cache"
+    input:
+      task: "clear"
+      purge_only: true
+    expected_output:
+      status: "success"
+      message: "Purged 0 expired entries"
+      purged_count: 0
+      
+  - name: "error_max_entries"
+    description: "Test error when maximum entries is reached"
+    preconditions:
+      - "Cache is at maximum capacity"
+      - "Key does not exist in cache"
+    input:
+      task: "set"
+      key: "new-key"
+      value: "new-value"
+    expected_output:
+      status: "error"
+      message: "Cache capacity reached"
+      
+  - name: "error_invalid_ttl"
+    description: "Test error when TTL is negative"
+    input:
+      task: "set"
+      key: "key"
+      value: "value"
+      ttl: -10
+    expected_output:
+      status: "error"
+      message: "TTL cannot be negative"
+      
+  - name: "error_invalid_tags"
+    description: "Test error when tags is not a list or set"
+    input:
+      task: "set"
+      key: "key"
+      value: "value"
+      tags: "not-a-list"
+    expected_output:
+      status: "error"
+      message: "Tags must be a list or set"
+      
+  - name: "error_invalid_search_query"
+    description: "Test error when search query is invalid"
+    input:
+      task: "search"
+      query: null
+    expected_output:
+      status: "error"
+      message: "Valid query is required for search"

@@ -1,151 +1,94 @@
-"""OpenAI embeddings provider for PepperPy.
+"""
+OpenAI Embeddings provider for PepperPy
 
-This module provides embeddings using OpenAI's text embedding models.
+This provider implements a embedding plugin for the PepperPy framework.
 """
 
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional
 
-from openai import AsyncOpenAI
-from pepperpy.embeddings import EmbeddingsProvider
-from pepperpy.plugin import ProviderPlugin
-
-T = TypeVar("T", bound="OpenAIEmbeddingsProvider")
+from pepperpy.embedding.base import EmbeddingProvider
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class OpenAIEmbeddingsProvider(EmbeddingsProvider, ProviderPlugin):
-    """OpenAI embeddings provider for PepperPy."""
+class OpenAIEmbeddingsProvider(EmbeddingProvider, BasePluginProvider):
+    """
+    OpenAI Embeddings provider for PepperPy
 
-    # Instance variables - these come from plugin.yaml
-    api_key: str
-    model: str
-    dimensions: int
-    client: Optional[AsyncOpenAI] = None
-
-    def __init__(self, **config: Any) -> None:
-        """Initialize the OpenAI embeddings provider.
-
-        Args:
-            **config: Configuration options for the provider
-        """
-        super().__init__(**config)
-        self.client = None
-
-    @classmethod
-    def from_config(cls: Type[T], **config: Any) -> T:
-        """Create provider instance from configuration.
-
-        Args:
-            **config: Configuration options for the provider
-
-        Returns:
-            Provider instance
-        """
-        return cast(T, cls(**config))
+    This provider implements openai for embedding.
+    """
 
     async def initialize(self) -> None:
-        """Initialize the OpenAI client."""
-        if not hasattr(self, "api_key") or not self.api_key:
-            raise ValueError("OpenAI API key is required")
-        self.client = AsyncOpenAI(api_key=self.api_key)
+        """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        """
+        # Call the base class implementation first
+        await super().initialize()
+        
+        # Initialize resources
+        # TODO: Add initialization code
+        
+        self.logger.debug(f"Initialized with config={self.config}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        self.client = None
+        """Clean up provider resources.
 
-    async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
-        """Create embeddings for the given text(s).
+        This method is called automatically when the context manager exits.
+        """
+        # Clean up resources
+        # TODO: Add cleanup code
+        
+        # Call the base class cleanup
+        await super().cleanup()
+
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a task based on input data.
+        
+        Args:
+            input_data: Input data containing task and parameters
+            
+        Returns:
+            Task execution result
+        """
+        # Get task type from input
+        task_type = input_data.get("task")
+        
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+            
+        try:
+            # Handle different task types
+            if task_type == "example_task":
+                # TODO: Implement task
+                return {
+                    "status": "success",
+                    "result": "Task executed successfully"
+                }
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                
+        except Exception as e:
+            self.logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)}
+
+    async def embed(self, text: str, **kwargs: Any) -> List[float]:
+        """Generate embeddings for text.
 
         Args:
-            text: Text or list of texts to create embeddings for
+            text: Text to embed
+            **kwargs: Additional parameters for embedding
 
         Returns:
-            List of text embeddings
+            Embedding vector
         """
-        if not self.client:
+        if not self.initialized:
             await self.initialize()
-            if not self.client:
-                raise RuntimeError("Failed to initialize OpenAI client")
-
-        if isinstance(text, str):
-            text = [text]
-
-        response = await self.client.embeddings.create(
-            model=self.model,
-            input=text,
-            dimensions=self.dimensions,
-        )
-
-        return [data.embedding for data in response.data]
-
-    async def embed_query(self, text: str) -> List[float]:
-        """Create an embedding for a single query text.
-
-        Args:
-            text: Text to create embedding for
-
-        Returns:
-            Query embedding
-        """
-        embeddings = await self.embed_text(text)
-        return embeddings[0]
-
-    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
-        """Create embeddings for multiple texts.
-
-        Args:
-            texts: List of texts to create embeddings for
-
-        Returns:
-            List of text embeddings
-        """
-        return await self.embed_text(texts)
-
-    def get_embedding_function(self) -> Any:
-        """Get a function that can be used by vector stores.
-
-        Returns:
-            A callable that generates embeddings
-
-        Raises:
-            NotImplementedError: Synchronous embedding function not supported
-        """
-        raise NotImplementedError("Synchronous embedding function not supported")
-
-    async def get_dimensions(self) -> int:
-        """Get the dimensionality of the embeddings.
-
-        Returns:
-            The number of dimensions in the embeddings
-        """
-        return self.dimensions
-
-    def get_config(self) -> Dict[str, Any]:
-        """Get the provider configuration.
-
-        Returns:
-            The provider configuration
-        """
-        return {
-            "model": self.model,
-            "dimensions": self.dimensions,
-        }
-
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get the provider capabilities.
-
-        Returns:
-            A dictionary of provider capabilities
-        """
-        return {
-            "supports_async": True,
-            "supports_sync": False,
-            "supports_batch": True,
-            "max_batch_size": 2048,  # OpenAI's limit
-            "max_text_length": 8192,  # OpenAI's limit
-            "dimensions": self.dimensions,
-            "models": [
-                "text-embedding-3-small",
-                "text-embedding-3-large",
-                "text-embedding-ada-002",  # Legacy
-            ],
-        }
+            
+        # TODO: Implement embedding logic
+        # Example:
+        # model = self.config.get("model", "default-model")
+        # return await self._call_api(text, model)
+        
+        # Placeholder - return a simple vector
+        import random
+        return [random.random() for _ in range(10)]

@@ -1,68 +1,44 @@
-# Plugin metadata
-name: embeddings/openai
+name: embedding/openai
 version: 0.1.0
 description: OpenAI Embeddings provider for PepperPy
 author: PepperPy Team
-license: MIT
-plugin_type: embeddings
-category: embeddings
+
+plugin_type: embedding
+category: provider
 provider_name: openai
 entry_point: provider.OpenAIEmbeddingsProvider
-required_config_keys:
-  - api_key
 
-# Default configuration values
-default_config:
-  model: text-embedding-3-small
-  dimensions: 256
-
-# Configuration schema
 config_schema:
-  api_key:
-    description: OpenAI API key
-    required: true
-    env_var: PEPPERPY_EMBEDDINGS__OPENAI_API_KEY
-    type: string
-  model:
-    description: Model to use for embeddings
-    required: false
-    default: text-embedding-3-small
-    type: string
-  dimensions:
-    description: Output embedding dimensions
-    required: false
-    default: 256
-    type: integer
-    min: 64
-    max: 3072
+  type: object
+  properties:
+    api_key:
+      type: string
+      description: OpenAI API key
+    model:
+      type: string
+      description: Model to use for embeddings
+      default: "text-embedding-3-small"
+    dimensions:
+      type: integer
+      description: Output embedding dimensions
+      default: 256
+    batch_size:
+      type: integer
+      description: Maximum number of texts to embed in a single batch
+      default: 100
 
-# Additional metadata
-homepage: https://openai.com
-documentation: |
-  # OpenAI Embeddings Provider
+default_config:
+  model: "text-embedding-3-small"
+  dimensions: 256
+  batch_size: 100
 
-  This plugin provides embeddings using OpenAI's text embedding models.
-
-  ## Configuration
-
-  - `api_key`: OpenAI API key
-  - `model`: Embedding model to use (default: text-embedding-3-small)
-  - `dimensions`: Output embedding dimensions (default: 256)
-
-  ## Usage
-
-  ```python
-  from pepperpy import plugin_manager
-
-  # Create provider
-  provider = plugin_manager.create_provider("embeddings/openai", api_key="your-api-key")
-
-  # Get embedding
-  embedding = provider.embed("Your text here")
-  ```
-
-  ## Models
-
-  - text-embedding-3-small
-  - text-embedding-3-large
-  - text-embedding-ada-002 (legacy)
+# Examples for testing the plugin
+examples:
+  - name: "basic_example"
+    description: "Basic functionality test"
+    input:
+      task: "example_task"
+      config:
+        key: "value"
+    expected_output:
+      status: "success"

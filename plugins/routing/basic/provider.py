@@ -1,59 +1,46 @@
 """Basic routing provider for AI Gateway."""
 
-import json
 import traceback
 from collections.abc import Callable
 from typing import Any
 
 from aiohttp import web
 
-from pepperpy.core.logging import get_logger
-from pepperpy.plugin import PepperpyPlugin
-
-logger = get_logger(__name__)
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class BasicRoutingProvider(PepperpyPlugin):
+class BasicRoutingProvider(BasePluginProvider):
     """Basic routing provider using aiohttp."""
 
-    plugin_type = "routing"
-    provider_name = "basic"
+    async def initialize(self) -> None:
+        """Initialize the provider.
 
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize the routing provider.
-
-        Args:
-            **kwargs: Provider configuration
+        This method is called automatically when the provider is first used.
         """
-        super().__init__()
-        self.config = kwargs or {}
+        # Initialize state
+        self.initialized = True
+
+        # Get configuration
         self.host = self.config.get("host", "0.0.0.0")
         self.port = self.config.get("port", 8080)
         self.cors_origins = self.config.get("cors_origins", ["*"])
         self.log_requests = self.config.get("log_requests", True)
 
-        self.initialized = False
         self.running = False
-        self.app: web.Application | None = None  # Use Optional to handle None
-        self.runner = None
-        self.site = None
         self.auth_provider = None
         self.backends = {}
         self.server_task = None
+        self.runner = None
+        self.site = None
 
-    async def initialize(self) -> None:
-        """Initialize the routing provider."""
-        if self.initialized:
-            return
-
-        logger.info("Initializing Basic Routing Provider")
+        self.logger.info("Initializing Basic Routing Provider")
 
         # Create aiohttp application
         self.app = web.Application(middlewares=[self._auth_middleware])
 
         # Set up CORS
         if self.cors_origins:
-            logger.info(f"Configuring CORS with origins: {self.cors_origins}")
+            self.logger.info(f"Configuring CORS with origins: {self.cors_origins}")
             # Note: In a production app, you would add proper CORS middleware here
 
         # Set up routes
@@ -62,15 +49,17 @@ class BasicRoutingProvider(PepperpyPlugin):
         self.app.router.add_get("/providers", self._handle_providers)
         self.app.router.add_post("/api/{provider_id}", self._handle_api_request)
 
-        self.initialized = True
-        logger.info("Basic Routing Provider initialized")
+        self.logger.info("Basic Routing Provider initialized")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+        """Clean up resources.
+
+        This method is called automatically when the context manager exits.
+        """
         if not self.initialized:
             return
 
-        logger.info("Cleaning up Basic Routing Provider")
+        self.logger.info("Cleaning up Basic Routing Provider")
 
         # Stop server if running
         if self.running:
@@ -80,7 +69,93 @@ class BasicRoutingProvider(PepperpyPlugin):
         self.backends.clear()
 
         self.initialized = False
-        logger.info("Basic Routing Provider cleaned up")
+        self.logger.info("Basic Routing Provider cleaned up")
+
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute a routing operation.
+
+        Args:
+            input_data: Task data containing:
+                - task: Task name (start, stop, register_backend, unregister_backend, set_auth_provider)
+                - host: Host to bind to (for configure task)
+                - port: Port to listen on (for configure task)
+                - name: Backend name (for register/unregister tasks)
+                - provider: Backend provider (for register task)
+                - auth_provider: Auth provider (for set_auth_provider task)
+
+        Returns:
+            Operation result
+        """
+        task = input_data.get("task")
+
+        if not task:
+            return {"status": "error", "message": "No task specified"}
+
+        try:
+            if task == "configure":
+                host = input_data.get("host", self.host)
+                port = input_data.get("port", self.port)
+
+                await self.configure(host, port)
+                return {"status": "success", "message": f"Configured for {host}:{port}"}
+
+            elif task == "start":
+                await self.start()
+                return {
+                    "status": "success",
+                    "message": f"Server started on {self.host}:{self.port}",
+                }
+
+            elif task == "stop":
+                await self.stop()
+                return {"status": "success", "message": "Server stopped"}
+
+            elif task == "register_backend":
+                name = input_data.get("name")
+                provider = input_data.get("provider")
+
+                if not name or not provider:
+                    return {
+                        "status": "error",
+                        "message": "Name and provider are required",
+                    }
+
+                return await self.register_backend(name, provider)
+
+            elif task == "unregister_backend":
+                name = input_data.get("name")
+
+                if not name:
+                    return {"status": "error", "message": "Name is required"}
+
+                return await self.unregister_backend(name)
+
+            elif task == "set_auth_provider":
+                auth_provider = input_data.get("auth_provider")
+
+                if not auth_provider:
+                    return {"status": "error", "message": "Auth provider is required"}
+
+                await self.set_auth_provider(auth_provider)
+                return {"status": "success", "message": "Auth provider set"}
+
+            elif task == "status":
+                return {
+                    "status": "success",
+                    "running": self.running,
+                    "host": self.host,
+                    "port": self.port,
+                    "backends": list(self.backends.keys()),
+                    "has_auth_provider": self.auth_provider is not None,
+                }
+
+            else:
+                return {"status": "error", "message": f"Unknown task: {task}"}
+
+        except Exception as e:
+            self.logger.error(f"Error executing task '{task}': {e}")
+            self.logger.error(traceback.format_exc())
+            return {"status": "error", "message": str(e)}
 
     async def configure(self, host: str, port: int) -> None:
         """Configure the routing provider.
@@ -91,7 +166,7 @@ class BasicRoutingProvider(PepperpyPlugin):
         """
         self.host = host
         self.port = port
-        logger.info(f"Configured Basic Routing Provider for {host}:{port}")
+        self.logger.info(f"Configured Basic Routing Provider for {host}:{port}")
 
     async def start(self) -> None:
         """Start the routing server."""
@@ -99,14 +174,14 @@ class BasicRoutingProvider(PepperpyPlugin):
             await self.initialize()
 
         if self.running:
-            logger.warning("Routing server is already running")
+            self.logger.warning("Routing server is already running")
             return
 
-        logger.info(f"Starting routing server on {self.host}:{self.port}")
+        self.logger.info(f"Starting routing server on {self.host}:{self.port}")
 
         # Create and start the runner
         if self.app is None:  # Add a safety check
-            logger.error("Application is not initialized")
+            self.logger.error("Application is not initialized")
             return
 
         self.runner = web.AppRunner(self.app)
@@ -115,15 +190,15 @@ class BasicRoutingProvider(PepperpyPlugin):
         await self.site.start()
 
         self.running = True
-        logger.info(f"Routing server started on {self.host}:{self.port}")
+        self.logger.info(f"Routing server started on {self.host}:{self.port}")
 
     async def stop(self) -> None:
         """Stop the routing server."""
         if not self.running:
-            logger.warning("Routing server is not running")
+            self.logger.warning("Routing server is not running")
             return
 
-        logger.info("Stopping routing server")
+        self.logger.info("Stopping routing server")
 
         if self.site:
             await self.site.stop()
@@ -134,7 +209,7 @@ class BasicRoutingProvider(PepperpyPlugin):
         self.running = False
         self.site = None
         self.runner = None
-        logger.info("Routing server stopped")
+        self.logger.info("Routing server stopped")
 
     async def register_backend(self, name: str, provider: Any) -> dict[str, Any]:
         """Register an AI backend provider.
@@ -150,7 +225,7 @@ class BasicRoutingProvider(PepperpyPlugin):
             return {"status": "error", "message": f"Backend {name} already registered"}
 
         self.backends[name] = provider
-        logger.info(f"Registered backend provider: {name}")
+        self.logger.info(f"Registered backend provider: {name}")
 
         return {
             "status": "success",
@@ -171,7 +246,7 @@ class BasicRoutingProvider(PepperpyPlugin):
             return {"status": "error", "message": f"Backend {name} not registered"}
 
         del self.backends[name]
-        logger.info(f"Unregistered backend provider: {name}")
+        self.logger.info(f"Unregistered backend provider: {name}")
 
         return {
             "status": "success",
@@ -186,7 +261,7 @@ class BasicRoutingProvider(PepperpyPlugin):
             auth_provider: The authentication provider instance
         """
         self.auth_provider = auth_provider
-        logger.info("Auth provider set")
+        self.logger.info("Auth provider set")
 
     @web.middleware
     async def _auth_middleware(
@@ -201,37 +276,39 @@ class BasicRoutingProvider(PepperpyPlugin):
         Returns:
             The HTTP response
         """
-        # Skip auth for certain paths
-        if request.path in ["/", "/health"]:
+        # Skip authentication for non-API routes
+        if not request.path.startswith("/api/"):
             return await handler(request)
 
-        # Perform authentication if provider is available
-        if self.auth_provider:
-            # Extract headers as dict
-            headers = {key: value for key, value in request.headers.items()}
+        # Skip authentication if no auth provider is set
+        if not self.auth_provider:
+            self.logger.warning("No auth provider set, skipping authentication")
+            return await handler(request)
 
-            # Authenticate request
-            auth_result = await self.auth_provider.authenticate(headers)
+        try:
+            # Authenticate the request
+            result = await self.auth_provider.authenticate(dict(request.headers))
 
-            if not auth_result.get("authenticated", False):
-                error = auth_result.get("error", "Authentication failed")
+            if not result.get("authenticated", False):
+                error_msg = result.get("error", "Authentication failed")
+                self.logger.warning(f"Authentication failed: {error_msg}")
                 return web.json_response(
-                    {"status": "error", "message": error}, status=401
+                    {"error": error_msg, "authenticated": False}, status=401
                 )
 
-            # Set authenticated user in request
-            request["user_id"] = auth_result.get("user_id")
+            # Set user_id in request
+            request["user_id"] = result.get("user_id", "anonymous")
+            self.logger.debug(f"Authenticated user: {request['user_id']}")
 
-        # Process the request
-        try:
             return await handler(request)
         except Exception as e:
-            logger.error(f"Error handling request: {e}")
-            logger.error(traceback.format_exc())
-            return web.json_response({"status": "error", "message": str(e)}, status=500)
+            self.logger.error(f"Authentication error: {e}")
+            return web.json_response(
+                {"error": "Authentication error", "authenticated": False}, status=500
+            )
 
     async def _handle_home(self, request: web.Request) -> web.Response:
-        """Handle home route.
+        """Handle requests to the home route.
 
         Args:
             request: The HTTP request
@@ -239,14 +316,19 @@ class BasicRoutingProvider(PepperpyPlugin):
         Returns:
             The HTTP response
         """
-        return web.json_response({
-            "status": "success",
-            "message": "AI Gateway is running",
-            "backends": list(self.backends.keys()),
-        })
+        if self.log_requests:
+            self.logger.info(f"GET / from {request.remote}")
+
+        return web.json_response(
+            {
+                "name": "PepperPy AI Gateway",
+                "version": "0.1.0",
+                "status": "ok",
+            }
+        )
 
     async def _handle_health(self, request: web.Request) -> web.Response:
-        """Handle health check route.
+        """Handle requests to the health route.
 
         Args:
             request: The HTTP request
@@ -254,13 +336,13 @@ class BasicRoutingProvider(PepperpyPlugin):
         Returns:
             The HTTP response
         """
-        return web.json_response({
-            "status": "success",
-            "healthy": True,
-        })
+        if self.log_requests:
+            self.logger.info(f"GET /health from {request.remote}")
+
+        return web.json_response({"status": "ok"})
 
     async def _handle_providers(self, request: web.Request) -> web.Response:
-        """Handle providers list route.
+        """Handle requests to list providers.
 
         Args:
             request: The HTTP request
@@ -268,13 +350,14 @@ class BasicRoutingProvider(PepperpyPlugin):
         Returns:
             The HTTP response
         """
-        return web.json_response({
-            "status": "success",
-            "providers": list(self.backends.keys()),
-        })
+        if self.log_requests:
+            self.logger.info(f"GET /providers from {request.remote}")
+
+        providers = list(self.backends.keys())
+        return web.json_response({"providers": providers})
 
     async def _handle_api_request(self, request: web.Request) -> web.Response:
-        """Handle API request route.
+        """Handle API requests.
 
         Args:
             request: The HTTP request
@@ -283,42 +366,33 @@ class BasicRoutingProvider(PepperpyPlugin):
             The HTTP response
         """
         provider_id = request.match_info.get("provider_id")
+        if self.log_requests:
+            self.logger.info(f"POST /api/{provider_id} from {request.remote}")
 
-        if not provider_id:
-            return web.json_response(
-                {"status": "error", "message": "No provider specified"}, status=400
-            )
-
+        # Check if provider exists
         if provider_id not in self.backends:
             return web.json_response(
-                {"status": "error", "message": f"Provider {provider_id} not found"},
-                status=404,
+                {"error": f"Provider '{provider_id}' not found"}, status=404
             )
 
-        # Get the provider
-        provider = self.backends[provider_id]
-
-        # Parse request data
         try:
-            data = await request.json()
-        except json.JSONDecodeError:
-            return web.json_response(
-                {"status": "error", "message": "Invalid JSON data"}, status=400
-            )
+            # Get provider
+            provider = self.backends[provider_id]
 
-        # Add authenticated user if available
-        if "user_id" in request:
-            data["user_id"] = request["user_id"]
+            # Parse request body
+            body = await request.json()
 
-        # Log request if enabled
-        if self.log_requests:
-            logger.info(f"API Request: {provider_id} - {data}")
+            # Add user_id if authenticated
+            if "user_id" in request:
+                body["user_id"] = request["user_id"]
 
-        # Process request
-        try:
-            result = await provider.execute(data)
-            return web.json_response(result)
+            # Process request
+            response = await provider.process(body)
+
+            return web.json_response(response)
         except Exception as e:
-            logger.error(f"Error processing request: {e}")
-            logger.error(traceback.format_exc())
-            return web.json_response({"status": "error", "message": str(e)}, status=500)
+            self.logger.error(f"Error processing request: {e}")
+            self.logger.error(traceback.format_exc())
+            return web.json_response(
+                {"error": f"Error processing request: {e!s}"}, status=500
+            )

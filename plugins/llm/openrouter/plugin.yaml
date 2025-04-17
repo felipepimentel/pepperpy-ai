@@ -1,119 +1,96 @@
-type: llm
-provider: openrouter
-entry_point: OpenRouterProvider
-description: OpenRouter API provider for LLM interactions
+name: llm/openrouter
 version: 0.1.0
+description: OpenRouter LLM provider for accessing various AI models through a unified API
 author: PepperPy Team
-license: MIT
-config:
-  api_key:
-    description: OpenRouter API key
-    required: true
-    env_var: PEPPERPY_LLM__OPENROUTER_API_KEY
-    type: string
-  model:
-    description: Model to use for generation
-    required: false
-    default: openai/gpt-4o-mini
-    type: string
-  temperature:
-    description: Sampling temperature between 0.0 (deterministic) and 2.0 (creative)
-    required: false
-    default: 0.7
-    type: float
-    min: 0.0
-    max: 2.0
-  max_tokens:
-    description: Maximum tokens to generate in the response
-    required: false
-    default: 1024
-    type: integer
-    min: 1
-documentation: '# OpenRouter LLM Provider
 
-
-  This plugin provides access to various LLM models through OpenRouter''s API.
-
-
-  ## Configuration
-
-
-  - `api_key`: OpenRouter API key (required)
-
-  - `model`: Model to use (default: openai/gpt-4o-mini)
-
-  - `temperature`: Sampling temperature (default: 0.7)
-
-  - `max_tokens`: Maximum tokens to generate (default: 1024)
-
-
-  ## Available Models
-
-
-  - openai/gpt-4-turbo
-
-  - openai/gpt-4o-mini (default)
-
-  - anthropic/claude-3-opus
-
-  - anthropic/claude-3-sonnet
-
-  - anthropic/claude-3-haiku
-
-  - google/gemini-pro
-
-  - meta/llama2-70b
-
-  - mistral/mistral-medium
-
-
-  Note: You can also use environment variables for configuration:
-
-  - `PEPPERPY_LLM__OPENROUTER_API_KEY` (recommended)
-
-  '
-name: openrouter
-module: plugins.llm.openrouter.provider
-models:
-- openai/gpt-4o-mini
-- openai/gpt-4o
-- anthropic/claude-3-opus
-- anthropic/claude-3-sonnet
-- anthropic/claude-3-haiku
-- google/gemini-pro
-- meta/llama2-70b
-- mistral/mistral-medium
-documentation_url: https://openrouter.ai/docs
+plugin_type: llm
 category: provider
+provider_name: openrouter
+entry_point: provider.OpenRouterProvider
+
 config_schema:
   type: object
   properties:
     api_key:
       type: string
       description: OpenRouter API key
-      env_var: PEPPERPY_LLM__OPENROUTER_API_KEY
-    openrouter_api_key:
+    api_base:
       type: string
-      description: OpenRouter API key (standardized naming)
-      env_var: PEPPERPY_LLM__OPENROUTER_API_KEY
+      description: Base URL for OpenRouter API
+      default: "https://openrouter.ai/api/v1"
     model:
       type: string
-      description: Model to use
-      default: openai/gpt-4o-mini
+      description: Default model to use
+      default: "openai/gpt-3.5-turbo"
     temperature:
       type: number
-      description: Temperature for generation
+      description: Sampling temperature (0-1)
       default: 0.7
     max_tokens:
       type: integer
-      description: Maximum tokens to generate
+      description: Maximum number of tokens to generate
       default: 1024
+    top_p:
+      type: number
+      description: Nucleus sampling parameter (0-1)
+      default: 1.0
+    presence_penalty:
+      type: number
+      description: Presence penalty (-2.0 to 2.0)
+      default: 0.0
+    frequency_penalty:
+      type: number
+      description: Frequency penalty (-2.0 to 2.0)
+      default: 0.0
+    transforms:
+      type: array
+      description: Transformations to apply to the response
+      items:
+        type: string
+      default: []
+    route:
+      type: string
+      description: Specific routing information
+      default: ""
+    http_referer:
+      type: string
+      description: HTTP Referer header for attribution
+      default: "https://pepperpy.ai"
+    app_title:
+      type: string
+      description: Application title for attribution
+      default: "PepperPy"
+
 default_config:
-  model: openai/gpt-4o-mini
+  api_base: "https://openrouter.ai/api/v1"
+  model: "openai/gpt-3.5-turbo"
   temperature: 0.7
   max_tokens: 1024
-metadata:
-  provider_url: https://openrouter.ai/
-  requires_api_key: true
-plugin_type: plugins
-provider_name: openrouter
+  top_p: 1.0
+  presence_penalty: 0.0
+  frequency_penalty: 0.0
+  transforms: []
+  route: ""
+  http_referer: "https://pepperpy.ai"
+  app_title: "PepperPy"
+
+# Examples for testing the plugin
+examples:
+  - name: "basic_chat"
+    description: "Basic chat functionality test"
+    input:
+      task: "chat"
+      messages:
+        - role: "user"
+          content: "Hello, how are you?"
+      options:
+        temperature: 0.7
+    expected_output:
+      status: "success"
+  
+  - name: "list_models"
+    description: "List available models from OpenRouter"
+    input:
+      task: "models"
+    expected_output:
+      status: "success"

@@ -1,30 +1,31 @@
-name: rag/pinecone
+name: unknown/unknown
 version: 0.1.0
-description: Provider for Pinecone for rag tasks
+description: Unknown plugin
 author: PepperPy Team
-plugin_type: rag
-default_config: null
-config_schema: null
-documentation:
-  usage: 'Pinecone provider for rag tasks.
 
+plugin_type: unknown
+category: provider
+provider_name: unknown
+entry_point: provider.UnknownProvider
 
-    Example usage:
+config_schema:
+  type: object
+  properties:
+    option:
+      type: string
+      description: Configuration option
+      default: "default-value"
 
-    ```python
+default_config:
+  option: "default-value"
 
-    from pepperpy import create_provider
-
-
-    provider = create_provider("rag", "pinecone")
-
-
-    # Usage example here
-
-    ```
-
-    '
-category: rag
-provider_name: pinecone
-entry_point: provider.PineconeProvider
-required_config_keys: []
+# Examples for testing the plugin
+examples:
+  - name: "basic_example"
+    description: "Basic functionality test"
+    input:
+      task: "example_task"
+      config:
+        key: "value"
+    expected_output:
+      status: "success"

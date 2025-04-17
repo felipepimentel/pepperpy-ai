@@ -1,6 +1,6 @@
 name: agent/autogen
 version: 0.1.0
-description: AutoGen provider for autonomous agents
+description: AutoGen provider for autonomous LLM agents with tool-using capabilities
 author: PepperPy Team
 
 plugin_type: agent
@@ -13,37 +13,50 @@ config_schema:
   properties:
     model:
       type: string
-      description: LLM model to use
+      description: LLM model to use for agent responses
       default: gpt-3.5-turbo
     temperature:
       type: number
-      description: Temperature for sampling
+      description: Temperature for LLM sampling (0.0-1.0) - lower for more deterministic responses
       default: 0.7
     max_tokens:
       type: integer
-      description: Maximum number of tokens
+      description: Maximum number of tokens in LLM response
       default: 1000
     system_prompt:
       type: string
-      description: System prompt for initialization
-      default: "You are a helpful assistant."
+      description: System prompt for agent initialization
+      default: "You are a helpful assistant that can use tools when needed."
+    enabled_tools:
+      type: array
+      description: List of tool names that the agent can use (empty for all available tools)
+      items:
+        type: string
+      default: []
+    auto_tool_selection:
+      type: boolean
+      description: Whether the agent should automatically detect and execute tool calls
+      default: true
 
 default_config:
   model: gpt-3.5-turbo
   temperature: 0.7
   max_tokens: 1000
-  system_prompt: "You are a helpful assistant."
+  system_prompt: "You are a helpful assistant that can use tools when needed."
+  enabled_tools: []
+  auto_tool_selection: true
 
 # Examples for testing the plugin
 examples:
   - name: "basic_question"
-    description: "Basic question test"
+    description: "Basic question test without tool usage"
     input:
       task: "What is 2+2?"
       config:
         model: "gpt-3.5-turbo"
     expected_output:
       status: "success"
+      content: "4"
 
   - name: "code_generation"
     description: "Code generation test"
@@ -55,6 +68,16 @@ examples:
     expected_output:
       status: "success"
 
+  - name: "tool_usage"
+    description: "Test with enabled tool usage"
+    input:
+      task: "What's the weather in London right now?"
+      config:
+        enabled_tools: ["weather_basic"]
+        auto_tool_selection: true
+    expected_output:
+      status: "success"
+
   - name: "chat_conversation"
     description: "Multi-turn conversation test"
     input:
@@ -63,5 +86,20 @@ examples:
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello, how are you?"}
       ]
+    expected_output:
+      status: "success"
+      response: "I'm doing well, thank you for asking! How can I assist you today?"
+
+  - name: "multi_tool_usage"
+    description: "Test using multiple tools in a single conversation"
+    input:
+      task: "chat"
+      messages: [
+        {"role": "system", "content": "You are a helpful assistant that can use tools."},
+        {"role": "user", "content": "I need to know the weather in New York and calculate 15% of 85."}
+      ]
+      config:
+        enabled_tools: ["weather_basic", "calculator_basic"]
+        auto_tool_selection: true
     expected_output:
       status: "success"

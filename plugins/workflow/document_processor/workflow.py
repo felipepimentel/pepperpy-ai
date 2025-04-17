@@ -2,9 +2,10 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pepperpy.content.providers.document.pymupdf import PyMuPDFProvider
+from pepperpy.plugin.provider import BasePluginProvider
 from pepperpy.workflow.base import PipelineContext, PipelineStage, WorkflowProvider
 
 logger = logging.getLogger(__name__)
@@ -15,11 +16,11 @@ class TextExtractionStage(PipelineStage):
 
     def __init__(
         self,
-        provider: Optional[PyMuPDFProvider] = None,
+        provider: PyMuPDFProvider | None = None,
         extract_metadata: bool = True,
         extract_images: bool = False,
         extract_tables: bool = False,
-        password: Optional[str] = None,
+        password: str | None = None,
     ) -> None:
         """Initialize stage.
 
@@ -49,9 +50,9 @@ class TextExtractionStage(PipelineStage):
 
     async def process(
         self,
-        input_data: Union[str, Path, Dict[str, Any]],
+        input_data: str | Path | dict[str, Any],
         context: PipelineContext,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process input data.
 
         Args:
@@ -93,11 +94,11 @@ class DocumentBatchStage(PipelineStage):
 
     def __init__(
         self,
-        provider: Optional[PyMuPDFProvider] = None,
+        provider: PyMuPDFProvider | None = None,
         extract_metadata: bool = True,
         extract_images: bool = False,
         extract_tables: bool = False,
-        password: Optional[str] = None,
+        password: str | None = None,
     ) -> None:
         """Initialize stage.
 
@@ -127,9 +128,9 @@ class DocumentBatchStage(PipelineStage):
 
     async def process(
         self,
-        input_data: Union[List[Union[str, Path]], Dict[str, Any]],
+        input_data: list[str | Path] | dict[str, Any],
         context: PipelineContext,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process input data.
 
         Args:
@@ -178,13 +179,13 @@ class DocumentDirectoryStage(PipelineStage):
 
     def __init__(
         self,
-        provider: Optional[PyMuPDFProvider] = None,
+        provider: PyMuPDFProvider | None = None,
         extract_metadata: bool = True,
         extract_images: bool = False,
         extract_tables: bool = False,
-        password: Optional[str] = None,
+        password: str | None = None,
         recursive: bool = True,
-        file_types: Optional[List[str]] = None,
+        file_types: list[str] | None = None,
     ) -> None:
         """Initialize stage.
 
@@ -218,9 +219,9 @@ class DocumentDirectoryStage(PipelineStage):
 
     async def process(
         self,
-        input_data: Union[str, Path, Dict[str, Any]],
+        input_data: str | Path | dict[str, Any],
         context: PipelineContext,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process input data.
 
         Args:
@@ -278,32 +279,27 @@ class DocumentDirectoryStage(PipelineStage):
         }
 
 
-class DocumentProcessingWorkflow(WorkflowProvider):
+class DocumentProcessingWorkflow(WorkflowProvider, BasePluginProvider):
     """Document processing workflow provider."""
 
-    def __init__(self, **config: Any) -> None:
-        """Initialize the document processing workflow.
+    async def initialize(self) -> None:
+        """Initialize the workflow."""
+        await super().initialize()
 
-        Args:
-            **config: Configuration options
-                - extract_metadata: Whether to extract metadata
-                - extract_images: Whether to extract images
-                - extract_tables: Whether to extract tables
-                - password: Password for protected documents
-                - recursive: Whether to process subdirectories
-                - file_types: List of file types to process
-        """
-        super().__init__()
-        self._config = config
-        self._extract_metadata = config.get("extract_metadata", True)
-        self._extract_images = config.get("extract_images", False)
-        self._extract_tables = config.get("extract_tables", False)
-        self._password = config.get("password")
-        self._recursive = config.get("recursive", True)
-        self._file_types = config.get("file_types", [".pdf", ".xps", ".epub", ".cbz"])
+        # Get configuration
+        self._extract_metadata = self.config.get("extract_metadata", True)
+        self._extract_images = self.config.get("extract_images", False)
+        self._extract_tables = self.config.get("extract_tables", False)
+        self._password = self.config.get("password")
+        self._recursive = self.config.get("recursive", True)
+        self._file_types = self.config.get(
+            "file_types", [".pdf", ".xps", ".epub", ".cbz"]
+        )
 
-        # Inicializar estágios do pipeline
+        # Initialize pipeline stages
         self._provider = PyMuPDFProvider()
+        await self._provider.initialize()
+
         self._document_stage = TextExtractionStage(
             provider=self._provider,
             extract_metadata=self._extract_metadata,
@@ -330,44 +326,90 @@ class DocumentProcessingWorkflow(WorkflowProvider):
             file_types=self._file_types,
         )
 
-    async def create_workflow(self, workflow_config: Dict[str, Any]) -> Any:
-        """Create a workflow instance.
-
-        Args:
-            workflow_config: Workflow configuration
-
-        Returns:
-            The workflow instance
-        """
-        # Reutilizamos a mesma instância já que este provider implementa apenas um workflow
-        return self
-
-    async def execute_workflow(
-        self, workflow: Any, input_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Execute a workflow with the given input.
-
-        Args:
-            workflow: The workflow instance
-            input_data: Input data
-
-        Returns:
-            The workflow results
-        """
-        # Delegamos para o método execute
-        return await self.execute(input_data)
-
-    async def initialize(self) -> None:
-        """Initialize the workflow."""
-        await self._provider.initialize()
+        self.logger.debug(
+            f"Document processing workflow initialized with extract_metadata={self._extract_metadata}, "
+            f"extract_images={self._extract_images}, extract_tables={self._extract_tables}"
+        )
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        await self._provider.cleanup()
+        if hasattr(self, "_provider") and self._provider:
+            await self._provider.cleanup()
 
+        # Always call parent cleanup
+        await super().cleanup()
+
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute the workflow with the given input.
+
+        Args:
+            input_data: Input data with task and parameters:
+                {
+                    "task": str,  # Task type: process_document, process_batch, process_directory
+                    "document_path": str,  # Path to document (for process_document)
+                    "document_paths": List[str],  # List of paths (for process_batch)
+                    "directory_path": str,  # Directory path (for process_directory)
+                    "options": Dict[str, Any]  # Processing options
+                }
+
+        Returns:
+            Dictionary with processing results and status
+        """
+        try:
+            # Get task type and options
+            task = input_data.get("task", "process_document")
+            options = input_data.get("options", {})
+
+            if task == "process_document":
+                if "document_path" not in input_data:
+                    return {
+                        "status": "error",
+                        "message": "Missing document_path parameter",
+                    }
+
+                result = await self.process_document(
+                    input_data["document_path"], **options
+                )
+                result["status"] = "success"
+                return result
+
+            elif task == "process_batch":
+                if "document_paths" not in input_data:
+                    return {
+                        "status": "error",
+                        "message": "Missing document_paths parameter",
+                    }
+
+                result = await self.process_batch(
+                    input_data["document_paths"], **options
+                )
+                result["status"] = "success"
+                return result
+
+            elif task == "process_directory":
+                if "directory_path" not in input_data:
+                    return {
+                        "status": "error",
+                        "message": "Missing directory_path parameter",
+                    }
+
+                result = await self.process_directory(
+                    input_data["directory_path"], **options
+                )
+                result["status"] = "success"
+                return result
+
+            else:
+                return {"status": "error", "message": f"Unknown task: {task}"}
+
+        except Exception as e:
+            self.logger.error(f"Error executing task: {e}")
+            return {"status": "error", "message": str(e)}
+
+    # Keep the rest of the methods unchanged
     async def process_document(
-        self, document_path: Union[str, Path], **options: Any
-    ) -> Dict[str, Any]:
+        self, document_path: str | Path, **options: Any
+    ) -> dict[str, Any]:
         """Process a single document.
 
         Args:
@@ -383,8 +425,8 @@ class DocumentProcessingWorkflow(WorkflowProvider):
         return await self._document_stage.process(document_path, context)
 
     async def process_batch(
-        self, document_paths: List[Union[str, Path]], **options: Any
-    ) -> Dict[str, Any]:
+        self, document_paths: list[str | Path], **options: Any
+    ) -> dict[str, Any]:
         """Process multiple documents.
 
         Args:
@@ -400,8 +442,8 @@ class DocumentProcessingWorkflow(WorkflowProvider):
         return await self._batch_stage.process(document_paths, context)
 
     async def process_directory(
-        self, directory_path: Union[str, Path], **options: Any
-    ) -> Dict[str, Any]:
+        self, directory_path: str | Path, **options: Any
+    ) -> dict[str, Any]:
         """Process all documents in a directory.
 
         Args:
@@ -416,38 +458,27 @@ class DocumentProcessingWorkflow(WorkflowProvider):
             context.set(key, value)
         return await self._directory_stage.process(directory_path, context)
 
-    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute the workflow with the given input.
+    async def create_workflow(self, workflow_config: dict[str, Any]) -> Any:
+        """Create a workflow instance.
 
         Args:
-            input_data: Input data with one of the following structures:
-                {
-                    "document_path": str,  # Path to document
-                    "options": Dict[str, Any]  # Processing options
-                }
-                OR
-                {
-                    "document_paths": List[str],  # List of paths
-                    "options": Dict[str, Any]  # Processing options
-                }
-                OR
-                {
-                    "directory_path": str,  # Directory path
-                    "options": Dict[str, Any]  # Processing options
-                }
+            workflow_config: Workflow configuration
 
         Returns:
-            Dictionary with processing results
+            The workflow instance
         """
-        options = input_data.get("options", {})
+        return self
 
-        if "document_path" in input_data:
-            return await self.process_document(input_data["document_path"], **options)
-        elif "document_paths" in input_data:
-            return await self.process_batch(input_data["document_paths"], **options)
-        elif "directory_path" in input_data:
-            return await self.process_directory(input_data["directory_path"], **options)
-        else:
-            raise ValueError(
-                "Input must contain one of: 'document_path', 'document_paths', or 'directory_path'"
-            )
+    async def execute_workflow(
+        self, workflow: Any, input_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Execute a workflow with the given input.
+
+        Args:
+            workflow: The workflow instance
+            input_data: Input data
+
+        Returns:
+            The workflow results
+        """
+        return await self.execute(input_data)

@@ -1,0 +1,46 @@
+name: basic
+version: 0.1.0
+description: Basic text-to-speech provider using system voices
+author: PepperPy Team
+type: tts
+provider_class: BasicTTSProvider
+config_schema:
+  type: object
+  properties:
+    voice:
+      type: string
+      description: System voice to use (platform dependent)
+      default: default
+    rate:
+      type: number
+      description: Speaking rate (1.0 is normal speed)
+      default: 1.0
+    volume:
+      type: number
+      description: Volume level (0.0 to 1.0)
+      default: 1.0
+    pitch:
+      type: number
+      description: Voice pitch (0.5 to 2.0)
+      default: 1.0
+    format:
+      type: string
+      description: Output audio format
+      default: wav
+      enum:
+      - wav
+      - mp3
+      - ogg
+metadata:
+  display_name: System TTS
+  provider_url: https://github.com/pimentel/pepperpy
+  requires_api_key: false
+  platforms:
+  - windows
+  - macos
+  - linux
+dependencies:
+- pyttsx3>=2.90
+plugin_type: plugins
+provider_name: basic
+entry_point: provider.BasicProvider

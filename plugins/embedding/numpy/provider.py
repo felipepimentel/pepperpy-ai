@@ -1,126 +1,73 @@
-"""Numpy-based embeddings provider for basic text embeddings."""
+"""
+Unknown plugin
 
-import hashlib
-from typing import Any
+This provider implements a unknown plugin for the PepperPy framework.
+"""
 
-import numpy as np
+from typing import Any, Dict, List, Optional
 
-from pepperpy.embeddings.base import EmbeddingsProvider
-
-
-class NumpyEmbeddingFunction:
-    """Embedding function that follows Chroma's interface."""
-
-    def __init__(self, provider: "NumpyProvider"):
-        """Initialize with a provider instance."""
-        self._provider = provider
-
-    def __call__(self, input: str | list[str]) -> list[list[float]]:
-        """Generate embeddings for input text(s).
-
-        Args:
-            input: Text or list of texts to embed
-
-        Returns:
-            List of embeddings
-        """
-        if isinstance(input, str):
-            input = [input]
-
-        embeddings = []
-        for text in input:
-            # Get character frequencies
-            freq_vec = self._provider._get_char_frequencies(text)
-
-            # Add some random noise for variety
-            noise = self._provider._rng.normal(0, 0.1, self._provider.embedding_dim)
-            embedding = freq_vec + noise
-
-            # Normalize
-            norm = np.linalg.norm(embedding)
-            if norm > 0:
-                embedding = embedding / norm
-
-            embeddings.append(embedding.tolist())
-
-        return embeddings
+from pepperpy.unknown.base import ProviderBase
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class NumpyProvider(EmbeddingsProvider):
-    """A lightweight embeddings provider that uses numpy for basic text embeddings.
+class UnknownProvider(ProviderBase, BasePluginProvider):
+    """
+    Unknown plugin
 
-    This provider is designed for development, demonstrations, and prototyping purposes.
-    It creates simple embeddings based on character frequencies, making it suitable for
-    environments where advanced semantic understanding is not required.
+    This provider implements unknown for unknown.
     """
 
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-
-    def __init__(self, embedding_dim: int = 64):
-        """Initialize the numpy embeddings provider.
-
-        Args:
-            embedding_dim: Dimension of the embeddings to generate
-        """
-        self.embedding_dim = embedding_dim
-        self._rng = np.random.RandomState(42)  # Fixed seed for reproducibility
-
     async def initialize(self) -> None:
-        """Initialize the provider."""
-        pass
+        """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        """
+        # Call the base class implementation first
+        await super().initialize()
+        
+        # Initialize resources
+        # TODO: Add initialization code
+        
+        self.logger.debug(f"Initialized with config={self.config}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        pass
+        """Clean up provider resources.
 
-    def _get_char_frequencies(self, text: str) -> np.ndarray:
-        """Get character frequency vector for a text.
+        This method is called automatically when the context manager exits.
+        """
+        # Clean up resources
+        # TODO: Add cleanup code
+        
+        # Call the base class cleanup
+        await super().cleanup()
 
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a task based on input data.
+        
         Args:
-            text: Input text
-
+            input_data: Input data containing task and parameters
+            
         Returns:
-            Character frequency vector
+            Task execution result
         """
-        # Get unique characters and their counts
-        chars, counts = np.unique(list(text.lower()), return_counts=True)
+        # Get task type from input
+        task_type = input_data.get("task")
+        
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+            
+        try:
+            # Handle different task types
+            if task_type == "example_task":
+                # TODO: Implement task
+                return {
+                    "status": "success",
+                    "result": "Task executed successfully"
+                }
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                
+        except Exception as e:
+            self.logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)}
 
-        # Create a frequency vector
-        freq_vec = np.zeros(self.embedding_dim)
-        for char, count in zip(chars, counts, strict=False):
-            # Use character's hash as index
-            idx = int(hashlib.md5(char.encode()).hexdigest(), 16) % self.embedding_dim
-            freq_vec[idx] = count / len(text)
-
-        return freq_vec
-
-    async def embed_text(self, text: str) -> list[float]:
-        """Create an embedding for the given text.
-
-        Args:
-            text: Text to embed
-
-        Returns:
-            Text embedding as a list of floats
-        """
-        return NumpyEmbeddingFunction(self)([text])[0]
-
-    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """Create embeddings for multiple texts.
-
-        Args:
-            texts: List of texts to embed
-
-        Returns:
-            List of text embeddings
-        """
-        return NumpyEmbeddingFunction(self)(texts)
-
-    def get_embedding_function(self) -> Any:
-        """Get a function that can be used by vector stores.
-
-        Returns:
-            A callable that generates embeddings
-        """
-        return NumpyEmbeddingFunction(self)

@@ -8,12 +8,10 @@ in a predefined order, like a processing pipeline.
 from typing import Any
 
 from pepperpy.agent.topology.base import AgentTopologyProvider, TopologyError
-from pepperpy.core.logging import get_logger
-
-logger = get_logger(__name__)
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class ChainTopologyProvider(AgentTopologyProvider):
+class ChainTopologyProvider(AgentTopologyProvider, BasePluginProvider):
     """Chain topology provider.
 
     Implements a sequential approach to agent coordination where agents process
@@ -24,28 +22,24 @@ class ChainTopologyProvider(AgentTopologyProvider):
     - Gradual refinement of outputs
     - Multi-step transformation workflows
     - Step-by-step reasoning processes
-
-    Configuration:
-        chain_direction: Direction of chain (linear or bidirectional)
-        max_iterations: Maximum iterations through the chain
-        agent_order: Ordered list of agent IDs defining chain sequence
     """
 
-    def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """Initialize chain topology.
+    async def initialize(self) -> None:
+        """Initialize the provider.
 
-        Args:
-            config: Configuration dictionary
+        This method is called automatically when the provider is first used.
         """
-        super().__init__(config)
+        # Use base class initialization first
+        await super().initialize()
+
+        if self.initialized:
+            return
+
+        # Get configuration
         self.chain_direction = self.config.get("chain_direction", "linear")
         self.max_iterations = self.config.get("max_iterations", 3)
         self.agent_order = self.config.get("agent_order", [])
-
-    async def initialize(self) -> None:
-        """Initialize topology resources."""
-        if self.initialized:
-            return
+        self.agent_configs = self.config.get("agents", {})
 
         try:
             # Create and initialize configured agents
@@ -66,47 +60,97 @@ class ChainTopologyProvider(AgentTopologyProvider):
                         f"Agent {agent_id} specified in chain order but not configured"
                     )
 
-            self.initialized = True
-            logger.info(f"Initialized chain topology with {len(self.agents)} agents")
+            self.logger.info(
+                f"Initialized chain topology with {len(self.agents)} agents"
+            )
+
         except Exception as e:
-            logger.error(f"Failed to initialize chain topology: {e}")
+            self.logger.error(f"Failed to initialize chain topology: {e}")
             await self.cleanup()
             raise TopologyError(f"Initialization failed: {e}") from e
 
+    async def cleanup(self) -> None:
+        """Clean up resources used by the provider."""
+        # Cleanup specific resources
+        try:
+            # Clean up any agents that were created
+            if hasattr(self, "agents") and self.agents:
+                for agent_id, agent in list(self.agents.items()):
+                    try:
+                        if hasattr(agent, "cleanup"):
+                            await agent.cleanup()
+                    except Exception as e:
+                        self.logger.warning(f"Error cleaning up agent {agent_id}: {e}")
+        except Exception as e:
+            self.logger.error(f"Error during chain topology cleanup: {e}")
+
+        # Always call the base class cleanup last
+        await super().cleanup()
+
     async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
-        """Execute the chain topology with input data.
+        """Execute a task based on input data.
 
         Args:
-            input_data: Input containing task details
+            input_data: Task data containing:
+                - task: The task to execute (run_chain, set_agent_order, get_agent_order)
+                - content: Task content (for run_chain)
+                - agent_order: New agent order (for set_agent_order)
 
         Returns:
-            Execution results
+            Task execution result
         """
         if not self.initialized:
             await self.initialize()
 
-        # Extract input task
-        task = input_data.get("task", "")
-        if not task:
-            raise TopologyError("No task provided in input data")
+        # Get task type from input
+        task_type = input_data.get("task")
 
-        # Validate chain
-        if not self.agent_order:
-            raise TopologyError("No agents in chain order")
+        if not task_type:
+            return {"status": "error", "message": "No task specified"}
 
-        # Execute chain process
         try:
-            if self.chain_direction == "bidirectional":
-                return await self._execute_bidirectional_chain(task, input_data)
+            if task_type == "run_chain":
+                content = input_data.get("content")
+                if not content:
+                    return {
+                        "status": "error",
+                        "message": "No content provided for chain execution",
+                    }
+
+                # Execute chain process
+                if self.chain_direction == "bidirectional":
+                    result = await self._execute_bidirectional_chain(
+                        content, input_data
+                    )
+                else:
+                    result = await self._execute_linear_chain(content, input_data)
+
+                return result
+
+            elif task_type == "set_agent_order":
+                agent_order = input_data.get("agent_order", [])
+                if not agent_order:
+                    return {"status": "error", "message": "No agent_order provided"}
+
+                try:
+                    await self.set_agent_order(agent_order)
+                    return {
+                        "status": "success",
+                        "message": f"Agent order updated: {' -> '.join(agent_order)}",
+                    }
+                except Exception as e:
+                    return {"status": "error", "message": str(e)}
+
+            elif task_type == "get_agent_order":
+                agent_order = await self.get_agent_order()
+                return {"status": "success", "agent_order": agent_order}
+
             else:
-                return await self._execute_linear_chain(task, input_data)
+                return {"status": "error", "message": f"Unknown task: {task_type}"}
+
         except Exception as e:
-            logger.error(f"Error in chain process: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "message": "Failed to complete chain process",
-            }
+            self.logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "message": str(e)}
 
     async def _execute_linear_chain(
         self, task: str, input_data: dict[str, Any]
@@ -120,6 +164,10 @@ class ChainTopologyProvider(AgentTopologyProvider):
         Returns:
             Process results
         """
+        # Validate chain
+        if not self.agent_order:
+            raise TopologyError("No agents in chain order")
+
         # Track chain execution
         chain_steps = []
         current_input = task
@@ -155,24 +203,28 @@ class ChainTopologyProvider(AgentTopologyProvider):
                     result = await agent.process_message(prompt)
 
                     # Record step
-                    chain_steps.append({
-                        "iteration": iteration,
-                        "agent_id": agent_id,
-                        "input": current_input,
-                        "output": result,
-                    })
+                    chain_steps.append(
+                        {
+                            "iteration": iteration,
+                            "agent_id": agent_id,
+                            "input": current_input,
+                            "output": result,
+                        }
+                    )
 
                     # Update for next step
                     current_input = result
                     final_output = result
                 except Exception as e:
-                    logger.error(f"Error in agent {agent_id}: {e}")
-                    chain_steps.append({
-                        "iteration": iteration,
-                        "agent_id": agent_id,
-                        "input": current_input,
-                        "error": str(e),
-                    })
+                    self.logger.error(f"Error in agent {agent_id}: {e}")
+                    chain_steps.append(
+                        {
+                            "iteration": iteration,
+                            "agent_id": agent_id,
+                            "input": current_input,
+                            "error": str(e),
+                        }
+                    )
 
                     # Skip to completion with error if chain breaks
                     return {
@@ -184,7 +236,7 @@ class ChainTopologyProvider(AgentTopologyProvider):
 
         # Return successful completion
         return {
-            "status": "complete",
+            "status": "success",
             "steps": chain_steps,
             "result": final_output,
             "iterations_completed": self.max_iterations,
@@ -202,6 +254,10 @@ class ChainTopologyProvider(AgentTopologyProvider):
         Returns:
             Process results
         """
+        # Validate chain
+        if not self.agent_order:
+            raise TopologyError("No agents in chain order")
+
         # Track chain execution
         chain_steps = []
         current_input = task
@@ -237,26 +293,30 @@ class ChainTopologyProvider(AgentTopologyProvider):
                     result = await agent.process_message(prompt)
 
                     # Record step
-                    chain_steps.append({
-                        "iteration": iteration,
-                        "direction": "forward",
-                        "agent_id": agent_id,
-                        "input": current_input,
-                        "output": result,
-                    })
+                    chain_steps.append(
+                        {
+                            "iteration": iteration,
+                            "direction": "forward",
+                            "agent_id": agent_id,
+                            "input": current_input,
+                            "output": result,
+                        }
+                    )
 
                     # Update for next step
                     current_input = result
                     final_output = result
                 except Exception as e:
-                    logger.error(f"Error in forward pass, agent {agent_id}: {e}")
-                    chain_steps.append({
-                        "iteration": iteration,
-                        "direction": "forward",
-                        "agent_id": agent_id,
-                        "input": current_input,
-                        "error": str(e),
-                    })
+                    self.logger.error(f"Error in forward pass, agent {agent_id}: {e}")
+                    chain_steps.append(
+                        {
+                            "iteration": iteration,
+                            "direction": "forward",
+                            "agent_id": agent_id,
+                            "input": current_input,
+                            "error": str(e),
+                        }
+                    )
 
                     # Skip to completion with error if chain breaks
                     return {
@@ -290,26 +350,30 @@ class ChainTopologyProvider(AgentTopologyProvider):
                     result = await agent.process_message(prompt)
 
                     # Record step
-                    chain_steps.append({
-                        "iteration": iteration,
-                        "direction": "backward",
-                        "agent_id": agent_id,
-                        "input": current_input,
-                        "output": result,
-                    })
+                    chain_steps.append(
+                        {
+                            "iteration": iteration,
+                            "direction": "backward",
+                            "agent_id": agent_id,
+                            "input": current_input,
+                            "output": result,
+                        }
+                    )
 
                     # Update for next step
                     current_input = result
                     final_output = result
                 except Exception as e:
-                    logger.error(f"Error in backward pass, agent {agent_id}: {e}")
-                    chain_steps.append({
-                        "iteration": iteration,
-                        "direction": "backward",
-                        "agent_id": agent_id,
-                        "input": current_input,
-                        "error": str(e),
-                    })
+                    self.logger.error(f"Error in backward pass, agent {agent_id}: {e}")
+                    chain_steps.append(
+                        {
+                            "iteration": iteration,
+                            "direction": "backward",
+                            "agent_id": agent_id,
+                            "input": current_input,
+                            "error": str(e),
+                        }
+                    )
 
                     # Skip to completion with error if chain breaks
                     return {
@@ -321,7 +385,7 @@ class ChainTopologyProvider(AgentTopologyProvider):
 
         # Return successful completion
         return {
-            "status": "complete",
+            "status": "success",
             "steps": chain_steps,
             "result": final_output,
             "iterations_completed": self.max_iterations,
@@ -342,7 +406,7 @@ class ChainTopologyProvider(AgentTopologyProvider):
                 raise TopologyError(f"Invalid agent ID '{agent_id}' in chain order")
 
         self.agent_order = agent_order
-        logger.info(f"Updated chain order: {' -> '.join(self.agent_order)}")
+        self.logger.info(f"Updated chain order: {' -> '.join(self.agent_order)}")
 
     async def get_agent_order(self) -> list[str]:
         """Get the current agent order.

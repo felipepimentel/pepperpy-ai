@@ -1,4 +1,4 @@
-name: llm_test
+name: workflow/llm_test
 version: 0.1.0
 description: Test workflow for LLM capabilities
 author: PepperPy Team
@@ -18,13 +18,39 @@ config_schema:
     temperature:
       type: number
       description: Sampling temperature
+      minimum: 0.0
+      maximum: 2.0
       default: 0.7
     max_tokens:
       type: integer
       description: Maximum tokens to generate
+      minimum: 1
+      maximum: 8192
       default: 1000
 
 default_config:
   model: gpt-3.5-turbo
   temperature: 0.7
-  max_tokens: 1000 
+  max_tokens: 1000
+
+# Examples for testing the plugin
+examples:
+  - name: "simple_generation"
+    description: "Generate a simple response using default parameters"
+    input:
+      prompt: "Explain quantum computing in simple terms"
+    expected_output:
+      status: "success"
+      response: "Quantum computing uses the principles of quantum mechanics to process information"
+  
+  - name: "custom_parameters"
+    description: "Generate with custom temperature and system prompt"
+    input:
+      prompt: "Write a short poem about technology"
+      system_prompt: "You are a creative poet"
+      temperature: 1.0
+    expected_output:
+      status: "success"
+      metadata:
+        temperature: 1.0
+        system_prompt: "You are a creative poet" 

@@ -1,0 +1,46 @@
+name: rag/chroma
+version: 0.1.0
+description: Chroma RAG provider for PepperPy
+author: PepperPy Team
+license: MIT
+plugin_type: rag
+category: rag
+provider_name: chroma
+entry_point: provider
+required_keys:
+  - collection_name
+default_config:
+  host: localhost
+  port: 8000
+  collection_name: pepperpy
+  embedding_function: "text-embedding-3-small"
+homepage: https://www.trychroma.com/
+documentation: |
+  # Chroma RAG Provider
+
+  This plugin provides RAG capabilities using ChromaDB.
+
+  ## Configuration
+
+  - `host`: Chroma server host (default: localhost)
+  - `port`: Chroma server port (default: 8000)
+  - `collection_name`: Collection name to use
+  - `embedding_function`: Embedding function to use (default: text-embedding-3-small)
+
+  ## Usage
+
+  ```python
+  from pepperpy import plugin_manager
+
+  # Create provider
+  provider = plugin_manager.create_provider("rag/chroma", collection_name="my_docs")
+
+  # Add documents
+  provider.add_documents([
+      {"content": "Document 1 content", "metadata": {"source": "file1.txt"}},
+      {"content": "Document 2 content", "metadata": {"source": "file2.txt"}}
+  ])
+
+  # Query
+  results = provider.query("Your query here", top_k=3)
+  ```

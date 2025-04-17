@@ -1,10 +1,10 @@
-name: routing_basic
+name: routing/basic
 version: 0.1.0
 description: Basic routing provider for AI Gateway
 author: PepperPy Team
 
 plugin_type: routing
-category: basic
+category: provider
 provider_name: basic
 entry_point: provider.BasicRoutingProvider
 
@@ -35,6 +35,32 @@ default_config:
   port: 8080
   cors_origins: ["*"]
   log_requests: true
+
+# Examples for testing the plugin
+examples:
+  - name: "configure_server"
+    description: "Configure the routing server"
+    input:
+      task: "configure"
+      host: "127.0.0.1"
+      port: 8000
+    expected_output:
+      status: "success"
+      
+  - name: "start_server"
+    description: "Start the routing server"
+    input:
+      task: "start"
+    expected_output:
+      status: "success"
+      
+  - name: "check_status"
+    description: "Check server status"
+    input:
+      task: "status"
+    expected_output:
+      status: "success"
+      running: true
 
 documentation:
   summary: |

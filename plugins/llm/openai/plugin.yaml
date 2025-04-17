@@ -1,19 +1,15 @@
-type: llm
-provider: openai
-entry_point: OpenAIProvider
+name: llm/openai
+version: 0.1.0
 description: OpenAI LLM provider for PepperPy
-version: 0.2.0
 author: PepperPy Team
-license: MIT
-models:
-- gpt-4o
-- gpt-4-turbo
-- gpt-4
-- gpt-3.5-turbo
+
+plugin_type: llm
+category: provider
+provider_name: openai
+entry_point: provider.OpenAIProvider
+
 config_schema:
   type: object
-  required:
-  - api_key
   properties:
     api_key:
       type: string
@@ -21,7 +17,7 @@ config_schema:
     model:
       type: string
       description: OpenAI model to use
-      default: gpt-4-turbo
+      default: "gpt-4-turbo"
     temperature:
       type: number
       description: Sampling temperature (0-1)
@@ -42,29 +38,22 @@ config_schema:
       type: number
       description: Frequency penalty (-2.0 to 2.0)
       default: 0.0
+
 default_config:
-  model: gpt-4-turbo
+  model: "gpt-4-turbo"
   temperature: 0.7
   max_tokens: 1024
   top_p: 1.0
   presence_penalty: 0.0
   frequency_penalty: 0.0
-documentation: "# OpenAI LLM Provider\n\nThis plugin provides access to OpenAI's language\
-  \ models.\n\n## Configuration\n\n- `api_key`: OpenAI API key (required)\n- `model`:\
-  \ Model to use (default: gpt-4-turbo)\n- `temperature`: Sampling temperature (default:\
-  \ 0.7)\n- `max_tokens`: Maximum tokens to generate (default: 1024)\n- `top_p`: Top\
-  \ p sampling parameter (default: 1.0)\n- `presence_penalty`: Presence penalty (default:\
-  \ 0.0)\n- `frequency_penalty`: Frequency penalty (default: 0.0)\n\n## Available\
-  \ Models\n\n- gpt-4o\n- gpt-4-turbo\n- gpt-4\n- gpt-3.5-turbo\n\n## Usage\n\n```python\n\
-  from pepperpy import PepperPy\n\n# Create PepperPy instance with OpenAI\npepper\
-  \ = PepperPy()\npepper.with_plugin(\n    \"llm\",\n    \"openai\",\n    api_key=\"\
-  your-api-key\",\n    model=\"gpt-4-turbo\"\n)\n\n# Use the LLM\nresponse = await\
-  \ pepper.ask_query(\"What is artificial intelligence?\")\nprint(response)\n```\n"
-metadata:
-  provider_url: https://openai.com/
-  requires_api_key: true
-dependencies:
-- openai>=1.0.0
-name: plugins_openai
-plugin_type: plugins
-provider_name: openai
+
+# Examples for testing the plugin
+examples:
+  - name: "basic_example"
+    description: "Basic functionality test"
+    input:
+      task: "example_task"
+      config:
+        key: "value"
+    expected_output:
+      status: "success"

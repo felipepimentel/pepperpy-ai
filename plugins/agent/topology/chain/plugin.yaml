@@ -1,5 +1,5 @@
 # Basic metadata
-name: agent_topology_chain
+name: agent/topology/chain
 version: 0.1.0
 description: Chain topology for sequential agent processing
 author: PepperPy Team
@@ -26,6 +26,10 @@ config_schema:
     agents:
       type: object
       description: Agent configurations by ID
+      properties:
+        agent_id:
+          type: object
+          description: Configuration for a specific agent
     agent_order:
       type: array
       description: Ordered list of agent IDs defining the chain sequence
@@ -36,3 +40,70 @@ config_schema:
 default_config:
   chain_direction: "linear"
   max_iterations: 3 
+
+# Examples for testing
+examples:
+  - name: "run_linear_chain"
+    description: "Execute a simple linear chain with two agents"
+    input:
+      task: "run_chain"
+      content: "Sample input content"
+      config:
+        chain_direction: "linear"
+        max_iterations: 2
+        agent_order: ["agent1", "agent2"]
+        agents:
+          agent1:
+            provider: "mock"
+            config:
+              response: "Processed by agent1"
+          agent2:
+            provider: "mock"
+            config:
+              response: "Processed by agent2"
+    expected_output:
+      status: "success"
+      result: "Processed by agent2"
+  
+  - name: "run_bidirectional_chain"
+    description: "Execute a bidirectional chain with three agents"
+    input:
+      task: "run_chain"
+      content: "Sample input content"
+      config:
+        chain_direction: "bidirectional"
+        max_iterations: 1
+        agent_order: ["agent1", "agent2", "agent3"]
+        agents:
+          agent1:
+            provider: "mock"
+            config:
+              response: "Processed by agent1"
+          agent2:
+            provider: "mock"
+            config:
+              response: "Processed by agent2"
+          agent3:
+            provider: "mock"
+            config:
+              response: "Processed by agent3"
+    expected_output:
+      status: "success"
+      result: "Processed by agent1"
+      
+  - name: "set_agent_order"
+    description: "Test setting the agent order"
+    input:
+      task: "set_agent_order"
+      agent_order: ["agent1", "agent2", "agent3"]
+    expected_output:
+      status: "success"
+      message: "Agent order updated: agent1 -> agent2 -> agent3"
+      
+  - name: "get_agent_order"
+    description: "Test getting the agent order"
+    input:
+      task: "get_agent_order"
+    expected_output:
+      status: "success"
+      agent_order: ["agent1", "agent2", "agent3"] 

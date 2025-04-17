@@ -2,104 +2,84 @@ name: llm/local
 version: 0.1.0
 description: Local LLM provider for running models on your own hardware
 author: PepperPy Team
-license: MIT
+
 plugin_type: llm
-category: llm
+category: provider
 provider_name: local
 entry_point: provider.LocalProvider
-required_config_keys:
-  - model
-default_config:
-  model: llama2
-  model_path: null
-  device: cpu
-  temperature: 0.7
-  max_tokens: 100
+
 config_schema:
-  model:
-    description: Model identifier or HuggingFace model ID
-    required: true
-    default: llama2
-    type: string
-  model_path:
-    description: Optional path to model weights (defaults to model identifier if not specified)
-    required: false
-    type: string
-  device:
-    description: Device to run model on (cpu, cuda, mps)
-    required: false
-    default: cpu
-    type: string
-    enum: [cpu, cuda, mps]
-  temperature:
-    description: Sampling temperature between 0.0 (deterministic) and 2.0 (creative)
-    required: false
-    default: 0.7
-    type: float
-    min: 0.0
-    max: 2.0
-  max_tokens:
-    description: Maximum tokens to generate in the response
-    required: false
-    default: 100
-    type: integer
-    min: 1
-documentation: |
-  # Local LLM Provider
+  type: object
+  properties:
+    api_type:
+      type: string
+      description: API type to use (llama.cpp, oobabooga, openai-compatible)
+      default: "llama.cpp"
+    model_path:
+      type: string
+      description: Path to the local model file (for llama.cpp)
+    host:
+      type: string
+      description: Host for the API server
+      default: "localhost"
+    port:
+      type: integer
+      description: Port for the API server
+      default: 8000
+    model:
+      type: string
+      description: Model name or path to use for API requests
+      default: "default"
+    context_length:
+      type: integer
+      description: Context length in tokens
+      default: 2048
+    threads:
+      type: integer
+      description: Number of threads to use for inference
+    temperature:
+      type: number
+      description: Sampling temperature (0-1)
+      default: 0.7
+    max_tokens:
+      type: integer
+      description: Maximum number of tokens to generate
+      default: 1024
+    top_p:
+      type: number
+      description: Nucleus sampling parameter (0-1)
+      default: 1.0
 
-  This plugin allows you to run language models locally on your own hardware using the
-  transformers library.
+default_config:
+  api_type: "llama.cpp"
+  host: "localhost"
+  port: 8000
+  model: "default"
+  context_length: 2048
+  temperature: 0.7
+  max_tokens: 1024
+  top_p: 1.0
 
-  ## Configuration
-
-  - `model`: Model identifier or HuggingFace model ID (required)
-  - `model_path`: Optional path to model weights
-  - `device`: Device to run model on (default: cpu)
-  - `temperature`: Sampling temperature (default: 0.7)
-  - `max_tokens`: Maximum tokens to generate (default: 100)
-
-  ## Usage
-
-  ```python
-  from pepperpy import plugin_manager
-
-  # Use a local model
-  provider = plugin_manager.create_provider(
-      "llm", "local",
-      model="llama2",
-      device="cuda"
-  )
-
-  # Or with a specific model path
-  provider = plugin_manager.create_provider(
-      "llm", "local",
-      model="mistral",
-      model_path="/path/to/mistral/weights",
-      device="cuda"
-  )
-
-  # Generate text
-  response = await provider.generate("Tell me a joke.")
-  print(response.content)
-
-  # Chat completion
-  messages = [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "What is the capital of France?"}
-  ]
-  response = await provider.chat(messages)
-  print(response.content)
-  ```
-
-  ## Supported Models
-
-  - llama2 (default)
-  - mistral
-  - phi
-  - Any HuggingFace model ID or local path
-
-  ## Hardware Requirements
-
-  - CPU: Any model, but slower performance
-  - CUDA: NVIDIA GPU required, recommended for better performance
-  - MPS: Apple Silicon (M1/M2/M3) GPU support
+# Examples for testing the plugin
+examples:
+  - name: "basic_chat"
+    description: "Basic chat functionality test"
+    input:
+      task: "chat"
+      messages:
+        - role: "user"
+          content: "Hello, how are you?"
+      options:
+        temperature: 0.7
+    expected_output:
+      status: "success"
+  
+  - name: "text_completion"
+    description: "Text completion test"
+    input:
+      task: "completion"
+      prompt: "Once upon a time"
+      options:
+        max_tokens: 50
+    expected_output:
+      status: "success"

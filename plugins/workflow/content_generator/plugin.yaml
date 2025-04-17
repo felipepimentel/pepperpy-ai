@@ -3,11 +3,62 @@ version: 0.1.0
 description: Ready-to-use workflow for generating content with automated research
 author: PepperPy Team
 license: MIT
+
 plugin_type: workflow
 category: workflow
 provider_name: content_generator
 entry_point: workflow.ContentGeneratorWorkflow
-required_config_keys: []
+
+config_schema:
+  type: object
+  properties:
+    content_type:
+      type: string
+      description: Type of content to generate (article, blog, summary, social)
+      enum: [article, blog, summary, social]
+      default: article
+    max_length:
+      type: integer
+      description: Maximum length of generated content in words
+      minimum: 100
+      maximum: 5000
+      default: 1000
+    research_depth:
+      type: string
+      description: Depth of research to perform (light, medium, deep)
+      enum: [light, medium, deep]
+      default: medium
+    tone:
+      type: string
+      description: Tone of the generated content
+      enum: [neutral, formal, casual, professional, friendly]
+      default: neutral
+    format:
+      type: string
+      description: Output format for the content
+      enum: [markdown, text, html]
+      default: markdown
+    include_sources:
+      type: boolean
+      description: Whether to include research sources in the output
+      default: true
+    language:
+      type: string
+      description: Language for the generated content
+      default: en
+    model:
+      type: string
+      description: Language model to use for content generation
+      default: gpt-4
+    search_provider:
+      type: string
+      description: Search provider to use for research
+      default: google
+    num_sources:
+      type: integer
+      description: Number of sources to gather during research
+      default: 5
+
 default_config:
   content_type: article
   max_length: 1000
@@ -16,122 +67,40 @@ default_config:
   format: markdown
   include_sources: true
   language: en
-config_schema:
-  content_type:
-    description: Type of content to generate (article, blog, summary, social)
-    required: false
-    default: article
-    type: string
-    enum: [article, blog, summary, social]
-  max_length:
-    description: Maximum length of generated content in words
-    required: false
-    default: 1000
-    type: integer
-    min: 100
-    max: 5000
-  research_depth:
-    description: Depth of research to perform (light, medium, deep)
-    required: false
-    default: medium
-    type: string
-    enum: [light, medium, deep]
-  tone:
-    description: Tone of the generated content
-    required: false
-    default: neutral
-    type: string
-    enum: [neutral, formal, casual, professional, friendly]
-  format:
-    description: Output format for the content
-    required: false
-    default: markdown
-    type: string
-    enum: [markdown, text, html]
-  include_sources:
-    description: Whether to include research sources in the output
-    required: false
-    default: true
-    type: boolean
-  language:
-    description: Language for the generated content
-    required: false
-    default: en
-    type: string
-documentation: |
-  # Content Generator Workflow
+  model: gpt-4
+  search_provider: google
+  num_sources: 5
 
-  This workflow provides a complete pipeline for generating high-quality content
-  with automated research and fact-checking.
+# Examples for testing the plugin
+examples:
+  - name: "generate_article"
+    description: "Generate an article on a specific topic"
+    input:
+      task: "generate"
+      topic: "Artificial Intelligence Ethics"
+      options:
+        tone: "professional"
+    expected_output:
+      status: "success"
+      title: "Artificial Intelligence Ethics"
+  
+  - name: "list_workflows"
+    description: "List available workflows"
+    input:
+      task: "list_workflows"
+    expected_output:
+      status: "success"
+      workflows:
+        - id: "content_generator"
+          name: "Content Generator"
 
-  ## Features
-
-  - Automated research on topics
-  - Content generation with specified tone and style
-  - Source citation and fact-checking
-  - Multiple content formats
-  - Customizable content length and depth
-
-  ## Configuration
-
-  - `content_type`: Type of content to generate (default: article)
-  - `max_length`: Maximum content length in words (default: 1000)
-  - `research_depth`: Depth of research (default: medium)
-  - `tone`: Content tone (default: neutral)
-  - `format`: Output format (default: markdown)
-  - `include_sources`: Include research sources (default: true)
-  - `language`: Content language (default: en)
-
-  ## Usage
-
-  ```python
-  from pepperpy import plugin_manager
-
-  # Create workflow
-  workflow = plugin_manager.create_provider(
-      "workflow", "content_generator",
-      content_type="article",
-      max_length=1500,
-      tone="professional"
-  )
-
-  # Generate content on a topic
-  result = await workflow.generate_content(
-      topic="Artificial Intelligence in Healthcare",
-      keywords=["AI", "healthcare", "machine learning"]
-  )
-
-  print(f"Content: {result['content']}")
-  print(f"Sources: {result['sources']}")
-
-  # Generate multiple pieces of content
-  results = await workflow.generate_batch([
-      "Topic 1",
-      "Topic 2"
-  ])
-
-  # Generate content with specific requirements
-  result = await workflow.generate_content(
-      topic="Climate Change",
-      outline=[
-          "Introduction",
-          "Current State",
-          "Future Implications",
-          "Solutions"
-      ],
-      style_guide={
-          "voice": "active",
-          "audience": "general public",
-          "key_points": ["urgency", "solutions", "hope"]
-      }
-  )
-  ```
-
-  ## Output Format
-
-  The workflow returns a dictionary containing:
-  - `content`: Generated content in specified format
-  - `metadata`: Content metadata (title, summary, keywords)
-  - `sources`: List of research sources (if enabled)
-  - `statistics`: Content statistics (word count, readability)
-  - `suggestions`: Related topics and keywords
+  - name: "get_workflow"
+    description: "Get workflow by ID"
+    input:
+      task: "get_workflow"
+      id: "content_generator"
+    expected_output:
+      status: "success"
+      workflow:
+        id: "content_generator"
+        name: "Content Generator"

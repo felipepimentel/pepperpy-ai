@@ -1,167 +1,73 @@
-"""Cohere embedding provider.
+"""
+Unknown plugin
 
-This module provides an implementation of the EmbeddingProvider interface for Cohere's embedding API.
+This provider implements a unknown plugin for the PepperPy framework.
 """
 
 from typing import Any, Dict, List, Optional
 
-from ...core.http import HTTPClient
-from ..base import EmbeddingError, EmbeddingOptions, EmbeddingProvider, EmbeddingResult
+from pepperpy.unknown.base import ProviderBase
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class CohereEmbeddingProvider(EmbeddingProvider):
-    """Cohere embedding provider.
-
-    This class implements the EmbeddingProvider interface for Cohere's embedding API.
+class UnknownProvider(ProviderBase, BasePluginProvider):
     """
+    Unknown plugin
 
-    def __init__(
-        self,
-        api_key: str,
-        default_model: str = "embed-english-v3.0",
-        provider_name: Optional[str] = None,
-        base_url: Optional[str] = None,
-        timeout: int = 30,
-        max_retries: int = 3,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize a new Cohere embedding provider.
-
-        Args:
-            api_key: Cohere API key
-            default_model: Default embedding model to use
-            provider_name: Optional specific name for this provider
-            base_url: Base URL for the API
-            timeout: Request timeout in seconds
-            max_retries: Maximum number of retry attempts
-            **kwargs: Additional provider-specific configuration
-        """
-        self.name = provider_name or "cohere"
-        self.api_key = api_key
-        self.default_model = default_model
-        self._config = {
-            "default_model": default_model,
-            "timeout": timeout,
-            "max_retries": max_retries,
-            **kwargs,
-        }
-        self._client = HTTPClient(base_url or "https://api.cohere.ai/v1")
+    This provider implements unknown for unknown.
+    """
 
     async def initialize(self) -> None:
         """Initialize the provider.
 
-        This method starts the HTTP client session.
+        This method is called automatically when the provider is first used.
         """
-        await self._client.start()
+        # Call the base class implementation first
+        await super().initialize()
+        
+        # Initialize resources
+        # TODO: Add initialization code
+        
+        self.logger.debug(f"Initialized with config={self.config}")
 
-    def _get_headers(self) -> Dict[str, str]:
-        """Get the headers for Cohere API requests.
+    async def cleanup(self) -> None:
+        """Clean up provider resources.
 
-        Returns:
-            The headers for API requests
+        This method is called automatically when the context manager exits.
         """
-        return {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+        # Clean up resources
+        # TODO: Add cleanup code
+        
+        # Call the base class cleanup
+        await super().cleanup()
 
-    async def embed(
-        self, text: str, options: Optional[EmbeddingOptions] = None
-    ) -> EmbeddingResult:
-        """Generate embeddings for the given text using Cohere's API.
-
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a task based on input data.
+        
         Args:
-            text: Text to embed
-            options: Optional embedding options
-
+            input_data: Input data containing task and parameters
+            
         Returns:
-            EmbeddingResult with the generated embedding
-
-        Raises:
-            EmbeddingError: If embedding fails
+            Task execution result
         """
-        return (await self.embed_batch([text], options))[0]
-
-    async def embed_batch(
-        self, texts: List[str], options: Optional[EmbeddingOptions] = None
-    ) -> List[EmbeddingResult]:
-        """Generate embeddings for multiple texts using Cohere's API.
-
-        Args:
-            texts: Texts to embed
-            options: Optional embedding options
-
-        Returns:
-            List of EmbeddingResult objects
-
-        Raises:
-            EmbeddingError: If embedding fails
-        """
-        if not texts:
-            return []
-
-        options = options or EmbeddingOptions()
-        model = options.model if options.model != "default" else self.default_model
-
-        # Cohere-specific parameters
-        additional_params = {
-            "truncate": "END",
-            "input_type": "search_document",
-        }
-        additional_params.update(options.additional_options)
-
+        # Get task type from input
+        task_type = input_data.get("task")
+        
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+            
         try:
-            response = await self._client.post(
-                "/embed",
-                data={
-                    "texts": texts,
-                    "model": model,
-                    **additional_params,
-                },
-                headers=self._get_headers(),
-            )
-
-            data = response.json()
-            embeddings = data.get("embeddings", [])
-            meta = data.get("meta", {})
-
-            results = []
-            for idx, embedding in enumerate(embeddings):
-                results.append(
-                    EmbeddingResult(
-                        embedding=embedding,
-                        usage={
-                            "total_tokens": meta.get("billed_units", {}).get(
-                                "tokens", 0
-                            )
-                        },
-                        metadata={
-                            "model": model,
-                            "dimensions": len(embedding),
-                            "index": idx,
-                        },
-                    )
-                )
-
-            return results
+            # Handle different task types
+            if task_type == "example_task":
+                # TODO: Implement task
+                return {
+                    "status": "success",
+                    "result": "Task executed successfully"
+                }
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                
         except Exception as e:
-            raise EmbeddingError(f"Failed to generate batch embeddings: {e}") from e
+            self.logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)}
 
-    def get_config(self) -> Dict[str, Any]:
-        """Get the provider configuration.
-
-        Returns:
-            The provider configuration
-        """
-        return self._config.copy()
-
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get the provider capabilities.
-
-        Returns:
-            A dictionary of provider capabilities
-        """
-        return {
-            "capabilities": ["text_embedding"],
-            "models": [self.default_model],
-        }

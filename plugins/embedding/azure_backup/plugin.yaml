@@ -1,0 +1,69 @@
+name: embeddings/azure
+version: 0.1.0
+description: Embeddings provider using Azure OpenAI services
+author: PepperPy Team
+plugin_type: embeddings
+required_config_keys:
+- api_key
+- api_endpoint
+default_config:
+  model: text-embedding-ada-002
+  dimensions: 1536
+  batch_size: 16
+config_schema:
+  api_key:
+    description: Azure API key
+    type: string
+    required: true
+    env_var: AZURE_OPENAI_API_KEY
+  api_endpoint:
+    description: Azure API endpoint
+    type: string
+    required: true
+    env_var: AZURE_OPENAI_ENDPOINT
+  model:
+    description: Model name
+    type: string
+    required: false
+    default: text-embedding-ada-002
+  dimensions:
+    description: Output dimensions
+    type: integer
+    required: false
+    default: 1536
+  batch_size:
+    description: Maximum batch size for embeddings
+    type: integer
+    required: false
+    default: 16
+documentation:
+  usage: '```python
+
+    from pepperpy.embeddings import create_provider
+
+
+    # Create the provider
+
+    provider = create_provider("embeddings", "azure")
+
+
+    # Initialize
+
+    await provider.initialize()
+
+
+    # Generate embeddings
+
+    embeddings = await provider.embed_texts(["Hello, world!"])
+
+
+    # Clean up
+
+    await provider.cleanup()
+
+    ```
+
+    '
+category: embeddings
+provider_name: azure
+entry_point: provider.AzureEmbeddingsProvider

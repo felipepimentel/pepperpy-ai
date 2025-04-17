@@ -1,43 +1,36 @@
+"""GitHub repository provider implementation."""
+
 import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from pepperpy.core.base import ValidationError
-from pepperpy.tool.repository.base import RepositoryProvider
+from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.tool.repository.base import RepositoryError, RepositoryProvider
 
 
-class GitHubProvider(RepositoryProvider):
+class GitHubProvider(RepositoryProvider, BasePluginProvider):
     """GitHub repository provider implementation."""
-
-    
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-def __init__(
-        self,
-        token: Optional[str] = None,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize GitHub repository provider.
-
-        Args:
-            token: Optional GitHub access token
-            **kwargs: Additional configuration options
-        """
-        super().__init__(**kwargs)
-        self.token = token or os.environ.get("GITHUB_TOKEN")
-        self._repo_path: Optional[Path] = None
 
     async def initialize(self) -> None:
         """Initialize the repository provider."""
+        # Always call base initialize first
+        await super().initialize()
+
+        # Check for token in config or environment
+        self.token = self.config.get("token") or os.environ.get("GITHUB_TOKEN")
+
         if not self.token:
-            raise ValidationError(
+            raise RepositoryError(
                 "GitHub token not provided. Set GITHUB_TOKEN environment variable "
-                "or pass token in constructor."
+                "or pass token in config."
             )
 
-    async def get_repository(self, repo_identifier: str) -> Dict[str, Any]:
+        self._repo_path: Path | None = None
+        self.logger.debug("GitHub repository provider initialized")
+
+    async def get_repository(self, repo_identifier: str) -> dict[str, Any]:
         """Get repository data by identifier.
 
         Args:
@@ -52,8 +45,8 @@ def __init__(
         raise NotImplementedError("get_repository not implemented")
 
     async def list_repository_files(
-        self, repo_identifier: str, path: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, repo_identifier: str, path: str | None = None
+    ) -> list[dict[str, Any]]:
         """Get file list from repository.
 
         Args:
@@ -84,8 +77,8 @@ def __init__(
         raise NotImplementedError("read_repository_file not implemented")
 
     async def get_commits(
-        self, repo_identifier: str, limit: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        self, repo_identifier: str, limit: int | None = None
+    ) -> list[dict[str, Any]]:
         """Get commit history for repository.
 
         Args:
@@ -100,7 +93,7 @@ def __init__(
         """
         raise NotImplementedError("get_commits not implemented")
 
-    async def clone(self, url: str, branch: Optional[str] = None) -> str:
+    async def clone(self, url: str, branch: str | None = None) -> str:
         """Clone a repository.
 
         Args:
@@ -111,14 +104,14 @@ def __init__(
             Path to cloned repository
 
         Raises:
-            ValidationError if cloning fails
+            RepositoryError: If cloning fails
         """
         # Create temp directory for repo
         repo_dir = tempfile.mkdtemp()
         self._repo_path = Path(repo_dir)
 
         try:
-            # Add token to URL for private repos
+            # Add token to URL for private repos if token is provided
             if self.token:
                 url = url.replace("https://", f"https://{self.token}@")
 
@@ -128,14 +121,19 @@ def __init__(
                 cmd.extend(["-b", branch])
             cmd.extend([url, repo_dir])
 
-            subprocess.run(cmd, check=True, capture_output=True, text=True)
+            self.logger.debug(f"Cloning repository: {url} to {repo_dir}")
 
+            # Run the command and capture output
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+
+            self.logger.debug(f"Clone successful: {result.stdout}")
             return repo_dir
 
         except subprocess.CalledProcessError as e:
-            raise ValidationError(f"Failed to clone repository: {e.stderr}")
+            self.logger.error(f"Failed to clone repository: {e.stderr}")
+            raise RepositoryError(f"Failed to clone repository: {e.stderr}")
 
-    async def get_files(self, path: Optional[str] = None) -> List[str]:
+    async def get_files(self, path: str | None = None) -> list[str]:
         """Get list of files in repository.
 
         Args:
@@ -145,10 +143,10 @@ def __init__(
             List of file paths
 
         Raises:
-            ValidationError if repository not cloned
+            RepositoryError: If repository not cloned
         """
         if not self._repo_path:
-            raise ValidationError("Repository not cloned")
+            raise RepositoryError("Repository not cloned")
 
         base_path = self._repo_path
         if path:
@@ -157,7 +155,10 @@ def __init__(
         files = []
         for file_path in base_path.rglob("*"):
             if file_path.is_file():
-                files.append(str(file_path.relative_to(self._repo_path)))
+                # Skip .git directory
+                rel_path = file_path.relative_to(self._repo_path)
+                if not str(rel_path).startswith(".git/"):
+                    files.append(str(rel_path))
 
         return files
 
@@ -171,24 +172,36 @@ def __init__(
             File content as string
 
         Raises:
-            ValidationError if repository not cloned or file not found
+            RepositoryError: If repository not cloned or file not found
         """
         if not self._repo_path:
-            raise ValidationError("Repository not cloned")
+            raise RepositoryError("Repository not cloned")
 
         file_path = self._repo_path / path
         if not file_path.exists():
-            raise ValidationError(f"File not found: {path}")
+            raise RepositoryError(f"File not found: {path}")
 
-        return file_path.read_text()
+        try:
+            return file_path.read_text()
+        except Exception as e:
+            raise RepositoryError(f"Failed to read file: {e}")
 
     async def cleanup(self) -> None:
         """Clean up resources."""
         if self._repo_path and self._repo_path.exists():
-            # Remove temp directory
-            subprocess.run(
-                ["rm", "-rf", str(self._repo_path)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+            try:
+                # Remove temp directory
+                self.logger.debug(
+                    f"Cleaning up repository directory: {self._repo_path}"
+                )
+                subprocess.run(
+                    ["rm", "-rf", str(self._repo_path)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            except Exception as e:
+                self.logger.warning(f"Error cleaning up repository: {e}")
+
+        # Call parent cleanup
+        await super().cleanup()

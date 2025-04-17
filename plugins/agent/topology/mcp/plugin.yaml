@@ -1,5 +1,5 @@
 # Basic metadata
-name: agent_topology_mcp
+name: agent/topology/mcp
 version: 0.1.0
 description: Master Control Program topology for centralized task processing with distributed execution
 author: PepperPy Team
@@ -54,4 +54,38 @@ default_config:
   fault_tolerance: true
   resource_allocation: "balanced"
   task_queue_limit: 100
-  performance_metrics: false 
+  performance_metrics: false
+
+examples:
+  - name: "run_topology"
+    description: "Run the MCP topology with a task"
+    input:
+      task: "run_topology"
+      target_agents: ["agent1", "agent2"]
+      content: "Process this data"
+    expected_output:
+      status: "success"
+  
+  - name: "get_status"
+    description: "Get the current status of the MCP topology"
+    input:
+      task: "get_status"
+    expected_output:
+      status: "success"
+      result:
+        provider_type: "mcp"
+  
+  - name: "optimize_resources"
+    description: "Optimize resource allocation based on agent performance"
+    input:
+      task: "optimize_resources"
+    expected_output:
+      status: "success"
+      message: "Resources optimized"
+  
+  - name: "reset_metrics"
+    description: "Reset performance metrics" 
+    input:
+      task: "reset_metrics"
+    expected_output:
+      status: "success" 

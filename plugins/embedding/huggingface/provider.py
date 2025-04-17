@@ -1,195 +1,73 @@
-"""HuggingFace embeddings provider implementation."""
+"""
+Unknown plugin
 
-from typing import Any, Dict, List, Union
+This provider implements a unknown plugin for the PepperPy framework.
+"""
 
-from pepperpy.core.exceptions import ProviderError
-from pepperpy.core.helpers import import_provider
-from pepperpy.plugin.plugin import PepperpyPlugin
+from typing import Any, Dict, List, Optional
+
+from pepperpy.unknown.base import ProviderBase
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class HuggingFaceEmbeddingProvider(PepperpyPlugin):
-    """HuggingFace implementation of embeddings provider.
+class UnknownProvider(ProviderBase, BasePluginProvider):
+    """
+    Unknown plugin
 
-    This provider uses HuggingFace's transformers library to generate embeddings.
-    It supports a wide range of models from the HuggingFace Hub.
+    This provider implements unknown for unknown.
     """
 
-    name = "huggingface"
-    version = "0.1.0"
-    description = "HuggingFace embeddings provider using transformers"
-    author = "PepperPy Team"
-
-    def __init__(
-        self,
-        model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        device: str = "cpu",
-        **kwargs: Any,
-    ) -> None:
-        """Initialize HuggingFace embeddings provider.
-
-        Args:
-            model: Model name from HuggingFace Hub
-            device: Device to run model on ('cpu' or 'cuda')
-            **kwargs: Additional configuration options
-        """
-        super().__init__(**kwargs)
-        self.model_name = model
-        self.device = device
-        self._model = None
-        self._tokenizer = None
-        self._embedding_function = None
-
-    def _mean_pooling(self, model_output: Any, attention_mask: Any) -> Any:
-        """Mean pooling to get sentence embeddings."""
-        import torch
-
-        token_embeddings = model_output[0]
-        input_mask_expanded = (
-            attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-        )
-        return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
-            input_mask_expanded.sum(1), min=1e-9
-        )
-
-    def _embed_texts(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for texts.
-
-        Args:
-            texts: List of texts to embed
-
-        Returns:
-            List of embeddings vectors
-
-        Raises:
-            ProviderError: If provider is not initialized
-        """
-        import torch
-
-        if not self._tokenizer or not self._model:
-            raise ProviderError("Provider not initialized")
-
-        # Tokenize texts
-        encoded_input = self._tokenizer(
-            texts,
-            padding=True,
-            truncation=True,
-            max_length=512,
-            return_tensors="pt",
-        )
-        encoded_input = {k: v.to(self.device) for k, v in encoded_input.items()}
-
-        # Compute token embeddings
-        with torch.no_grad():
-            model_output = self._model(**encoded_input)
-
-        # Perform pooling
-        embeddings = self._mean_pooling(model_output, encoded_input["attention_mask"])
-
-        # Normalize embeddings
-        embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
-
-        return embeddings.cpu().tolist()
-
     async def initialize(self) -> None:
-        """Initialize the provider by loading the model."""
-        transformers = import_provider("transformers")
+        """Initialize the provider.
 
-        # Load tokenizer and model
-        self._tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_name)
-        self._model = transformers.AutoModel.from_pretrained(self.model_name)
-        self._model.to(self.device)
-
-        # Set model to evaluation mode
-        self._model.eval()
-
-        # Set embedding function after model and tokenizer are initialized
-        self._embedding_function = self._embed_texts
-        self.initialized = True
+        This method is called automatically when the provider is first used.
+        """
+        # Call the base class implementation first
+        await super().initialize()
+        
+        # Initialize resources
+        # TODO: Add initialization code
+        
+        self.logger.debug(f"Initialized with config={self.config}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        self._model = None
-        self._tokenizer = None
-        self._embedding_function = None
-        self.initialized = False
+        """Clean up provider resources.
 
-    async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
-        """Generate embeddings for the given text.
+        This method is called automatically when the context manager exits.
+        """
+        # Clean up resources
+        # TODO: Add cleanup code
+        
+        # Call the base class cleanup
+        await super().cleanup()
 
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a task based on input data.
+        
         Args:
-            text: Text or list of texts to embed
-
+            input_data: Input data containing task and parameters
+            
         Returns:
-            List of embeddings vectors
-
-        Raises:
-            ProviderError: If provider is not initialized
+            Task execution result
         """
-        if not self._embedding_function:
-            raise ProviderError("Provider not initialized")
+        # Get task type from input
+        task_type = input_data.get("task")
+        
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+            
+        try:
+            # Handle different task types
+            if task_type == "example_task":
+                # TODO: Implement task
+                return {
+                    "status": "success",
+                    "result": "Task executed successfully"
+                }
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                
+        except Exception as e:
+            self.logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)}
 
-        if isinstance(text, str):
-            text = [text]
-        return self._embedding_function(text)
-
-    async def embed_query(self, text: str) -> List[float]:
-        """Generate embeddings for a query.
-
-        Args:
-            text: Query text to embed
-
-        Returns:
-            Embedding vector
-        """
-        return (await self.embed_text(text))[0]
-
-    def get_embedding_function(self) -> Any:
-        """Get a function that can be used by vector stores.
-
-        Returns:
-            A callable that generates embeddings
-
-        Raises:
-            ProviderError: If provider is not initialized
-        """
-        if not self._embedding_function:
-            raise ProviderError("Provider not initialized")
-        return self._embedding_function
-
-    async def get_dimensions(self) -> int:
-        """Get the dimensionality of the embeddings.
-
-        Returns:
-            The number of dimensions in the embeddings
-
-        Raises:
-            ProviderError: If provider is not initialized
-        """
-        if not self._model:
-            raise ProviderError("Provider not initialized")
-        return self._model.config.hidden_size
-
-    def get_config(self) -> Dict[str, Any]:
-        """Get the provider configuration.
-
-        Returns:
-            The provider configuration
-        """
-        return {
-            "model": self.model_name,
-            "device": self.device,
-        }
-
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get the provider capabilities.
-
-        Returns:
-            A dictionary of provider capabilities
-        """
-        return {
-            "supports_batching": True,
-            "supports_multilingual": True,
-            "requires_gpu": False,
-            "is_local": True,
-            "max_sequence_length": 512,
-        }

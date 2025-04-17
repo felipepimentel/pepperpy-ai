@@ -1,13 +1,13 @@
 # Basic metadata
-name: research_assistant
+name: workflow/research_assistant
 version: 0.1.0
 description: AI Research Assistant workflow for automated research, analysis, and report generation
 author: PepperPy Team
 
 # Categorization
 plugin_type: workflow
-category: research_assistant
-provider_name: research_workflow
+category: research
+provider_name: research_assistant
 entry_point: provider.ResearchAssistantAdapter
 
 # Configuration schema
@@ -21,14 +21,18 @@ config_schema:
     research_depth:
       type: string
       description: Depth of research (basic, standard, comprehensive)
+      enum: [basic, standard, comprehensive]
       default: standard
     max_sources:
       type: integer
       description: Maximum number of sources to retrieve
+      minimum: 1
+      maximum: 20
       default: 5
     report_format:
       type: string
-      description: Format of the generated report (markdown, html, text)
+      description: Format of the generated report
+      enum: [markdown, html, text]
       default: markdown
     include_critique:
       type: boolean
@@ -44,4 +48,34 @@ default_config:
   research_depth: standard
   max_sources: 5
   report_format: markdown
-  include_critique: true 
+  include_critique: true
+
+# Examples for testing the plugin
+examples:
+  - name: "research_topic"
+    description: "Research a specific topic and generate a report"
+    input:
+      task: "research"
+      topic: "Climate Change Solutions"
+    expected_output:
+      status: "success"
+      sources_count: 5
+      has_review: true
+  
+  - name: "get_status"
+    description: "Get the current status of the workflow"
+    input:
+      task: "status"
+    expected_output:
+      status: "success"
+      initialized: true
+  
+  - name: "get_result"
+    description: "Get a specific research result by ID"
+    input:
+      task: "get_result"
+      research_id: "12345678-1234-5678-1234-567812345678"
+    expected_output:
+      status: "success"
+      research:
+        topic: "Climate Change Solutions" 

@@ -1,0 +1,31 @@
+name: llm/sample
+version: 0.1.0
+description: Sample provider for llm
+author: PepperPy Team
+
+plugin_type: llm
+category: provider
+provider_name: sample
+entry_point: provider.SampleProvider
+
+config_schema:
+  type: object
+  properties:
+    option:
+      type: string
+      description: Configuration option
+      default: "default-value"
+
+default_config:
+  option: "default-value"
+
+# Examples for testing the plugin
+examples:
+  - name: "basic_example"
+    description: "Basic functionality test"
+    input:
+      task: "example_task"
+      config:
+        key: "value"
+    expected_output:
+      status: "success"

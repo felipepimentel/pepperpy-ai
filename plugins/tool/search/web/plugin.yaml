@@ -1,11 +1,11 @@
-name: web_search_tool
+name: tool/search/web
 version: 0.1.0
 description: Web search tool for finding information online
 author: PepperPy Team
 
 plugin_type: tool
 category: search
-provider_name: web_search
+provider_name: web
 entry_point: provider.WebSearchToolPlugin
 
 config_schema:
@@ -24,4 +24,68 @@ config_schema:
       
 default_config:
   search_engine: "duckduckgo"
-  safe_search: true 
+  safe_search: true
+
+examples:
+  - name: basic_search
+    description: Perform a basic web search
+    input:
+      task: "search"
+      query: "machine learning basics"
+      num_results: 3
+    expected_output:
+      status: "success"
+      data:
+        results:
+          - title: "Machine Learning Basics: A Beginner's Guide"
+            url: "https://example.com/ml-basics"
+            snippet: "An introduction to machine learning concepts..."
+      
+  - name: image_search
+    description: Search for images
+    input:
+      task: "image_search"
+      query: "landscape photography"
+      num_results: 2
+    expected_output:
+      status: "success"
+      data:
+        results:
+          - title: "Mountain Landscape at Sunset"
+            url: "https://example.com/images/mountain-sunset.jpg"
+            thumbnail_url: "https://example.com/thumbnails/mountain-sunset.jpg"
+            
+  - name: news_search
+    description: Search for news articles
+    input:
+      task: "news_search"
+      query: "technology news"
+      num_results: 2
+    expected_output:
+      status: "success"
+      data:
+        results:
+          - title: "Latest Technology Trends for 2023"
+            url: "https://example.com/news/tech-trends-2023"
+            snippet: "The most significant technology trends to watch this year..."
+            published_date: "2023-06-01"
+            
+  - name: get_capabilities
+    description: Get supported search capabilities
+    input:
+      task: "get_capabilities"
+    expected_output:
+      status: "success"
+      capabilities: ["search", "image_search", "news_search"]
+
+  - name: error_handling
+    description: Test error handling with invalid configuration
+    input:
+      command: search
+      args:
+        query: "test query"
+    config:
+      search_engine: "invalid_engine"
+    expected_output:
+      success: false
+      error: "Invalid search engine configuration" 

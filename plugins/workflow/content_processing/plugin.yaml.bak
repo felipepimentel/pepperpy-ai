@@ -1,0 +1,169 @@
+name: workflow/content_processing
+version: 0.1.0
+description: Content processing workflow for extraction, normalization, generation, and summarization
+author: PepperPy Team
+
+plugin_type: workflow
+category: workflow
+provider_name: content_processing
+entry_point: provider.ContentProcessingProvider
+
+config_schema:
+  type: object
+  properties:
+    output_dir:
+      type: string
+      description: Directory to save processing results
+      default: "./output/content"
+    auto_save_results:
+      type: boolean
+      description: Whether to automatically save results to files
+      default: true
+    log_level:
+      type: string
+      description: Logging level
+      enum: ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+      default: "INFO"
+    log_to_console:
+      type: boolean
+      description: Whether to log to console
+      default: true
+
+default_config:
+  output_dir: "./output/content"
+  auto_save_results: true
+  log_level: "INFO"
+  log_to_console: true
+
+# Examples for testing
+examples:
+  - name: "basic_content_processing"
+    description: "Process content with default processors"
+    input:
+      task: "process_content"
+      input:
+        content: "PepperPy is a unified framework for AI/LLM ecosystems. It provides abstractions for LLMs, RAG, embeddings, and various NLP tasks."
+    expected_output:
+      status: "success"
+      message: "Content processing completed successfully"
+      
+  - name: "custom_processors"
+    description: "Process content with custom processors"
+    input:
+      task: "process_content"
+      input:
+        content: "Natural language processing is a subfield of artificial intelligence."
+        processors: [
+          {
+            "type": "text_normalization",
+            "prompt": "Normalize this text with consistent terminology",
+            "output": "normalized.txt"
+          },
+          {
+            "type": "content_summarization",
+            "prompt": "Summarize this content briefly",
+            "parameters": {"sentences": 2},
+            "output": "summary.txt"
+          }
+        ]
+    expected_output:
+      status: "success"
+      
+  - name: "error_handling"
+    description: "Test error handling with invalid task"
+    input:
+      task: "invalid_task"
+    expected_output:
+      status: "error"
+      message: "Unsupported task: invalid_task"
+
+documentation:
+  description: |
+    Content Processing Workflow provides a comprehensive pipeline for processing textual content:
+    
+    1. Text extraction from documents
+    2. Text normalization
+    3. Content generation
+    4. Content summarization
+    
+    This workflow makes it easy to process content through multiple stages,
+    with configurable processors and parameters.
+  
+  features:
+    - Text Extraction: Extract key information from documents
+    - Text Normalization: Normalize text with consistent terminology and formatting
+    - Content Generation: Generate new content based on input and prompts
+    - Content Summarization: Create concise summaries of longer documents
+
+  usage_examples:
+    - title: Basic Content Processing
+      python: |
+        from pepperpy.workflow import create_provider
+        
+        # Create the content processing workflow provider
+        workflow = create_provider("content_processing", 
+                                   output_dir="./output/content")
+        
+        # Create input for processing
+        input_data = {
+            "task": "process_content",
+            "input": {
+                "content": "Your content to process here...",
+                "processors": [
+                    {
+                        "type": "text_normalization",
+                        "prompt": "Normalize this text with consistent terminology",
+                        "output": "normalized.txt"
+                    },
+                    {
+                        "type": "content_summarization",
+                        "prompt": "Summarize this content briefly",
+                        "parameters": {"sentences": 3},
+                        "output": "summary.txt"
+                    }
+                ]
+            }
+        }
+        
+        # Execute workflow
+        result = await workflow.execute(input_data)
+        
+        # Print the summary
+        print(result["summary"])
+        
+    - title: Custom Processing Pipeline
+      python: |
+        # Create workflow with custom configuration
+        workflow = create_provider("content_processing", 
+                                  output_dir="./my_output",
+                                  auto_save_results=True)
+        
+        # Define document to process
+        document = """
+        # Machine Learning Overview
+        Machine learning is an application of artificial intelligence that provides
+        systems the ability to automatically learn and improve from experience
+        without being explicitly programmed.
+        """
+        
+        # Execute with default processors
+        result = await workflow.execute({
+            "task": "process_content",
+            "input": {"content": document}
+        })
+        
+        # Access results
+        for processor_type, content in result.get("results", {}).items():
+            print(f"{processor_type}: {content[:50]}...")
+        
+    - title: CLI Execution
+      shell: |
+        # Run content processing workflow via CLI
+        python -m pepperpy.cli workflow run workflow/content_processing \
+          --params "content=My content to process" \
+          --params "task=process_content"
+
+requirements:
+  - nltk>=3.8.1
+  - spacy>=3.7.1
+  - beautifulsoup4>=4.12.2 

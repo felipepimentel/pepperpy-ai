@@ -1,14 +1,64 @@
-name: repository_analyzer
+name: workflow/repository_analyzer
 version: 0.1.0
 description: Analyzes code repositories and provides insights
 author: PepperPy Team
 license: MIT
+
 plugin_type: workflow
+category: provider
 provider_name: repository_analyzer
-entry_point: workflow.RepositoryAnalyzerWorkflow
-required_config_keys: []
+entry_point: provider.RepositoryAnalyzerProvider
+
+config_schema:
+  type: object
+  properties:
+    repository_path:
+      type: string
+      description: Path to the repository to analyze
+      default: "."
+    analysis_types:
+      type: array
+      description: Types of analysis to perform
+      items:
+        type: string
+      default:
+        - "code_quality"
+        - "structure"
+    include_patterns:
+      type: array
+      description: File patterns to include in analysis
+      items:
+        type: string
+      default:
+        - "**/*.py"
+        - "**/*.js"
+        - "**/*.ts"
+        - "**/*.md"
+    exclude_patterns:
+      type: array
+      description: File patterns to exclude from analysis
+      items:
+        type: string
+      default:
+        - "**/node_modules/**"
+        - "**/__pycache__/**"
+        - "**/.git/**"
+        - "**/venv/**"
+        - "**/.env/**"
+    max_files:
+      type: integer
+      description: Maximum number of files to analyze
+      default: 1000
+    output_dir:
+      type: string
+      description: Output directory for analysis results
+      default: "./output/analysis"
+
 default_config:
   repository_path: "."
+  analysis_types:
+    - "code_quality"
+    - "structure"
   include_patterns:
     - "**/*.py"
     - "**/*.js"
@@ -21,40 +71,49 @@ default_config:
     - "**/venv/**"
     - "**/.env/**"
   max_files: 1000
-config_schema:
-  repository_path:
-    description: Path to the repository to analyze
-    required: false
-    default: "."
-    type: string
-  include_patterns:
-    description: File patterns to include in analysis
-    required: false
-    default:
-      - "**/*.py"
-      - "**/*.js"
-      - "**/*.ts"
-      - "**/*.md"
-    type: array
-    items:
-      type: string
-  exclude_patterns:
-    description: File patterns to exclude from analysis
-    required: false
-    default:
-      - "**/node_modules/**"
-      - "**/__pycache__/**"
-      - "**/.git/**"
-      - "**/venv/**"
-      - "**/.env/**"
-    type: array
-    items:
-      type: string
-  max_files:
-    description: Maximum number of files to analyze
-    required: false
-    default: 1000
-    type: integer
+  output_dir: "./output/analysis"
+
+# Examples for testing the plugin
+examples:
+  - name: "full_analysis"
+    description: "Complete repository analysis"
+    input:
+      task: "execute"
+      repository_path: "."
+    expected_output:
+      status: "success"
+
+  - name: "code_quality_only"
+    description: "Only analyze code quality"
+    input:
+      task: "execute"
+      analysis_types:
+        - "code_quality"
+    expected_output:
+      status: "success"
+
+  - name: "structure_only"
+    description: "Only analyze repository structure"
+    input:
+      task: "execute"
+      analysis_types:
+        - "structure"
+    expected_output:
+      status: "success"
+
+# Dependency management section
+dependencies:
+  required:
+    - pydantic>=2.0.0
+    - jsonschema>=4.0.0
+  optional:
+    - gitpython>=3.1.0  # For Git repository analysis
+    - pygments>=2.10.0  # For syntax highlighting in reports
+
+# Isolation configuration
+isolation:
+  mode: "shared"  # Can be "shared" or "isolated"
+
 documentation: |
   # Repository Analyzer Workflow
 
@@ -161,35 +220,4 @@ documentation: |
   - Specialized error classes for task execution issues
   - Detailed error messages with context
   - Original exceptions are preserved for debugging
-  - Graceful recovery options
-
-# Dependency management section
-dependencies:
-  required:
-    - pydantic>=2.0.0
-    - jsonschema>=4.0.0
-    - radon>=5.1.0
-  optional:
-    - gitpython>=3.1.0  # For Git repository analysis
-    - pygments>=2.10.0  # For syntax highlighting in reports
-    - mccabe>=0.7.0     # For code complexity analysis
-    - pylint>=2.12.0    # For code quality analysis
-  conflicts:
-    - pygments<2.0.0    # Older versions have security issues
-    - radon<5.0.0       # Older versions lack features we need
-
-# Isolation configuration
-isolation:
-  mode: "shared"  # Can be "shared" or "isolated"
-  container:
-    enabled: false  # Enable for complete isolation
-    image: "python:3.10-slim"
-    resource_limits:
-      memory: "512Mi"
-      cpu: "500m"
-  environment:
-    variables:
-      PYTHONPATH: "${PLUGIN_PATH}:${PYTHONPATH}"
-    required_modules:
-      - gitpython
-      - radon 
+  - Graceful recovery options 

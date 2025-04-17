@@ -1,4 +1,4 @@
-name: calculator
+name: tool/calculator/basic
 version: 0.1.0
 description: Simple calculator tool for evaluating mathematical expressions
 author: PepperPy Team
@@ -22,4 +22,24 @@ config_schema:
 
 default_config:
   allow_complex: false
-  max_digits: 10 
+  max_digits: 10
+
+# Examples for testing the plugin
+examples:
+  - name: "basic_calculation"
+    description: "Simple addition"
+    input:
+      task: "execute"
+      expression: "2 + 3"
+    expected_output:
+      status: "success"
+      result: "5"
+      
+  - name: "complex_calculation"
+    description: "Complex calculation with functions"
+    input:
+      task: "execute"
+      expression: "abs(-5) + pow(2, 3)"
+    expected_output:
+      status: "success"
+      result: "13" 

@@ -1,190 +1,73 @@
-"""Epsilla vector database provider for RAG."""
+"""
+Unknown plugin
 
-import uuid
-from typing import Any, List, Optional, Sequence, Union
+This provider implements a unknown plugin for the PepperPy framework.
+"""
 
-from epsilla import Client
+from typing import Any, Dict, List, Optional
 
-from pepperpy.core.base import ValidationError
-from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
+from pepperpy.unknown.base import ProviderBase
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class EpsillaProvider(RAGProvider):
-    """Epsilla vector database provider for RAG."""
+class UnknownProvider(ProviderBase, BasePluginProvider):
+    """
+    Unknown plugin
 
-    
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-def __init__(
-        self,
-        host: str = "localhost",
-        port: int = 8888,
-        db_name: str = "pepperpy",
-        table_name: str = "documents",
-        dimension: int = 1536,  # Default for text-embedding-3-small
-        **kwargs: Any,
-    ) -> None:
-        """Initialize Epsilla provider.
-
-        Args:
-            host: Epsilla server host
-            port: Epsilla server port
-            db_name: Name of the database to use
-            table_name: Name of the table to use
-            dimension: Dimension of vectors (default 1536 for text-embedding-3-small)
-            **kwargs: Additional configuration parameters
-        """
-        super().__init__()
-        self.host = host
-        self.port = port
-        self.db_name = db_name
-        self.table_name = table_name
-        self.dimension = dimension
-        self.kwargs = kwargs
-        self._client: Optional[Client] = None
-        self._db = None
-
-    def _get_client(self) -> Client:
-        """Get the client, raising an error if not initialized.
-
-        Returns:
-            The initialized client
-
-        Raises:
-            ValidationError: If client is not initialized
-        """
-        if self._client is None:
-            raise ValidationError("Client not initialized")
-        return self._client
+    This provider implements unknown for unknown.
+    """
 
     async def initialize(self) -> None:
         """Initialize the provider.
 
-        Creates the database and table if they don't exist.
+        This method is called automatically when the provider is first used.
         """
-        # Connect to Epsilla
-        client = Client(f"http://{self.host}:{self.port}")
-
-        # Create or use database
-        client.create_database(self.db_name)
-        client.use_database(self.db_name)
-
-        # Create table if it doesn't exist
-        try:
-            client.create_table(
-                name=self.table_name,
-                fields=[
-                    {"name": "id", "type": "string", "primary": True},
-                    {"name": "text", "type": "string"},
-                    {"name": "metadata", "type": "string"},  # JSON serialized
-                    {
-                        "name": "vector",
-                        "type": "vector",
-                        "dimension": self.dimension,
-                        "metric": "cosine",
-                    },
-                ],
-            )
-        except Exception:
-            # Table already exists
-            pass
-
-        self._client = client
+        # Call the base class implementation first
+        await super().initialize()
+        
+        # Initialize resources
+        # TODO: Add initialization code
+        
+        self.logger.debug(f"Initialized with config={self.config}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        if self._client is not None:
-            self._client.close()
-            self._client = None
+        """Clean up provider resources.
 
-    async def store(self, docs: Union[Document, List[Document]]) -> None:
-        """Store documents in Epsilla.
-
-        Args:
-            docs: Document or list of documents to store
+        This method is called automatically when the context manager exits.
         """
-        if isinstance(docs, Document):
-            docs = [docs]
+        # Clean up resources
+        # TODO: Add cleanup code
+        
+        # Call the base class cleanup
+        await super().cleanup()
 
-        records = []
-        for doc in docs:
-            if "embeddings" not in doc.metadata:
-                raise ValidationError("Document must have embeddings in metadata")
-
-            doc_id = str(uuid.uuid4())
-            records.append({
-                "id": doc_id,
-                "text": doc.text,
-                "metadata": doc.metadata,
-                "vector": doc.metadata["embeddings"],
-            })
-
-        self._get_client().insert(
-            table_name=self.table_name,
-            records=records,
-        )
-
-    async def search(
-        self,
-        query: Union[str, Query],
-        limit: int = 5,
-        **kwargs: Any,
-    ) -> Sequence[SearchResult]:
-        """Search for relevant documents.
-
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a task based on input data.
+        
         Args:
-            query: Search query text or Query object
-            limit: Maximum number of results to return
-            **kwargs: Additional search parameters
-
+            input_data: Input data containing task and parameters
+            
         Returns:
-            List of search results
+            Task execution result
         """
-        if isinstance(query, str):
-            query = Query(text=query)
+        # Get task type from input
+        task_type = input_data.get("task")
+        
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+            
+        try:
+            # Handle different task types
+            if task_type == "example_task":
+                # TODO: Implement task
+                return {
+                    "status": "success",
+                    "result": "Task executed successfully"
+                }
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                
+        except Exception as e:
+            self.logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)}
 
-        if not query.embeddings:
-            raise ValidationError("Query must have embeddings")
-
-        results = self._get_client().query(
-            table_name=self.table_name,
-            query_vector=query.embeddings,
-            limit=limit,
-            **kwargs,
-        )
-
-        search_results = []
-        for hit in results:
-            search_results.append(
-                SearchResult(
-                    id=hit["id"],
-                    text=hit["text"],
-                    metadata=hit["metadata"],
-                    score=hit["score"],
-                )
-            )
-
-        return search_results
-
-    async def get(self, doc_id: str) -> Optional[Document]:
-        """Get a document by ID.
-
-        Args:
-            doc_id: ID of the document to get
-
-        Returns:
-            The document if found, None otherwise
-        """
-        results = self._get_client().get(
-            table_name=self.table_name,
-            ids=[doc_id],
-        )
-
-        if not results:
-            return None
-
-        result = results[0]
-        return Document(
-            text=result["text"],
-            metadata=result["metadata"],
-        )

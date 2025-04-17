@@ -4,53 +4,24 @@ Web Search Tool Plugin.
 Plugin for searching the web for information.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from pepperpy.core.logging import get_logger
-from pepperpy.tool.base import BaseToolProvider
-from pepperpy.tool.registry import ToolCategory, register_tool
+from pepperpy.plugin.provider import BasePluginProvider
 from pepperpy.tool.result import ToolResult
 
-logger = get_logger(__name__)
 
-
-WEB_SEARCH_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "query": {"type": "string", "description": "Search query"},
-        "num_results": {
-            "type": "integer",
-            "description": "Number of results to return",
-            "default": 5,
-        },
-        "language": {
-            "type": "string",
-            "description": "Language for search results",
-            "default": "en",
-        },
-    },
-    "required": ["query"],
-}
-
-
-@register_tool(
-    name="web_search_plugin",
-    category=ToolCategory.SEARCH,
-    description="Advanced web search with plugin support",
-    parameters_schema=WEB_SEARCH_SCHEMA,
-)
-class WebSearchToolPlugin(BaseToolProvider):
+class WebSearchToolPlugin(BasePluginProvider):
     """Web search tool plugin implementation."""
 
     async def initialize(self) -> None:
         """Initialize search client.
 
-        Implementations should set self.initialized to True when complete.
+        This method is called automatically when the provider is first used.
         """
         if self.initialized:
             return
 
-        logger.debug("Initializing web search tool plugin")
+        self.logger.debug("Initializing web search tool plugin")
 
         # Get configuration
         self.search_engine = self.config.get("search_engine", "duckduckgo")
@@ -65,8 +36,119 @@ class WebSearchToolPlugin(BaseToolProvider):
         else:
             self._create_duckduckgo_client()
 
-        self.initialized = True
-        logger.debug(f"Web search tool plugin initialized using {self.search_engine}")
+        self.logger.debug(
+            f"Web search tool plugin initialized using {self.search_engine}"
+        )
+
+    async def cleanup(self) -> None:
+        """Clean up resources.
+
+        This method is called automatically when the context manager exits.
+        """
+        if not self.initialized:
+            return
+
+        self.logger.debug("Cleaning up web search tool plugin")
+
+        # Clean up client if needed
+        if hasattr(self, "client") and self.client:
+            # In a real implementation, we would close any connections
+            # For this example, we just remove the reference
+            self.client = None
+
+        self.initialized = False
+
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute a task.
+
+        Args:
+            input_data: Task data containing:
+                - task: The task to execute (search, image_search, news_search)
+                - query: Search query text
+                - num_results: Number of results to return (optional)
+                - language: Language code for search results (optional)
+
+        Returns:
+            Task result
+        """
+        if not self.initialized:
+            await self.initialize()
+
+        task = input_data.get("task")
+
+        if not task:
+            return {"status": "error", "message": "No task specified"}
+
+        try:
+            if task == "search":
+                query = input_data.get("query")
+                if not query:
+                    return {"status": "error", "message": "No query specified"}
+
+                num_results = input_data.get("num_results", 5)
+                language = input_data.get("language", "en")
+
+                result = await self._perform_search(query, num_results, language)
+                return result.to_dict()
+
+            elif task == "image_search":
+                query = input_data.get("query")
+                if not query:
+                    return {"status": "error", "message": "No query specified"}
+
+                num_results = input_data.get("num_results", 5)
+
+                result = await self._perform_image_search(query, num_results)
+                return result.to_dict()
+
+            elif task == "news_search":
+                query = input_data.get("query")
+                if not query:
+                    return {"status": "error", "message": "No query specified"}
+
+                num_results = input_data.get("num_results", 5)
+
+                result = await self._perform_news_search(query, num_results)
+                return result.to_dict()
+
+            elif task == "get_capabilities":
+                capabilities = await self.get_capabilities()
+                return {"status": "success", "capabilities": capabilities}
+
+            else:
+                return {"status": "error", "message": f"Unknown task: {task}"}
+
+        except Exception as e:
+            self.logger.error(f"Error executing task '{task}': {e}")
+            return {"status": "error", "message": str(e)}
+
+    # Keep the original tool command execution method for backward compatibility
+    async def execute_command(self, command: str, **kwargs: Any) -> dict[str, Any]:
+        """Execute a tool command (legacy method).
+
+        Args:
+            command: Command to execute
+            **kwargs: Additional command-specific parameters
+
+        Returns:
+            Command result
+        """
+        if not self.initialized:
+            await self.initialize()
+
+        if command == "search":
+            result = await self._perform_search(**kwargs)
+            return result.to_dict()
+        elif command == "image_search":
+            result = await self._perform_image_search(**kwargs)
+            return result.to_dict()
+        elif command == "news_search":
+            result = await self._perform_news_search(**kwargs)
+            return result.to_dict()
+        else:
+            return ToolResult(
+                success=False, data={}, error=f"Unknown command: {command}"
+            ).to_dict()
 
     def _create_google_client(self) -> None:
         """Create Google search client."""
@@ -97,33 +179,6 @@ class WebSearchToolPlugin(BaseToolProvider):
         # No API key needed for DuckDuckGo
         self.client = {"type": "duckduckgo", "safe_search": self.safe_search}
 
-    async def execute(self, command: str, **kwargs: Any) -> dict[str, Any]:
-        """Execute a tool command.
-
-        Args:
-            command: Command to execute
-            **kwargs: Additional command-specific parameters
-
-        Returns:
-            Command result
-        """
-        if not self.initialized:
-            await self.initialize()
-
-        if command == "search":
-            result = await self._perform_search(**kwargs)
-            return result.to_dict()
-        elif command == "image_search":
-            result = await self._perform_image_search(**kwargs)
-            return result.to_dict()
-        elif command == "news_search":
-            result = await self._perform_news_search(**kwargs)
-            return result.to_dict()
-        else:
-            return ToolResult(
-                success=False, data={}, error=f"Unknown command: {command}"
-            ).to_dict()
-
     async def _perform_search(
         self, query: str, num_results: int = 5, language: str = "en"
     ) -> ToolResult:
@@ -138,7 +193,7 @@ class WebSearchToolPlugin(BaseToolProvider):
             Search results
         """
         try:
-            logger.debug(
+            self.logger.debug(
                 f"Performing {self.search_engine} web search for: {query} (limit: {num_results}, language: {language})"
             )
 
@@ -147,11 +202,13 @@ class WebSearchToolPlugin(BaseToolProvider):
 
             search_results = []
             for i in range(1, num_results + 1):
-                search_results.append({
-                    "title": f"Advanced Result {i} for {query} ({language})",
-                    "url": f"https://example.com/result/{i}?lang={language}",
-                    "snippet": f"This is an advanced plugin result #{i} for the query: {query}",
-                })
+                search_results.append(
+                    {
+                        "title": f"Advanced Result {i} for {query} ({language})",
+                        "url": f"https://example.com/result/{i}?lang={language}",
+                        "snippet": f"This is an advanced plugin result #{i} for the query: {query}",
+                    }
+                )
 
             return ToolResult(
                 success=True,
@@ -168,7 +225,7 @@ class WebSearchToolPlugin(BaseToolProvider):
                 },
             )
         except Exception as e:
-            logger.error(f"Search error: {e}")
+            self.logger.error(f"Search error: {e}")
             return ToolResult(success=False, data={}, error=f"Search failed: {e!s}")
 
     async def _perform_image_search(
@@ -184,17 +241,21 @@ class WebSearchToolPlugin(BaseToolProvider):
             Image search results
         """
         try:
-            logger.debug(f"Performing {self.search_engine} image search for: {query}")
+            self.logger.debug(
+                f"Performing {self.search_engine} image search for: {query}"
+            )
 
             # Simulated image search
             image_results = []
             for i in range(1, num_results + 1):
-                image_results.append({
-                    "title": f"Image {i} for {query}",
-                    "url": f"https://example.com/images/{i}",
-                    "thumbnail_url": f"https://example.com/thumbnails/{i}.jpg",
-                    "source_website": f"example{i}.com",
-                })
+                image_results.append(
+                    {
+                        "title": f"Image {i} for {query}",
+                        "url": f"https://example.com/images/{i}",
+                        "thumbnail_url": f"https://example.com/thumbnails/{i}.jpg",
+                        "source_website": f"example{i}.com",
+                    }
+                )
 
             return ToolResult(
                 success=True,
@@ -210,7 +271,7 @@ class WebSearchToolPlugin(BaseToolProvider):
                 },
             )
         except Exception as e:
-            logger.error(f"Image search error: {e}")
+            self.logger.error(f"Image search error: {e}")
             return ToolResult(
                 success=False, data={}, error=f"Image search failed: {e!s}"
             )
@@ -228,18 +289,22 @@ class WebSearchToolPlugin(BaseToolProvider):
             News search results
         """
         try:
-            logger.debug(f"Performing {self.search_engine} news search for: {query}")
+            self.logger.debug(
+                f"Performing {self.search_engine} news search for: {query}"
+            )
 
             # Simulated news search
             news_results = []
             for i in range(1, num_results + 1):
-                news_results.append({
-                    "title": f"News {i} about {query}",
-                    "url": f"https://example.com/news/{i}",
-                    "source": f"News Source {i}",
-                    "published_date": "2025-04-05",
-                    "snippet": f"This is a news snippet #{i} about {query}",
-                })
+                news_results.append(
+                    {
+                        "title": f"News {i} about {query}",
+                        "url": f"https://example.com/news/{i}",
+                        "source": f"News Source {i}",
+                        "published_date": "2025-04-05",
+                        "snippet": f"This is a news snippet #{i} about {query}",
+                    }
+                )
 
             return ToolResult(
                 success=True,
@@ -255,7 +320,7 @@ class WebSearchToolPlugin(BaseToolProvider):
                 },
             )
         except Exception as e:
-            logger.error(f"News search error: {e}")
+            self.logger.error(f"News search error: {e}")
             return ToolResult(
                 success=False, data={}, error=f"News search failed: {e!s}"
             )

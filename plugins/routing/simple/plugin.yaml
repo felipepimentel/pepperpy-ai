@@ -1,4 +1,4 @@
-name: routing_simple
+name: routing/simple
 version: 0.1.0
 description: Simple HTTP routing provider for AI Gateway
 author: PepperPy Team
@@ -23,6 +23,41 @@ config_schema:
 default_config:
   host: "0.0.0.0"
   port: 8080
+
+# Examples for testing the plugin
+examples:
+  - name: "configure_server"
+    description: "Configure the routing server"
+    input:
+      task: "configure"
+      host: "127.0.0.1"
+      port: 8000
+    expected_output:
+      status: "success"
+      
+  - name: "start_server"
+    description: "Start the routing server"
+    input:
+      task: "start"
+    expected_output:
+      status: "success"
+      
+  - name: "register_backend"
+    description: "Register a backend provider"
+    input:
+      task: "register_backend"
+      name: "test_backend"
+      provider: "backend_instance"
+    expected_output:
+      status: "success"
+      
+  - name: "get_status"
+    description: "Get server status"
+    input:
+      task: "status"
+    expected_output:
+      status: "success"
+      running: true
 
 documentation:
   summary: |

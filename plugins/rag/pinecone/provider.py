@@ -1,168 +1,73 @@
-"""Pinecone vector database provider for RAG."""
+"""
+Unknown plugin
 
-import uuid
-from typing import Any, List, Optional, Sequence, Union
+This provider implements a unknown plugin for the PepperPy framework.
+"""
 
-import pinecone
+from typing import Any, Dict, List, Optional
 
-from pepperpy.core.base import ValidationError
-from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
+from pepperpy.unknown.base import ProviderBase
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class PineconeProvider(RAGProvider):
-    """Pinecone vector database provider for RAG."""
+class UnknownProvider(ProviderBase, BasePluginProvider):
+    """
+    Unknown plugin
 
-    
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-def __init__(
-        self,
-        index_name: str,
-        api_key: str,
-        environment: str = "gcp-starter",
-        namespace: Optional[str] = None,
-        dimension: int = 1536,  # Default for text-embedding-3-small
-        metric: str = "cosine",
-        **kwargs: Any,
-    ) -> None:
-        """Initialize Pinecone provider.
-
-        Args:
-            index_name: Name of the Pinecone index
-            api_key: Pinecone API key
-            environment: Pinecone environment
-            namespace: Optional namespace for the index
-            dimension: Dimension of vectors (default 1536 for text-embedding-3-small)
-            metric: Distance metric to use (default: cosine)
-            **kwargs: Additional configuration parameters
-        """
-        super().__init__()
-        self.index_name = index_name
-        self.namespace = namespace
-        self.dimension = dimension
-        self.metric = metric
-        self.api_key = api_key
-        self.environment = environment
-        self.kwargs = kwargs
+    This provider implements unknown for unknown.
+    """
 
     async def initialize(self) -> None:
         """Initialize the provider.
 
-        Creates the index if it doesn't exist.
+        This method is called automatically when the provider is first used.
         """
-        # Initialize Pinecone
-        pinecone.init(
-            api_key=self.api_key,
-            environment=self.environment,
-        )
-
-        # Check if index exists
-        if self.index_name not in pinecone.list_indexes():
-            # Create new index
-            pinecone.create_index(
-                name=self.index_name,
-                dimension=self.dimension,
-                metric=self.metric,
-                **self.kwargs,
-            )
-
-        self.index = pinecone.Index(self.index_name)
+        # Call the base class implementation first
+        await super().initialize()
+        
+        # Initialize resources
+        # TODO: Add initialization code
+        
+        self.logger.debug(f"Initialized with config={self.config}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        if hasattr(self, "index"):
-            self.index.close()
+        """Clean up provider resources.
 
-    async def store(self, docs: Union[Document, List[Document]]) -> None:
-        """Store documents in Pinecone.
-
-        Args:
-            docs: Document or list of documents to store
+        This method is called automatically when the context manager exits.
         """
-        if isinstance(docs, Document):
-            docs = [docs]
+        # Clean up resources
+        # TODO: Add cleanup code
+        
+        # Call the base class cleanup
+        await super().cleanup()
 
-        vectors = []
-        for doc in docs:
-            if "embeddings" not in doc.metadata:
-                raise ValidationError("Document must have embeddings in metadata")
-
-            doc_id = str(uuid.uuid4())
-            vectors.append((
-                doc_id,
-                doc.metadata["embeddings"],
-                {
-                    "text": doc.text,
-                    "metadata": doc.metadata,
-                },
-            ))
-
-        self.index.upsert(
-            vectors=vectors,
-            namespace=self.namespace,
-        )
-
-    async def search(
-        self,
-        query: Union[str, Query],
-        limit: int = 5,
-        **kwargs: Any,
-    ) -> Sequence[SearchResult]:
-        """Search for relevant documents.
-
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a task based on input data.
+        
         Args:
-            query: Search query text or Query object
-            limit: Maximum number of results to return
-            **kwargs: Additional search parameters
-
+            input_data: Input data containing task and parameters
+            
         Returns:
-            List of search results
+            Task execution result
         """
-        if isinstance(query, str):
-            query = Query(text=query)
-
-        if not query.embeddings:
-            raise ValidationError("Query must have embeddings")
-
-        results = self.index.query(
-            vector=query.embeddings,
-            top_k=limit,
-            namespace=self.namespace,
-            include_metadata=True,
-            **kwargs,
-        )
-
-        search_results = []
-        for match in results.matches:
-            search_results.append(
-                SearchResult(
-                    id=match.id,
-                    text=match.metadata["text"],
-                    metadata=match.metadata["metadata"],
-                    score=match.score,
-                )
-            )
-
-        return search_results
-
-    async def get(self, doc_id: str) -> Optional[Document]:
-        """Get a document by ID.
-
-        Args:
-            doc_id: ID of the document to get
-
-        Returns:
-            The document if found, None otherwise
-        """
+        # Get task type from input
+        task_type = input_data.get("task")
+        
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+            
         try:
-            vector = self.index.fetch(
-                ids=[doc_id],
-                namespace=self.namespace,
-            )[doc_id]
-        except KeyError:
-            return None
+            # Handle different task types
+            if task_type == "example_task":
+                # TODO: Implement task
+                return {
+                    "status": "success",
+                    "result": "Task executed successfully"
+                }
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                
+        except Exception as e:
+            self.logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)}
 
-        return Document(
-            text=vector.metadata["text"],
-            metadata=vector.metadata["metadata"],
-        )

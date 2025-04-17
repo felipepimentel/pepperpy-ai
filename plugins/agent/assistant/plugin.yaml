@@ -1,30 +1,63 @@
-name: agents/assistant
+name: agent/assistant
 version: 0.1.0
-description: Provider for Assistant for agents tasks
+description: AI assistant provider for conversational tasks
 author: PepperPy Team
-plugin_type: agents
-default_config: null
-config_schema: null
-documentation:
-  usage: 'Assistant provider for agents tasks.
 
-
-    Example usage:
-
-    ```python
-
-    from pepperpy import create_provider
-
-
-    provider = create_provider("agents", "assistant")
-
-
-    # Usage example here
-
-    ```
-
-    '
-category: agents
+plugin_type: agent
+category: provider
 provider_name: assistant
 entry_point: provider.Assistant
-required_config_keys: []
+
+config_schema:
+  type: object
+  properties:
+    model:
+      type: string
+      description: LLM model to use
+      default: gpt-3.5-turbo
+    temperature:
+      type: number
+      description: Temperature for sampling
+      default: 0.7
+    max_tokens:
+      type: integer
+      description: Maximum number of tokens
+      default: 1024
+    system_prompt:
+      type: string
+      description: System prompt for initialization
+      default: "You are a helpful AI assistant."
+    memory_size:
+      type: integer
+      description: Number of messages to keep in memory
+      default: 10
+
+default_config:
+  model: gpt-3.5-turbo
+  temperature: 0.7
+  max_tokens: 1024
+  system_prompt: "You are a helpful AI assistant."
+  memory_size: 10
+
+# Examples for testing the plugin
+examples:
+  - name: "simple_question"
+    description: "Basic question test"
+    input:
+      task: "What is the capital of Brazil?"
+      config:
+        model: "gpt-3.5-turbo"
+    expected_output:
+      status: "success"
+
+  - name: "chat_message"
+    description: "Chat with context test"
+    input:
+      task: "chat"
+      message: "Tell me about quantum computing"
+      context:
+        subject: "science"
+      config:
+        model: "gpt-4"
+    expected_output:
+      status: "success"

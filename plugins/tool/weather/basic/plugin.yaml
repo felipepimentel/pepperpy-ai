@@ -1,4 +1,4 @@
-name: weather
+name: tool/weather/basic
 version: 0.1.0
 description: Weather information tool that provides mock weather data
 author: PepperPy Team
@@ -27,4 +27,45 @@ config_schema:
 default_config:
   default_temperature: 22
   default_condition: "partly cloudy"
-  use_static_data: true 
+  use_static_data: true
+
+examples:
+  - name: "get_current_weather"
+    description: "Get current weather for a location"
+    input:
+      task: "get_weather"
+      location: "New York"
+    expected_output:
+      status: "success"
+      location: "New York"
+      weather:
+        temperature: 22
+        condition: "partly cloudy"
+      
+  - name: "get_weather_forecast"
+    description: "Get weather forecast for a location"
+    input:
+      task: "get_forecast"
+      location: "London"
+      days: 3
+    expected_output:
+      status: "success"
+      location: "London"
+      forecast:
+        - day: 1
+          temperature: 22
+          condition: "partly cloudy"
+        - day: 2
+          temperature: 22
+          condition: "partly cloudy"
+        - day: 3
+          temperature: 22
+          condition: "partly cloudy"
+          
+  - name: "get_capabilities"
+    description: "Get provider capabilities"
+    input:
+      task: "get_capabilities"
+    expected_output:
+      status: "success"
+      capabilities: ["get_weather", "get_forecast"] 

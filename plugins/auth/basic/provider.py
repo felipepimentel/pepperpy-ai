@@ -6,52 +6,106 @@ This provider implements simple API key authentication.
 
 from typing import Any
 
-from pepperpy.core.logging import get_logger
-from pepperpy.plugin import PepperpyPlugin
-
-logger = get_logger(__name__)
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class BasicAuthProvider(PepperpyPlugin):
+class BasicAuthProvider(BasePluginProvider):
     """Basic authentication provider using API keys."""
 
-    plugin_type = "auth"
-    provider_name = "basic"
+    async def initialize(self) -> None:
+        """Initialize the provider.
 
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize the auth provider.
-
-        Args:
-            **kwargs: Provider configuration
+        This method is called automatically when the provider is first used.
         """
-        super().__init__()
-        self.config = kwargs or {}
+        # Initialize state
+        self.initialized = True
+
+        # Get configuration
         self.api_key_header = self.config.get("api_key_header", "X-API-Key")
         self.api_keys = self.config.get("api_keys", {})
         self.require_auth = self.config.get("require_auth", True)
-        self.initialized = False
         self.host = None
         self.port = None
 
-    async def initialize(self) -> None:
-        """Initialize the auth provider."""
-        if self.initialized:
-            return
-
-        logger.info("Initializing Basic Auth Provider")
-        logger.info(f"API Key Header: {self.api_key_header}")
-        logger.info(f"Number of API Keys: {len(self.api_keys)}")
-        logger.info(f"Require Auth: {self.require_auth}")
-
-        self.initialized = True
+        self.logger.info("Initializing Basic Auth Provider")
+        self.logger.info(f"API Key Header: {self.api_key_header}")
+        self.logger.info(f"Number of API Keys: {len(self.api_keys)}")
+        self.logger.info(f"Require Auth: {self.require_auth}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+        """Clean up resources.
+
+        This method is called automatically when the context manager exits.
+        """
         if not self.initialized:
             return
 
-        logger.info("Cleaning up Basic Auth Provider")
+        self.logger.info("Cleaning up Basic Auth Provider")
         self.initialized = False
+
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute an authentication task.
+
+        Args:
+            input_data: Task data containing:
+                - task: Task name (authenticate, add_api_key, remove_api_key, get_api_keys)
+                - headers: Request headers (for authenticate)
+                - api_key: API key to add/remove
+                - user_id: User ID for the API key
+
+        Returns:
+            Authentication result or task result
+        """
+        task = input_data.get("task")
+
+        if not task:
+            return {"status": "error", "message": "No task specified"}
+
+        try:
+            if task == "authenticate":
+                headers = input_data.get("headers", {})
+                result = await self.authenticate(headers)
+                return {"status": "success", "result": result}
+
+            elif task == "add_api_key":
+                api_key = input_data.get("api_key")
+                user_id = input_data.get("user_id")
+
+                if not api_key or not user_id:
+                    return {
+                        "status": "error",
+                        "message": "API key and user ID are required",
+                    }
+
+                return await self.add_api_key(api_key, user_id)
+
+            elif task == "remove_api_key":
+                api_key = input_data.get("api_key")
+
+                if not api_key:
+                    return {"status": "error", "message": "API key is required"}
+
+                return await self.remove_api_key(api_key)
+
+            elif task == "get_api_keys":
+                return await self.get_api_keys()
+
+            elif task == "configure":
+                host = input_data.get("host")
+                port = input_data.get("port")
+
+                if not host or not port:
+                    return {"status": "error", "message": "Host and port are required"}
+
+                await self.configure(host, port)
+                return {"status": "success", "message": "Auth provider configured"}
+
+            else:
+                return {"status": "error", "message": f"Unknown task: {task}"}
+
+        except Exception as e:
+            self.logger.error(f"Error executing task '{task}': {e}")
+            return {"status": "error", "message": str(e)}
 
     async def configure(self, host: str, port: int) -> None:
         """Configure the auth provider.
@@ -62,7 +116,7 @@ class BasicAuthProvider(PepperpyPlugin):
         """
         self.host = host
         self.port = port
-        logger.info(f"Configured Basic Auth Provider for {host}:{port}")
+        self.logger.info(f"Configured Basic Auth Provider for {host}:{port}")
 
     async def authenticate(self, headers: dict[str, str]) -> dict[str, Any]:
         """Authenticate a request.

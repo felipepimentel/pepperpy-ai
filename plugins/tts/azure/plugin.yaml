@@ -2,96 +2,30 @@ name: tts/azure
 version: 0.1.0
 description: Azure Text-to-Speech provider for PepperPy
 author: PepperPy Team
-license: MIT
+
 plugin_type: tts
 category: tts
 provider_name: azure
 entry_point: provider.AzureProvider
-required_config_keys:
-  - api_key
-  - region
-default_config:
-  voice: en-US-JennyNeural
-  output_format: mp3
-  speaking_rate: 1.0
-  pitch: 0
+
 config_schema:
-  api_key:
-    description: Azure Speech Service API key
-    required: true
-    env_var: PEPPERPY_TTS__AZURE_API_KEY
-    type: string
-  region:
-    description: Azure region (e.g., eastus, westus)
-    required: true
-    env_var: PEPPERPY_TTS__AZURE_REGION
-    type: string
-  voice:
-    description: Voice name to use for synthesis
-    required: false
-    default: en-US-JennyNeural
-    type: string
-  output_format:
-    description: Audio output format (mp3, wav, ogg)
-    required: false
-    default: mp3
-    type: string
-    enum: [mp3, wav, ogg]
-  speaking_rate:
-    description: Speaking rate (0.5 to 2.0)
-    required: false
-    default: 1.0
-    type: float
-    min: 0.5
-    max: 2.0
-  pitch:
-    description: Voice pitch (-50 to 50)
-    required: false
-    default: 0
-    type: integer
-    min: -50
-    max: 50
-documentation: |
-  # Azure Text-to-Speech Provider
+  type: object
+  properties:
+    option:
+      type: string
+      description: Configuration option
+      default: "default-value"
 
-  This plugin provides text-to-speech synthesis using Azure's Speech Service.
+default_config:
+  option: "default-value"
 
-  ## Configuration
-
-  - `api_key`: Azure Speech Service API key (required)
-  - `region`: Azure region where your service is deployed (required)
-  - `voice`: Voice name to use (default: en-US-JennyNeural)
-  - `output_format`: Audio output format (default: mp3)
-  - `speaking_rate`: Speaking rate multiplier (default: 1.0)
-  - `pitch`: Voice pitch adjustment (default: 0)
-
-  ## Usage
-
-  ```python
-  from pepperpy import plugin_manager
-
-  # Create provider
-  provider = plugin_manager.create_provider(
-      "tts", "azure",
-      api_key="your-api-key",
-      region="eastus"
-  )
-
-  # Convert text to speech
-  audio_data = await provider.synthesize("Hello, world!")
-
-  # Save to file
-  with open("output.mp3", "wb") as f:
-      f.write(audio_data)
-  ```
-
-  ## Available Voices
-
-  Azure provides a wide range of neural voices in multiple languages.
-  Common English voices include:
-  - en-US-JennyNeural (default)
-  - en-US-GuyNeural
-  - en-GB-SoniaNeural
-  - en-AU-NatashaNeural
-
-  For a complete list of voices, see the Azure documentation.
+# Examples for testing the plugin
+examples:
+  - name: "basic_example"
+    description: "Basic functionality test"
+    input:
+      task: "example_task"
+      config:
+        key: "value"
+    expected_output:
+      status: "success"

@@ -1,30 +1,48 @@
 name: tool/repository/github
 version: 0.1.0
-description: Provider for Github for tool_repository tasks
+description: GitHub repository provider for accessing and manipulating GitHub repositories
 author: PepperPy Team
-category: tool/repository
-provider_name: github
+
 plugin_type: tool
-default_config: null
-config_schema: null
-documentation:
-  usage: 'Github provider for tool/repository tasks.
-
-
-    Example usage:
-
-    ```python
-
-    from pepperpy import create_provider
-
-
-    provider = create_provider("tool/repository", "github")
-
-
-    # Usage example here
-
-    ```
-
-    '
+category: repository
+provider_name: github
 entry_point: provider.GitHubProvider
-required_config_keys: []
+
+config_schema:
+  type: object
+  properties:
+    token:
+      type: string
+      description: GitHub access token for API authentication
+      default: ""
+
+default_config:
+  token: ""
+
+# Examples for testing the plugin
+examples:
+  - name: "clone_repository"
+    description: "Clone a GitHub repository"
+    input:
+      task: "clone"
+      url: "https://github.com/username/repo.git"
+    expected_output:
+      status: "success"
+      repo_path: "/tmp/path/to/cloned/repo"
+
+  - name: "get_files"
+    description: "List files in a cloned repository"
+    input:
+      task: "get_files"
+    expected_output:
+      status: "success"
+      files: ["README.md", "src/main.py", "tests/test_main.py"]
+
+  - name: "get_file_content"
+    description: "Get content of a specific file"
+    input:
+      task: "get_file_content"
+      path: "README.md"
+    expected_output:
+      status: "success"
+      content: "# Example Repository\n\nThis is an example repository for testing."

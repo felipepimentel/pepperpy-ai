@@ -4,19 +4,16 @@ This module provides a basic text normalizer implementation with common transfor
 that don't require external dependencies.
 """
 
-import logging
 import re
 import string
 import unicodedata
 from typing import Any
 
 from pepperpy.content.base import TextNormalizationError, TextNormalizer
-from pepperpy.plugin.base import PepperpyPlugin
-
-logger = logging.getLogger(__name__)
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class BasicTextNormalizer(TextNormalizer, PepperpyPlugin):
+class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
     """Basic text normalizer implementation.
 
     This normalizer provides common text transformations without external dependencies.
@@ -54,16 +51,16 @@ class BasicTextNormalizer(TextNormalizer, PepperpyPlugin):
         "\u2122": "TM",  # Trade mark sign
     }
 
-    def __init__(self, **kwargs: Any) -> None:
+    async def initialize(self) -> None:
         """Initialize the normalizer.
 
-        Args:
-            **kwargs: Configuration options
+        This method is called automatically when the provider is first used.
         """
-        super().__init__(**kwargs)
+        # Initialize state
+        self.initialized = True
 
         # Get configuration
-        self.transformations = kwargs.get(
+        self.transformations = self.config.get(
             "transformations",
             [
                 "strip_whitespace",
@@ -74,38 +71,77 @@ class BasicTextNormalizer(TextNormalizer, PepperpyPlugin):
         )
 
         # Set patterns
-        custom_patterns = kwargs.get("custom_patterns", {})
+        custom_patterns = self.config.get("custom_patterns", {})
         self.patterns = self.DEFAULT_PATTERNS.copy()
         self.patterns.update(custom_patterns)
 
         # Set replacements
-        custom_replacements = kwargs.get("custom_replacements", {})
+        custom_replacements = self.config.get("custom_replacements", {})
         self.replacements = self.DEFAULT_REPLACEMENTS.copy()
         self.replacements.update(custom_replacements)
 
         # Set language
-        self.language = kwargs.get("language", "en")
+        self.language = self.config.get("language", "en")
 
         # Compile patterns
         self.compiled_patterns = {
             name: re.compile(pattern) for name, pattern in self.patterns.items()
         }
 
-        # Initialize state
-        self.initialized = False
-
-    async def initialize(self) -> None:
-        """Initialize the normalizer."""
-        if self.initialized:
-            return
-
-        # No external resources to initialize
-        self.initialized = True
+        self.logger.debug(
+            f"Initialized with {len(self.transformations)} transformations, language={self.language}"
+        )
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+        """Clean up resources.
+
+        This method is called automatically when the context manager exits.
+        """
         # No resources to clean up
-        pass
+        self.compiled_patterns = {}
+        self.initialized = False
+
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute text normalization task.
+
+        Args:
+            input_data: Input data containing:
+                - text: Text to normalize
+                - transformations: (Optional) List of transformations to apply
+
+        Returns:
+            Dict with normalized text
+        """
+        text = input_data.get("text", "")
+        if not text:
+            return {"status": "error", "error": "No text provided"}
+
+        # Check if we should override default transformations
+        override_transformations = input_data.get("transformations")
+        if override_transformations:
+            temp_transformations = self.transformations
+            self.transformations = override_transformations
+
+        try:
+            normalized_text = self.normalize(text)
+
+            # Restore original transformations if overridden
+            if override_transformations:
+                self.transformations = temp_transformations
+
+            return {
+                "status": "success",
+                "normalized_text": normalized_text,
+                "transformations_applied": self.transformations,
+            }
+        except Exception as e:
+            self.logger.error(f"Normalization error: {e}")
+
+            # Restore original transformations if overridden
+            if override_transformations:
+                self.transformations = temp_transformations
+
+            return {"status": "error", "error": str(e)}
 
     def normalize(self, text: str) -> str:
         """Apply all configured normalizations to text.
@@ -134,9 +170,10 @@ class BasicTextNormalizer(TextNormalizer, PepperpyPlugin):
                 try:
                     result = transform_method(result)
                 except Exception as e:
+                    self.logger.error(f"Error in {transformation}: {e}")
                     raise TextNormalizationError(f"Error in {transformation}: {e}")
             else:
-                logger.warning(f"Unknown transformation: {transformation}")
+                self.logger.warning(f"Unknown transformation: {transformation}")
 
         return result
 

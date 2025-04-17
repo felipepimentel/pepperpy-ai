@@ -8,39 +8,31 @@ import asyncio
 import json
 from typing import Any
 
-from pepperpy.core.logging import get_logger
-from pepperpy.plugin import PepperpyPlugin
+from pepperpy.plugin.provider import BasePluginProvider
 
 
-class SimpleRoutingProvider(PepperpyPlugin):
+class SimpleRoutingProvider(BasePluginProvider):
     """Simple HTTP routing provider for AI Gateway."""
 
-    plugin_type = "routing"
-    provider_name = "simple"
+    async def initialize(self) -> None:
+        """Initialize the provider.
 
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize the routing provider with configuration.
-
-        Args:
-            **kwargs: Configuration parameters
+        This method is called automatically when the provider is first used.
         """
-        super().__init__()
-        self.logger = get_logger("routing.simple")
-        self.config = kwargs
-        self.initialized = False
+        # Initialize state
+        self.initialized = True
+
+        # Get configuration
+        self.host = self.config.get("host", "0.0.0.0")
+        self.port = self.config.get("port", 8080)
+
+        # Initialize internal state
         self.running = False
         self.server = None
-        self.host = "0.0.0.0"
-        self.port = 8080
         self.backends: dict[str, Any] = {}
         self.auth_provider = None
         self.http_app = None
         self.shutdown_event = asyncio.Event()
-
-    async def initialize(self) -> None:
-        """Initialize resources."""
-        if self.initialized:
-            return
 
         self.logger.info("Initializing simple routing provider")
 
@@ -59,33 +51,155 @@ class SimpleRoutingProvider(PepperpyPlugin):
             self.http_app.router.add_get("/health", self._handle_health)
             self.http_app.router.add_get("/", self._handle_root)
 
-            self.initialized = True
             self.logger.info("Simple routing provider initialized")
 
         except ImportError as e:
             self.logger.error(f"Failed to initialize routing provider: {e}")
             raise ImportError(f"Required package not found: {e}") from e
 
+    async def cleanup(self) -> None:
+        """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        """
+        if not self.initialized:
+            return
+
+        self.logger.info("Cleaning up simple routing provider")
+
+        # Stop the server if running
+        if self.running:
+            await self.stop()
+
+        # Clean up backends
+        for name, backend in list(self.backends.items()):
+            try:
+                # Attempt to clean up backend if it has a cleanup method
+                if hasattr(backend, "cleanup"):
+                    await backend.cleanup()
+            except Exception as e:
+                self.logger.warning(f"Error cleaning up backend {name}: {e}")
+
+        self.backends.clear()
+        self.initialized = False
+
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute a routing operation.
+
+        Args:
+            input_data: Task data containing:
+                - task: Task name (start, stop, configure, register_backend, unregister_backend, get_backends)
+                - host: Host to bind to (for configure task)
+                - port: Port to listen on (for configure task)
+                - name: Backend name (for register/unregister tasks)
+                - provider: Backend provider (for register task)
+                - auth_provider: Auth provider instance
+
+        Returns:
+            Operation result
+        """
+        task = input_data.get("task")
+
+        if not task:
+            return {"status": "error", "message": "No task specified"}
+
+        try:
+            if task == "configure":
+                host = input_data.get("host")
+                port = input_data.get("port")
+                await self.configure(host, port)
+                return {
+                    "status": "success",
+                    "message": f"Configured for {self.host}:{self.port}",
+                }
+
+            elif task == "start":
+                await self.start()
+                return {
+                    "status": "success",
+                    "message": f"Server started on {self.host}:{self.port}",
+                }
+
+            elif task == "stop":
+                await self.stop()
+                return {"status": "success", "message": "Server stopped"}
+
+            elif task == "register_backend":
+                name = input_data.get("name")
+                provider = input_data.get("provider")
+
+                if not name or not provider:
+                    return {
+                        "status": "error",
+                        "message": "Name and provider are required",
+                    }
+
+                return await self.register_backend(name, provider)
+
+            elif task == "unregister_backend":
+                name = input_data.get("name")
+
+                if not name:
+                    return {"status": "error", "message": "Name is required"}
+
+                return await self.unregister_backend(name)
+
+            elif task == "get_backends":
+                backends = await self.get_backends()
+                return {"status": "success", "backends": backends}
+
+            elif task == "set_auth_provider":
+                auth_provider = input_data.get("auth_provider")
+
+                if not auth_provider:
+                    return {"status": "error", "message": "Auth provider is required"}
+
+                self.auth_provider = auth_provider
+                self.logger.info("Auth provider set")
+                return {"status": "success", "message": "Auth provider set"}
+
+            elif task == "status":
+                backends = await self.get_backends()
+                return {
+                    "status": "success",
+                    "running": self.running,
+                    "host": self.host,
+                    "port": self.port,
+                    "backends": backends,
+                    "has_auth_provider": self.auth_provider is not None,
+                }
+
+            else:
+                return {"status": "error", "message": f"Unknown task: {task}"}
+
+        except Exception as e:
+            self.logger.error(f"Error executing task '{task}': {e}")
+            return {"status": "error", "message": str(e)}
+
     async def _handle_root(self, request):
         """Handle root endpoint requests."""
         from aiohttp import web
 
         backend_list = list(self.backends.keys())
-        return web.json_response({
-            "status": "success",
-            "service": "AI Gateway",
-            "backends": backend_list,
-        })
+        return web.json_response(
+            {
+                "status": "success",
+                "service": "AI Gateway",
+                "backends": backend_list,
+            }
+        )
 
     async def _handle_health(self, request):
         """Handle health check requests."""
         from aiohttp import web
 
-        return web.json_response({
-            "status": "success",
-            "service": "AI Gateway",
-            "running": self.running,
-        })
+        return web.json_response(
+            {
+                "status": "success",
+                "service": "AI Gateway",
+                "running": self.running,
+            }
+        )
 
     async def _handle_request(self, request):
         """Handle API requests."""
@@ -165,55 +279,22 @@ class SimpleRoutingProvider(PepperpyPlugin):
                 status=500,
             )
 
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        if not self.initialized:
-            return
-
-        self.logger.info("Cleaning up simple routing provider")
-
-        # Stop the server if running
-        if self.running:
-            await self.stop()
-
-        # Clean up backends
-        for name, backend in list(self.backends.items()):
-            try:
-                # Attempt to clean up backend if it has a cleanup method
-                if hasattr(backend, "cleanup"):
-                    await backend.cleanup()
-            except Exception as e:
-                self.logger.warning(f"Error cleaning up backend {name}: {e}")
-
-        self.backends.clear()
-        self.initialized = False
-
-    async def configure(
-        self, host: str | None = None, port: int | None = None, **kwargs: Any
-    ) -> None:
+    async def configure(self, host: str | None = None, port: int | None = None) -> None:
         """Configure the provider.
 
         Args:
             host: Server host
             port: Server port
-            **kwargs: Additional configuration parameters
         """
-        self.logger.info("Configuring simple routing provider")
-
         if host:
             self.host = host
         if port:
             self.port = port
 
-        # Store the auth provider if it's provided
-        if "auth_provider" in kwargs:
-            self.auth_provider = kwargs["auth_provider"]
-            self.logger.info(
-                f"Using auth provider: {type(self.auth_provider).__name__}"
-            )
+        self.logger.info(f"Configured routing provider for {self.host}:{self.port}")
 
     async def start(self) -> None:
-        """Start the routing server."""
+        """Start the HTTP server."""
         if not self.initialized:
             await self.initialize()
 
@@ -224,62 +305,44 @@ class SimpleRoutingProvider(PepperpyPlugin):
         try:
             from aiohttp import web
 
-            # Ensure http_app is initialized
-            if not self.http_app:
-                self.logger.error("HTTP app not initialized")
-                raise RuntimeError("HTTP app not initialized")
-
             # Create a runner for the app
             runner = web.AppRunner(self.http_app)
             await runner.setup()
 
-            # Create a site
+            # Create site and start it
             site = web.TCPSite(runner, self.host, self.port)
-
-            # Start the site
             await site.start()
 
-            # Store references
-            self.server = {
-                "runner": runner,
-                "site": site,
-            }
-
+            # Store reference to server
+            self.server = {"runner": runner, "site": site}
             self.running = True
-            self.logger.info(f"Server started on http://{self.host}:{self.port}")
 
-            # Reset shutdown event
-            self.shutdown_event.clear()
+            self.logger.info(f"Server started on {self.host}:{self.port}")
 
         except Exception as e:
             self.logger.error(f"Failed to start server: {e}")
-            raise
+            raise RuntimeError(f"Failed to start server: {e}") from e
 
     async def stop(self) -> None:
-        """Stop the routing server."""
+        """Stop the HTTP server."""
         if not self.running or not self.server:
             self.logger.warning("Server is not running")
             return
 
         try:
-            # Get the runner
+            # Get runner from server dict
             runner = self.server.get("runner")
-
-            # Clean up the runner
             if runner:
                 await runner.cleanup()
 
             self.server = None
             self.running = False
 
-            # Set shutdown event
-            self.shutdown_event.set()
-
             self.logger.info("Server stopped")
 
         except Exception as e:
             self.logger.error(f"Error stopping server: {e}")
-            raise
+            raise RuntimeError(f"Error stopping server: {e}") from e
 
     async def register_backend(self, name: str, provider: Any) -> dict[str, Any]:
         """Register a backend provider.
@@ -292,14 +355,17 @@ class SimpleRoutingProvider(PepperpyPlugin):
             Registration result
         """
         if name in self.backends:
-            self.logger.warning(f"Backend already registered: {name}")
             return {"status": "error", "message": f"Backend already registered: {name}"}
 
-        # Store the backend
+        # Register backend
         self.backends[name] = provider
         self.logger.info(f"Registered backend: {name}")
 
-        return {"status": "success", "backend": name}
+        return {
+            "status": "success",
+            "message": f"Backend registered: {name}",
+            "backend": name,
+        }
 
     async def unregister_backend(self, name: str) -> dict[str, Any]:
         """Unregister a backend provider.
@@ -313,19 +379,19 @@ class SimpleRoutingProvider(PepperpyPlugin):
         if name not in self.backends:
             return {"status": "error", "message": f"Backend not found: {name}"}
 
-        # Remove the backend
-        backend = self.backends.pop(name)
-
-        # Clean up backend resources if it has a cleanup method
-        if hasattr(backend, "cleanup"):
-            try:
+        # Try to clean up backend if it has a cleanup method
+        backend = self.backends[name]
+        try:
+            if hasattr(backend, "cleanup"):
                 await backend.cleanup()
-            except Exception as e:
-                self.logger.warning(f"Error cleaning up backend {name}: {e}")
+        except Exception as e:
+            self.logger.warning(f"Error cleaning up backend {name}: {e}")
 
+        # Unregister backend
+        del self.backends[name]
         self.logger.info(f"Unregistered backend: {name}")
 
-        return {"status": "success", "backend": name}
+        return {"status": "success", "message": f"Backend unregistered: {name}"}
 
     async def get_backends(self) -> list[str]:
         """Get list of registered backends.
