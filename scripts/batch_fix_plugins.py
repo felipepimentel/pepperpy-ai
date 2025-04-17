@@ -3,11 +3,10 @@
 Batch fix PepperPy plugins.
 
 This script fixes multiple plugins at once by generating properly formatted
-templates for each plugin and backing up the originals.
+templates for each plugin.
 """
 
 import argparse
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -40,28 +39,6 @@ def read_fix_list(fix_list_file: Path) -> dict[str, set[str]]:
                 plugins_by_category[current_category].add(plugin_path)
 
     return plugins_by_category
-
-
-def backup_plugin(plugin_path: Path) -> Path:
-    """Create a backup of a plugin directory.
-
-    Args:
-        plugin_path: Path to the plugin.yaml file
-
-    Returns:
-        Path to backup directory
-    """
-    plugin_dir = plugin_path.parent
-    backup_dir = plugin_dir.with_name(f"{plugin_dir.name}_backup")
-
-    # Remove existing backup if it exists
-    if backup_dir.exists():
-        shutil.rmtree(backup_dir)
-
-    # Create backup
-    shutil.copytree(plugin_dir, backup_dir)
-
-    return backup_dir
 
 
 def generate_plugin_template(plugin_path: Path) -> bool:
@@ -126,7 +103,6 @@ def fix_plugins_by_category(
     category: str,
     plugins: set[str],
     specific_plugin: str | None = None,
-    backup: bool = True,
     validate: bool = True,
     dry_run: bool = False,
 ) -> dict[str, list[str]]:
@@ -136,7 +112,6 @@ def fix_plugins_by_category(
         category: Category name
         plugins: Set of plugin paths
         specific_plugin: If set, only fix this specific plugin
-        backup: Whether to create backups
         validate: Whether to validate plugins after fixing
         dry_run: Whether to only print what would be done
 
@@ -173,16 +148,6 @@ def fix_plugins_by_category(
             results["skipped"].append(str(plugin_path))
             continue
 
-        # Create backup
-        if backup:
-            try:
-                backup_path = backup_plugin(plugin_path)
-                print(f"    Created backup at {backup_path}")
-            except Exception as e:
-                print(f"    Error creating backup: {e}")
-                results["failed"].append(str(plugin_path))
-                continue
-
         # Generate template
         success = generate_plugin_template(plugin_path)
 
@@ -199,7 +164,7 @@ def fix_plugins_by_category(
                 print(f"    Successfully fixed {plugin_path}")
                 results["fixed"].append(str(plugin_path))
             else:
-                print(f"    Fixed but still has issues: {plugin_path}")
+                print(f"    Failed validation for {plugin_path}")
                 results["failed"].append(str(plugin_path))
         else:
             print(f"    Fixed {plugin_path} (not validated)")
@@ -209,127 +174,117 @@ def fix_plugins_by_category(
 
 
 def main() -> int:
-    """Main entry point."""
+    """Run the plugin fixer."""
     parser = argparse.ArgumentParser(description="Batch fix PepperPy plugins")
-    parser.add_argument("fix_list", help="Path to the fix list file")
-    parser.add_argument("--category", "-c", help="Category to process (default: all)")
+    parser.add_argument(
+        "--fix-list",
+        type=str,
+        help="Path to file with list of plugins to fix",
+        required=False,
+    )
     parser.add_argument(
         "--plugin",
-        "-p",
-        help="Specific plugin to fix (must be part of the chosen category or any category if none specified)",
+        type=str,
+        help="Individual plugin to fix",
+        required=False,
     )
     parser.add_argument(
-        "--no-backup", "-B", action="store_true", help="Don't create backups"
+        "--dry-run",
+        action="store_true",
+        help="Print what would be done without making changes",
     )
     parser.add_argument(
-        "--no-validate", "-V", action="store_true", help="Don't validate after fixing"
+        "--no-validate",
+        action="store_true",
+        help="Skip validation after fixing",
     )
     parser.add_argument(
-        "--dry-run", "-n", action="store_true", help="Only print what would be done"
+        "--category",
+        type=str,
+        help="Only fix plugins in this category",
+        required=False,
     )
-    parser.add_argument("--output", "-o", help="Output file for results")
+
     args = parser.parse_args()
 
-    fix_list_file = Path(args.fix_list)
-    if not fix_list_file.exists():
-        print(f"Error: Fix list file '{fix_list_file}' not found")
+    # Check required arguments
+    if not args.fix_list and not args.plugin:
+        parser.error("Either --fix-list or --plugin is required")
+
+    if args.plugin:
+        plugin_path = Path(args.plugin)
+        if not plugin_path.exists():
+            print(f"Plugin file not found: {plugin_path}")
+            return 1
+
+        print(f"Processing single plugin: {plugin_path}")
+
+        if args.dry_run:
+            print(f"Would fix {plugin_path}")
+            return 0
+
+        success = generate_plugin_template(plugin_path)
+
+        if not success:
+            print(f"Failed to fix {plugin_path}")
+            return 1
+
+        if not args.no_validate:
+            valid = validate_plugin(plugin_path)
+            if valid:
+                print(f"Successfully fixed and validated {plugin_path}")
+            else:
+                print(f"Fixed but failed validation for {plugin_path}")
+                return 1
+        else:
+            print(f"Fixed {plugin_path} (not validated)")
+
+        return 0
+
+    # Process multiple plugins from fix list
+    fix_list_path = Path(args.fix_list)
+    if not fix_list_path.exists():
+        print(f"Fix list file not found: {fix_list_path}")
         return 1
 
-    # Redirect output to file if specified
-    original_stdout = sys.stdout
-    if args.output:
-        try:
-            sys.stdout = open(args.output, "w")
-        except Exception as e:
-            print(f"Error opening output file: {e}")
-            return 1
+    # Read plugins by category
+    plugins_by_category = read_fix_list(fix_list_path)
+    print(
+        f"Found {sum(len(p) for p in plugins_by_category.values())} plugins in {len(plugins_by_category)} categories"
+    )
 
-    try:
-        # Read fix list
-        plugins_by_category = read_fix_list(fix_list_file)
+    # Process each category
+    all_results = {
+        "fixed": [],
+        "failed": [],
+        "skipped": [],
+    }
 
-        if not plugins_by_category:
-            print("No plugins found in fix list")
-            return 1
+    for category, plugins in plugins_by_category.items():
+        # Skip category if specified and doesn't match
+        if args.category and category != args.category:
+            continue
 
-        # Process requested categories
-        results = {"fixed": [], "failed": [], "skipped": []}
+        # Fix plugins in this category
+        results = fix_plugins_by_category(
+            category=category,
+            plugins=plugins,
+            validate=not args.no_validate,
+            dry_run=args.dry_run,
+        )
 
-        # If specific plugin is provided but no category, find which categories contain it
-        if args.plugin and not args.category:
-            found_categories = []
-            for category, plugins in plugins_by_category.items():
-                if any(args.plugin in p for p in plugins):
-                    found_categories.append(category)
+        # Merge results
+        for status, paths in results.items():
+            all_results[status].extend(paths)
 
-            if not found_categories:
-                print(f"Error: Plugin '{args.plugin}' not found in any category")
-                return 1
+    # Print summary
+    print("\nSummary:")
+    print(f"  Fixed: {len(all_results['fixed'])}")
+    print(f"  Failed: {len(all_results['failed'])}")
+    print(f"  Skipped: {len(all_results['skipped'])}")
 
-            print(f"Found plugin '{args.plugin}' in {len(found_categories)} categories")
-
-            # Process each matching category
-            for category in found_categories:
-                category_results = fix_plugins_by_category(
-                    category,
-                    plugins_by_category[category],
-                    specific_plugin=args.plugin,
-                    backup=not args.no_backup,
-                    validate=not args.no_validate,
-                    dry_run=args.dry_run,
-                )
-
-                # Merge results
-                for status, plugins in category_results.items():
-                    results[status].extend(plugins)
-
-        elif args.category:
-            if args.category not in plugins_by_category:
-                print(f"Error: Category '{args.category}' not found in fix list")
-                return 1
-
-            # Process single category
-            category_results = fix_plugins_by_category(
-                args.category,
-                plugins_by_category[args.category],
-                specific_plugin=args.plugin,
-                backup=not args.no_backup,
-                validate=not args.no_validate,
-                dry_run=args.dry_run,
-            )
-
-            # Merge results
-            for status, plugins in category_results.items():
-                results[status].extend(plugins)
-        else:
-            # Process all categories
-            for category, plugins in plugins_by_category.items():
-                category_results = fix_plugins_by_category(
-                    category,
-                    plugins,
-                    specific_plugin=args.plugin,
-                    backup=not args.no_backup,
-                    validate=not args.no_validate,
-                    dry_run=args.dry_run,
-                )
-
-                # Merge results
-                for status, plugins in category_results.items():
-                    results[status].extend(plugins)
-
-        # Print summary
-        print("\nSummary:")
-        print(f"  Fixed: {len(results['fixed'])} plugins")
-        print(f"  Failed: {len(results['failed'])} plugins")
-        print(f"  Skipped: {len(results['skipped'])} plugins")
-
-        return 0 if not results["failed"] else 1
-
-    finally:
-        # Restore original stdout if redirected
-        if args.output:
-            sys.stdout.close()
-            sys.stdout = original_stdout
+    # Return success if no failures
+    return 0 if not all_results["failed"] else 1
 
 
 if __name__ == "__main__":
