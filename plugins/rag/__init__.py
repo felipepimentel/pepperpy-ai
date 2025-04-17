@@ -1,36 +1,12 @@
 """
-RAG processor plugin implementations.
+RAG plugin implementations.
 
-This module contains implementations of different text processors for RAG pipelines.
+This module provides RAG (Retrieval Augmented Generation) plugins for PepperPy.
 """
 
-# Import the plugin base classes
-from pepperpy.plugin.rag.base import (
-    ProcessedText,
-    ProcessingOptions,
-    TextProcessingError,
-    TextProcessor,
-)
+# O módulo principal não deve importar ou referenciar plugins diretamente
+# O sistema de registro de plugins é gerenciado através do sistema de descoberta de plugins
+# Os plugins são carregados dinamicamente em tempo de execução
 
-# Register processors as plugins
-from pepperpy.plugin.registry import register_plugin
-
-# Import concrete implementations
-from plugins.rag.nltk import NLTKProcessor
-from plugins.rag.spacy import SpacyProcessor
-from plugins.rag.transformers import TransformersProcessor
-
-# Register the processors - the global version takes just name and plugin
-register_plugin("rag.nltk", NLTKProcessor)
-register_plugin("rag.spacy", SpacyProcessor)
-register_plugin("rag.transformers", TransformersProcessor)
-
-__all__ = [
-    "NLTKProcessor",
-    "ProcessedText",
-    "ProcessingOptions",
-    "SpacyProcessor",
-    "TextProcessingError",
-    "TextProcessor",
-    "TransformersProcessor",
-]
+# NOTA: Não importamos plugins específicos nem registramos plugins manualmente aqui
+# Esta é uma violação do princípio arquitetural de independência de implementação

@@ -3,7 +3,8 @@
 import logging
 from typing import Any
 
-from plugins.rag.base import (
+from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.rag.processor import (
     ProcessedText,
     ProcessingOptions,
     TextProcessingError,
@@ -13,7 +14,7 @@ from plugins.rag.base import (
 logger = logging.getLogger(__name__)
 
 
-class TransformersProcessor(TextProcessor):
+class TransformersProcessor(TextProcessor, BasePluginProvider):
     """Text processor using Hugging Face Transformers."""
 
     def __init__(
@@ -31,6 +32,7 @@ class TransformersProcessor(TextProcessor):
             tokenizer_name: Name of the tokenizer (uses model_name if None)
             device: Device to run the model on (cpu, cuda, etc.)
         """
+        super().__init__()
         config = config or {}
         self._model_name = config.get("model_name", model_name)
         self._tokenizer_name = (
@@ -40,9 +42,13 @@ class TransformersProcessor(TextProcessor):
         self._model = None
         self._tokenizer = None
         self._pipeline = None
+        self.initialized = False
 
     async def initialize(self) -> None:
         """Initialize Transformers resources."""
+        if self.initialized:
+            return
+            
         try:
             # Import here to avoid dependency issues if transformers is not installed
             from transformers import AutoModel, AutoTokenizer, pipeline
@@ -64,6 +70,8 @@ class TransformersProcessor(TextProcessor):
             except Exception as e:
                 logger.warning(f"NER pipeline not available: {e}")
                 self._pipeline = None
+                
+            self.initialized = True
 
         except Exception as e:
             raise TextProcessingError(f"Failed to load Transformers model: {e}")
@@ -73,6 +81,7 @@ class TransformersProcessor(TextProcessor):
         self._model = None
         self._tokenizer = None
         self._pipeline = None
+        self.initialized = False
 
     async def process(
         self, text: str, options: ProcessingOptions | None = None
@@ -180,3 +189,77 @@ class TransformersProcessor(TextProcessor):
             "model_name": self._model_name,
             "device": self._device,
         }
+        
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute a task based on input data.
+        
+        Args:
+            input_data: Input data containing task and parameters
+            
+        Returns:
+            Task execution result
+        """
+        task_type = input_data.get("task")
+        
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+            
+        try:
+            if not self.initialized:
+                await self.initialize()
+                
+            if task_type == "process":
+                text = input_data.get("text")
+                if not text:
+                    return {"status": "error", "error": "No text provided"}
+                    
+                options_dict = input_data.get("options", {})
+                options = ProcessingOptions(
+                    model=options_dict.get("model", "default"),
+                    disable=options_dict.get("disable", []),
+                    additional_options=options_dict.get("additional_options", {})
+                )
+                
+                result = await self.process(text, options)
+                
+                return {
+                    "status": "success",
+                    "text": result.text,
+                    "tokens": result.tokens,
+                    "entities": result.entities,
+                    "metadata": result.metadata,
+                }
+                
+            elif task_type == "process_batch":
+                texts = input_data.get("texts", [])
+                if not texts:
+                    return {"status": "error", "error": "No texts provided"}
+                    
+                options_dict = input_data.get("options", {})
+                options = ProcessingOptions(
+                    model=options_dict.get("model", "default"),
+                    disable=options_dict.get("disable", []),
+                    additional_options=options_dict.get("additional_options", {})
+                )
+                
+                results = await self.process_batch(texts, options)
+                
+                return {
+                    "status": "success",
+                    "results": [
+                        {
+                            "text": r.text,
+                            "tokens": r.tokens,
+                            "entities": r.entities,
+                            "metadata": r.metadata,
+                        }
+                        for r in results
+                    ],
+                }
+                
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                
+        except Exception as e:
+            logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)} 

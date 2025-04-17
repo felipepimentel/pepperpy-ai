@@ -1,0 +1,47 @@
+name: rag/text_processor/spacy
+version: 0.1.0
+description: SpaCy text processor for RAG
+author: PepperPy Team
+
+plugin_type: rag
+category: text_processor
+provider_name: spacy
+entry_point: provider.SpacyProcessor
+
+config_schema:
+  type: object
+  properties:
+    model_name:
+      type: string
+      description: Name of the SpaCy model to use
+      default: en_core_web_sm
+    disable:
+      type: array
+      description: List of pipeline components to disable
+      items:
+        type: string
+      default: []
+
+default_config:
+  model_name: en_core_web_sm
+  disable: []
+
+# Examples for testing the plugin
+examples:
+  - name: process_text
+    description: Process a single text
+    input:
+      task: process
+      text: PepperPy is an AI framework for building intelligent applications.
+    expected_output:
+      status: success
+      
+  - name: process_batch
+    description: Process multiple texts
+    input:
+      task: process_batch
+      texts: 
+        - PepperPy is an AI framework.
+        - It supports various NLP capabilities.
+    expected_output:
+      status: success 

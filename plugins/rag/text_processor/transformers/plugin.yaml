@@ -1,0 +1,48 @@
+name: rag/text_processor/transformers
+version: 0.1.0
+description: Hugging Face Transformers text processor for RAG
+author: PepperPy Team
+
+plugin_type: rag
+category: text_processor
+provider_name: transformers
+entry_point: provider.TransformersProcessor
+
+config_schema:
+  type: object
+  properties:
+    model_name:
+      type: string
+      description: Name of the Transformers model to use
+      default: distilbert-base-uncased
+    tokenizer_name:
+      type: string
+      description: Name of the tokenizer to use (uses model_name if not specified)
+    device:
+      type: string
+      description: Device to run the model on (cpu, cuda, etc.)
+      default: cpu
+
+default_config:
+  model_name: distilbert-base-uncased
+  device: cpu
+
+# Examples for testing the plugin
+examples:
+  - name: process_text
+    description: Process a single text
+    input:
+      task: process
+      text: PepperPy is an AI framework for building intelligent applications.
+    expected_output:
+      status: success
+      
+  - name: process_batch
+    description: Process multiple texts
+    input:
+      task: process_batch
+      texts: 
+        - PepperPy is an AI framework.
+        - It supports various NLP capabilities.
+    expected_output:
+      status: success 

@@ -6,7 +6,8 @@ from typing import Any
 import spacy
 from spacy.language import Language
 
-from plugins.rag.base import (
+from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.rag.processor import (
     ProcessedText,
     ProcessingOptions,
     TextProcessingError,
@@ -16,7 +17,7 @@ from plugins.rag.base import (
 logger = logging.getLogger(__name__)
 
 
-class SpacyProcessor(TextProcessor):
+class SpacyProcessor(TextProcessor, BasePluginProvider):
     """Text processor using SpaCy."""
 
     def __init__(
@@ -32,16 +33,22 @@ class SpacyProcessor(TextProcessor):
             model_name: Name of the SpaCy model to use
             disable: Pipeline components to disable
         """
+        super().__init__()
         config = config or {}
         self._model_name = config.get("model_name", model_name)
         self._disable = config.get("disable", disable) or []
         self._nlp: Language | None = None
+        self.initialized = False
 
     async def initialize(self) -> None:
         """Initialize SpaCy resources."""
+        if self.initialized:
+            return
+
         try:
             logger.info(f"Loading SpaCy model: {self._model_name}")
             self._nlp = spacy.load(self._model_name, disable=self._disable)
+            self.initialized = True
         except Exception as e:
             raise TextProcessingError(f"Failed to load SpaCy model: {e}")
 
@@ -49,6 +56,7 @@ class SpacyProcessor(TextProcessor):
         """Clean up resources."""
         # No explicit cleanup needed for SpaCy
         self._nlp = None
+        self.initialized = False
 
     async def process(
         self, text: str, options: ProcessingOptions | None = None
@@ -144,3 +152,77 @@ class SpacyProcessor(TextProcessor):
             "languages": ["en"],  # Depends on the model loaded
             "model": self._model_name,
         }
+
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute a task based on input data.
+
+        Args:
+            input_data: Input data containing task and parameters
+
+        Returns:
+            Task execution result
+        """
+        task_type = input_data.get("task")
+
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+
+        try:
+            if not self.initialized:
+                await self.initialize()
+
+            if task_type == "process":
+                text = input_data.get("text")
+                if not text:
+                    return {"status": "error", "error": "No text provided"}
+
+                options_dict = input_data.get("options", {})
+                options = ProcessingOptions(
+                    model=options_dict.get("model", "default"),
+                    disable=options_dict.get("disable", []),
+                    additional_options=options_dict.get("additional_options", {}),
+                )
+
+                result = await self.process(text, options)
+
+                return {
+                    "status": "success",
+                    "text": result.text,
+                    "tokens": result.tokens,
+                    "entities": result.entities,
+                    "metadata": result.metadata,
+                }
+
+            elif task_type == "process_batch":
+                texts = input_data.get("texts", [])
+                if not texts:
+                    return {"status": "error", "error": "No texts provided"}
+
+                options_dict = input_data.get("options", {})
+                options = ProcessingOptions(
+                    model=options_dict.get("model", "default"),
+                    disable=options_dict.get("disable", []),
+                    additional_options=options_dict.get("additional_options", {}),
+                )
+
+                results = await self.process_batch(texts, options)
+
+                return {
+                    "status": "success",
+                    "results": [
+                        {
+                            "text": r.text,
+                            "tokens": r.tokens,
+                            "entities": r.entities,
+                            "metadata": r.metadata,
+                        }
+                        for r in results
+                    ],
+                }
+
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+
+        except Exception as e:
+            logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)}

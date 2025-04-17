@@ -1,0 +1,57 @@
+name: rag/text_processor/nltk
+version: 0.1.0
+description: NLTK text processor for RAG
+author: PepperPy Team
+
+plugin_type: rag
+category: text_processor
+provider_name: nltk
+entry_point: provider.NLTKProcessor
+
+config_schema:
+  type: object
+  properties:
+    download_resources:
+      type: boolean
+      description: Whether to automatically download required NLTK resources
+      default: true
+    resources:
+      type: array
+      description: List of NLTK resources to download
+      items:
+        type: string
+      default:
+        - punkt
+        - averaged_perceptron_tagger
+        - maxent_ne_chunker
+        - words
+        - wordnet
+
+default_config:
+  download_resources: true
+  resources:
+    - punkt
+    - averaged_perceptron_tagger
+    - maxent_ne_chunker
+    - words
+    - wordnet
+
+# Examples for testing the plugin
+examples:
+  - name: process_text
+    description: Process a single text
+    input:
+      task: process
+      text: PepperPy is an AI framework for building intelligent applications.
+    expected_output:
+      status: success
+      
+  - name: process_batch
+    description: Process multiple texts
+    input:
+      task: process_batch
+      texts: 
+        - PepperPy is an AI framework.
+        - It supports various NLP capabilities.
+    expected_output:
+      status: success 

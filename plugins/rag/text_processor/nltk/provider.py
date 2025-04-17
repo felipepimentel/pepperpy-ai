@@ -9,7 +9,8 @@ from nltk.stem import WordNetLemmatizer
 from nltk.tag import pos_tag
 from nltk.tokenize import sent_tokenize, word_tokenize
 
-from plugins.rag.base import (
+from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.rag.processor import (
     ProcessedText,
     ProcessingOptions,
     TextProcessingError,
@@ -19,7 +20,7 @@ from plugins.rag.base import (
 logger = logging.getLogger(__name__)
 
 
-class NLTKProcessor(TextProcessor):
+class NLTKProcessor(TextProcessor, BasePluginProvider):
     """Text processor using NLTK."""
 
     def __init__(
@@ -35,6 +36,7 @@ class NLTKProcessor(TextProcessor):
             download_resources: Whether to download required NLTK resources
             resources: List of specific resources to download
         """
+        super().__init__()
         config = config or {}
         self._download_resources = config.get("download_resources", download_resources)
         self._resources = config.get("resources", resources) or [
@@ -45,9 +47,13 @@ class NLTKProcessor(TextProcessor):
             "wordnet",
         ]
         self._lemmatizer = WordNetLemmatizer()
+        self.initialized = False
 
     async def initialize(self) -> None:
         """Initialize NLTK resources."""
+        if self.initialized:
+            return
+
         if self._download_resources:
             try:
                 logger.info("Downloading NLTK resources")
@@ -56,9 +62,12 @@ class NLTKProcessor(TextProcessor):
             except Exception as e:
                 raise TextProcessingError(f"Failed to download NLTK resources: {e}")
 
+        self.initialized = True
+
     async def cleanup(self) -> None:
         """Clean up resources."""
-        pass  # No cleanup needed for NLTK
+        # No cleanup needed for NLTK
+        self.initialized = False
 
     def _extract_entities(self, text: str) -> list[dict[str, Any]]:
         """Extract named entities from text.
@@ -79,12 +88,14 @@ class NLTKProcessor(TextProcessor):
                 entity_text = " ".join([token for token, pos in subtree.leaves()])
                 start = text.find(entity_text)
                 if start >= 0:
-                    entities.append({
-                        "text": entity_text,
-                        "label": subtree.label(),
-                        "start": start,
-                        "end": start + len(entity_text),
-                    })
+                    entities.append(
+                        {
+                            "text": entity_text,
+                            "label": subtree.label(),
+                            "start": start,
+                            "end": start + len(entity_text),
+                        }
+                    )
 
         return entities
 
@@ -170,3 +181,77 @@ class NLTKProcessor(TextProcessor):
             "languages": ["en"],
             "resources": self._resources,
         }
+
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute a task based on input data.
+
+        Args:
+            input_data: Input data containing task and parameters
+
+        Returns:
+            Task execution result
+        """
+        task_type = input_data.get("task")
+
+        if not task_type:
+            return {"status": "error", "error": "No task specified"}
+
+        try:
+            if not self.initialized:
+                await self.initialize()
+
+            if task_type == "process":
+                text = input_data.get("text")
+                if not text:
+                    return {"status": "error", "error": "No text provided"}
+
+                options_dict = input_data.get("options", {})
+                options = ProcessingOptions(
+                    model=options_dict.get("model", "default"),
+                    disable=options_dict.get("disable", []),
+                    additional_options=options_dict.get("additional_options", {}),
+                )
+
+                result = await self.process(text, options)
+
+                return {
+                    "status": "success",
+                    "text": result.text,
+                    "tokens": result.tokens,
+                    "entities": result.entities,
+                    "metadata": result.metadata,
+                }
+
+            elif task_type == "process_batch":
+                texts = input_data.get("texts", [])
+                if not texts:
+                    return {"status": "error", "error": "No texts provided"}
+
+                options_dict = input_data.get("options", {})
+                options = ProcessingOptions(
+                    model=options_dict.get("model", "default"),
+                    disable=options_dict.get("disable", []),
+                    additional_options=options_dict.get("additional_options", {}),
+                )
+
+                results = await self.process_batch(texts, options)
+
+                return {
+                    "status": "success",
+                    "results": [
+                        {
+                            "text": r.text,
+                            "tokens": r.tokens,
+                            "entities": r.entities,
+                            "metadata": r.metadata,
+                        }
+                        for r in results
+                    ],
+                }
+
+            else:
+                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+
+        except Exception as e:
+            logger.error(f"Error executing task '{task_type}': {e}")
+            return {"status": "error", "error": str(e)}
