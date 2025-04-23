@@ -1,0 +1,397 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# PepperPy Plugin Implementation Guide
+
+PepperPy's plugin system allows extending the framework with custom implementations of various capabilities. This guide provides patterns and requirements for creating effective plugins.
+
+## Plugin Directory Structure
+
+```
+plugins/
+└── domain/                # Domain (llm, content, rag, etc.)
+    └── provider_type/     # Provider category
+        └── implementation/ # Specific implementation
+            ├── plugin.yaml # Plugin metadata and configuration
+            ├── provider.py # Provider implementation
+            ├── __init__.py # Module exports
+            └── requirements.txt # Plugin dependencies
+```
+
+Example:
+```
+plugins/
+└── llm/
+    └── openai/
+        ├── plugin.yaml
+        ├── provider.py
+        ├── __init__.py
+        └── requirements.txt
+```
+
+## Plugin Components
+
+### 1. plugin.yaml
+
+The `plugin.yaml` file defines metadata, configuration schema, and default configuration:
+
+```yaml
+# Basic metadata
+name: domain_provider_name           # Unique plugin name
+version: 0.1.0                       # Semantic version
+description: Provider description     # Brief description
+author: Author Information           # Author name/email
+
+# Categorization
+plugin_type: domain                  # Domain (llm, content, etc)
+category: provider_type              # Provider category
+provider_name: implementation_name   # Provider name
+entry_point: provider.ClassName      # Implementation class path
+
+# Version constraints
+min_framework_version: 0.1.0         # Minimum compatible framework version
+
+# Configuration schema (JSON Schema format)
+config_schema:
+  type: object
+  properties:
+    required_option:
+      type: string
+      description: Description
+    optional_option:
+      type: string
+      description: Description
+      default: default_value
+  required:
+    - required_option
+
+# Default configuration
+default_config:
+  optional_option: default_value
+
+# Examples for testing
+examples:
+  - name: basic_example
+    description: Basic example of plugin functionality
+    input:
+      task: example_task
+      parameter: example_value
+    expected_output:
+      status: success
+      result: example_result
+```
+
+### 2. provider.py
+
+The implementation file that contains your provider class:
+
+```python
+"""Provider implementation for domain."""
+
+from pepperpy.domain import DomainProvider
+from pepperpy.plugin import ProviderPlugin
+
+class MyProvider(DomainProvider, ProviderPlugin):
+    """Provider implementation."""
+    
+    # Type-annotated config attributes
+    api_key: str
+    option: str = "default"
+    
+    async def initialize(self) -> None:
+        """Initialize provider resources."""
+        if self.initialized:
+            return
+            
+        # Initialize resources
+        self.client = Client(api_key=self.api_key)
+        self.logger.debug(f"Initialized with {self.option}")
+    
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if self.client:
+            await self.client.close()
+            self.client = None
+    
+    async def execute(self, input_data: dict) -> dict:
+        """Execute provider functionality."""
+        try:
+            task = input_data.get("task")
+            
+            if task == "process":
+                result = await self._process_data(input_data)
+                return {
+                    "status": "success",
+                    "result": result
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Unknown task: {task}"
+                }
+        except Exception as e:
+            self.logger.error(f"Error executing task: {e}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+```
+
+### 3. __init__.py
+
+Expose your provider class through the module's `__init__.py`:
+
+```python
+"""Module initialization for the plugin."""
+
+from .provider import MyProvider
+
+__all__ = ["MyProvider"]
+```
+
+### 4. requirements.txt
+
+List any additional dependencies required by your plugin:
+
+```
+# External dependencies
+requests>=2.28.0
+pydantic>=2.0.0
+
+# Optional dependencies
+# pillow>=9.0.0 ; extra == "image"
+```
+
+## Implementation Patterns
+
+### Base Pattern: Domain Provider
+
+All plugins should inherit from both the domain-specific provider and `ProviderPlugin`:
+
+```python
+from pepperpy.llm import LLMProvider  # Domain-specific provider
+from pepperpy.plugin import ProviderPlugin  # Plugin base
+
+class MyLLMProvider(LLMProvider, ProviderPlugin):
+    """LLM provider implementation."""
+    
+    # Implementation...
+```
+
+### Resource Management Pattern
+
+Always implement proper resource lifecycle management:
+
+```python
+async def initialize(self) -> None:
+    """Initialize resources."""
+    if self.initialized:
+        return
+        
+    try:
+        # Create resources
+        self.client = await self._create_client()
+        self.initialized = True
+    except Exception as e:
+        self.logger.error(f"Initialization error: {e}")
+        raise DomainError(f"Failed to initialize: {e}") from e
+        
+async def cleanup(self) -> None:
+    """Clean up resources."""
+    if not self.initialized:
+        return
+        
+    try:
+        # Release resources
+        if self.client:
+            await self.client.close()
+        self.initialized = False
+    except Exception as e:
+        self.logger.error(f"Cleanup error: {e}")
+```
+
+### Configuration Pattern
+
+Use type annotations for configuration options:
+
+```python
+class MyProvider(DomainProvider, ProviderPlugin):
+    """Provider implementation."""
+    
+    # Required configuration
+    api_key: str
+    
+    # Optional configuration with defaults
+    model: str = "default-model"
+    temperature: float = 0.7
+    max_tokens: int = 1000
+```
+
+### Error Handling Pattern
+
+Convert domain-specific errors into PepperPy framework errors:
+
+```python
+async def process(self, input_data: dict) -> dict:
+    """Process input data."""
+    try:
+        # Call external API
+        response = await self.client.call_api(input_data)
+        return self._format_response(response)
+    except ExternalAPIError as e:
+        # Convert to domain error
+        raise DomainError(f"API error: {e}") from e
+    except ValueError as e:
+        # Convert to validation error
+        raise ValidationError(f"Invalid input: {e}") from e
+```
+
+### Response Format Pattern
+
+Always use the standard response format for execute methods:
+
+```python
+# Success response
+{
+    "status": "success",
+    "result": {...}  # Output data
+}
+
+# Error response
+{
+    "status": "error",
+    "message": "Error description"
+}
+```
+
+## Plugin Registration
+
+Plugins are automatically discovered and registered based on their location in the filesystem. The discovery process:
+
+1. Scans the `plugins/` directory for plugin subdirectories
+2. Loads the `plugin.yaml` file to retrieve metadata
+3. Registers the plugin in the plugin registry
+4. Makes the plugin available through the factory functions
+
+### Registration Helper
+
+You can also register plugins using decorators:
+
+```python
+from pepperpy.plugin.decorators import plugin
+
+@plugin(
+    plugin_type="llm",
+    name="custom_provider", 
+    description="Custom LLM provider", 
+    version="0.1.0"
+)
+class CustomProvider(LLMProvider, ProviderPlugin):
+    """Custom LLM provider implementation."""
+    # Implementation...
+```
+
+## Testing Plugins
+
+Create tests for your plugins under the appropriate test directory:
+
+```python
+# tests/plugins/llm/test_custom_provider.py
+import pytest
+from pepperpy.plugin import create_provider_instance
+
+@pytest.mark.asyncio
+async def test_custom_provider():
+    """Test custom provider."""
+    # Create provider
+    provider = await create_provider_instance(
+        "llm", 
+        "custom_provider",
+        api_key="test-key"
+    )
+    
+    # Initialize
+    await provider.initialize()
+    
+    try:
+        # Test functionality
+        result = await provider.execute({
+            "task": "generate",
+            "prompt": "Test prompt"
+        })
+        
+        # Assertions
+        assert result["status"] == "success"
+        assert "result" in result
+    finally:
+        # Cleanup
+        await provider.cleanup()
+```
+
+## Direct Adapter Pattern
+
+For development and testing, you can use the Direct Adapter Pattern:
+
+```python
+# Direct adapter for testing or development
+from plugins.llm.custom_provider.provider import CustomProvider
+
+async def test_direct():
+    """Test using direct adapter."""
+    # Create provider directly
+    provider = CustomProvider(api_key="test-key")
+    
+    # Initialize
+    await provider.initialize()
+    
+    try:
+        # Use provider directly
+        result = await provider.execute({
+            "task": "generate",
+            "prompt": "Test prompt"
+        })
+        print(result)
+    finally:
+        # Cleanup
+        await provider.cleanup()
+```
+
+## Common Issues and Solutions
+
+### Plugin Not Found
+
+If your plugin isn't discovered:
+
+1. Check the directory structure matches `plugins/{domain}/{provider_name}/`
+2. Verify `plugin.yaml` exists and has correct metadata
+3. Ensure `provider.py` contains the provider class
+4. Confirm the class inherits from both domain provider and `ProviderPlugin`
+
+### Configuration Errors
+
+If configuration isn't working:
+
+1. Check `config_schema` in `plugin.yaml`
+2. Verify type annotations in provider class match schema
+3. Ensure required options are properly listed in schema
+
+### Initialization Failures
+
+If the plugin fails to initialize:
+
+1. Check resource creation in `initialize()` method
+2. Verify proper error handling and conversion
+3. Check for circular imports or missing dependencies
+
+## Best Practices
+
+1. **Clear Documentation**: Document provider purpose, configuration options, and examples
+2. **Consistent Error Handling**: Convert external errors to framework errors
+3. **Thorough Testing**: Test all functionality with realistic inputs
+4. **Resource Management**: Properly initialize and clean up resources
+5. **Type Annotations**: Use type hints for all methods and attributes
+6. **Defensive Programming**: Validate inputs and handle edge cases
+7. **Performance Considerations**: Be mindful of resource usage
+8. **Compatibility**: Follow framework conventions for compatibility

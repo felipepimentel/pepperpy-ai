@@ -1,0 +1,222 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# PepperPy Fluent API Design
+
+PepperPy implements a fluent interface design pattern to create clear, readable, and chainable APIs for configuring and using the framework.
+
+## Core Principles
+
+1. **Method Chaining**: Methods return `self` to enable chaining
+2. **Domain-Specific Language**: Methods form a natural language-like syntax
+3. **Configuration Accumulation**: Methods build up a configuration state
+4. **Context Management**: Async context managers for resource lifecycle
+5. **Task-Based Interface**: Specialized task classes for different domains
+
+## Basic Usage Pattern
+
+```python
+# Creating and configuring PepperPy instance
+pepperpy = (
+    PepperPy.create()
+    .with_content_processor("basic", language="en")
+    .with_llm("openai", model="gpt-4")
+    .with_rag("chroma")
+    .build()
+)
+
+# Using async context manager
+async with PepperPy.create().with_llm("openai") as pepperpy:
+    result = await pepperpy.llm.complete("Hello, world!")
+```
+
+## Implementation Pattern
+
+All fluent task interfaces MUST follow this pattern:
+
+```python
+class TaskName(TaskBase):
+    """Task description."""
+    
+    def __init__(self, name: str, pepper_instance: Any):
+        """Initialize task."""
+        super().__init__(name, pepper_instance)
+        self._config["task_type"] = name
+    
+    def method_name(self, param: ParamType) -> "TaskName":
+        """Method description.
+        
+        Args:
+            param: Parameter description
+            
+        Returns:
+            Self for method chaining
+        """
+        self._config["param_name"] = param
+        return self
+```
+
+## Key Characteristics
+
+### 1. Return Self
+
+❌ **WRONG**: Method doesn't return self
+```python
+def set_model(self, model_name: str):
+    self._config["model"] = model_name
+    # Missing return self
+```
+
+✅ **CORRECT**: Method returns self
+```python
+def model(self, model_name: str) -> "Self":
+    self._config["model"] = model_name
+    return self
+```
+
+### 2. Method Naming
+
+❌ **WRONG**: Verbose or inconsistent method names
+```python
+def set_the_model_name(self, model_name: str) -> "Self":
+    # Too verbose
+    
+def setTemperature(self, temp: float) -> "Self":
+    # Inconsistent naming style
+```
+
+✅ **CORRECT**: Concise, consistent method names
+```python
+def model(self, model_name: str) -> "Self":
+    # Concise
+    
+def temperature(self, temp: float) -> "Self":
+    # Consistent with other methods
+```
+
+### 3. Configuration Accumulation
+
+❌ **WRONG**: Overwriting configuration
+```python
+def set_options(self, options: dict) -> "Self":
+    self._config = options  # Overwrites all config
+    return self
+```
+
+✅ **CORRECT**: Merging configuration
+```python
+def options(self, options: dict) -> "Self":
+    self._config.update(options)  # Merges with existing config
+    return self
+```
+
+## Task-Based Classes
+
+PepperPy implements specialized task classes for each domain:
+
+| Domain     | Task Class    | Primary Configuration Methods                            |
+|------------|---------------|----------------------------------------------------------|
+| LLM        | `LLM`         | `model()`, `provider()`, `temperature()`, `prompt()`     |
+| Embedding  | `Embedding`   | `model()`, `provider()`, `input()`, `inputs()`           |
+| Content    | `Processor`   | `prompt()`, `input()`, `from_file()`, `format()`         |
+| RAG        | `KnowledgeTask` | `output()`                                             |
+| Tool       | `Tool`        | `description()`, `capability()`, `capabilities()`        |
+| Workflow   | `WorkflowStep`| `depends_on()`, `input()`, `from_step()`, `output()`    |
+
+### Example: LLM Task Configuration
+
+```python
+# Create an LLM task with configuration
+llm_task = (
+    pepperpy.task.llm("text_generation")
+    .model("gpt-4")
+    .temperature(0.7)
+    .max_tokens(500)
+    .prompt("Write a poem about AI")
+)
+
+# Execute the task
+result = await pepperpy.execute(llm_task)
+```
+
+### Example: Workflow Step Configuration
+
+```python
+# Create a workflow with multiple steps
+workflow = (
+    pepperpy.task.workflow("document_processing")
+    .add_step(
+        pepperpy.task.content("extract")
+        .from_file("document.pdf")
+    )
+    .add_step(
+        pepperpy.task.llm("summarize")
+        .from_step("extract")
+        .model("gpt-4")
+    )
+)
+
+# Execute the workflow
+result = await pepperpy.execute(workflow)
+```
+
+## Main PepperPy Builder Pattern
+
+The main `PepperPy` class implements a builder pattern for configuring the framework:
+
+```python
+# Configure providers
+pepperpy = (
+    PepperPy.create()
+    .with_llm("openai", api_key=api_key)
+    .with_embedding("openai")
+    .with_rag("chroma")
+    .with_content("text_processor")
+    .with_task_capability("text_generation")
+    .build()
+)
+```
+
+## Implementation Requirements
+
+When implementing fluent interfaces:
+
+1. **Return Type Annotation**: ALWAYS use `-> "ClassName"` for return type
+2. **Method Documentation**: ALWAYS include return description in docstring
+3. **Parameter Validation**: Validate parameters before storing in config
+4. **Immutability Consideration**: Consider whether operations should be immutable
+5. **Sensible Defaults**: Provide reasonable defaults where appropriate
+
+## Testing Fluent Interfaces
+
+When testing fluent interfaces:
+
+1. Test that method chaining works correctly
+2. Test that configuration state accumulates properly
+3. Test with various combinations of method calls
+4. Verify final configuration state is correct
+
+### Example Test:
+
+```python
+def test_llm_fluent_interface():
+    """Test LLM fluent interface."""
+    # Initialize PepperPy
+    pepper = PepperPy.create()
+    
+    # Create and configure LLM task
+    task = (
+        pepper.task.llm("text_generation")
+        .model("gpt-4")
+        .temperature(0.7)
+        .prompt("Hello")
+    )
+    
+    # Verify configuration
+    assert task._config["task_type"] == "text_generation"
+    assert task._config["model"] == "gpt-4"
+    assert task._config["temperature"] == 0.7
+    assert task._config["prompt"] == "Hello"
+```

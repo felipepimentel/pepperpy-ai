@@ -1,0 +1,127 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# PepperPy Project Structure
+
+PepperPy is organized as a monorepo with clear separation of concerns between components:
+
+## Core Components
+
+```
+pepperpy/             # Core library implementation
+├── agent/            # Agent capabilities and assistants
+├── content/          # Content processing and manipulation
+├── core/             # Foundational components and utilities
+├── embedding/        # Text embedding functionality
+├── llm/              # Language model orchestration
+├── orchestration/    # Workflow coordination
+├── plugin/           # Plugin system implementation
+├── rag/              # Retrieval Augmented Generation
+├── storage/          # Data persistence
+├── tool/             # Tool interfaces and implementations
+├── tts/              # Text-to-speech capabilities
+├── utils/            # Shared utilities
+└── workflow/         # Workflow definitions and execution
+```
+
+## Plugin System
+
+```
+plugins/              # Plugin implementations
+├── agent/            # Agent plugins (assistants, autogen, etc.)
+├── auth/             # Authentication plugins
+├── cache/            # Caching plugins
+├── cli/              # Command-line interface plugins
+├── communication/    # Communication plugins (a2a, mcp)
+├── content/          # Content processing plugins
+├── embedding/        # Embedding provider plugins (OpenAI, HuggingFace, etc.)
+├── hub/              # Hub plugins
+├── integration/      # External integration plugins
+├── llm/              # LLM provider plugins (OpenAI, local, etc.)
+├── mcp/              # Message Control Protocol plugins
+├── rag/              # RAG implementation plugins (Chroma, FAISS, etc.)
+├── routing/          # Routing plugins
+├── storage/          # Storage plugins
+├── tool/             # Tool plugins (calculator, repository, etc.)
+├── tts/              # Text-to-speech plugins
+└── workflow/         # Workflow implementation plugins
+```
+
+## API Layer
+
+```
+api/                  # API server implementation
+├── routes/           # API route definitions
+└── services/         # Service implementations for API
+```
+
+## Web UI
+
+```
+playground_web/       # Web UI implementation
+├── static/           # Static assets (CSS, JS, images)
+│   ├── css/
+│   ├── img/
+│   ├── js/
+│   └── samples/
+└── templates/        # HTML templates
+```
+
+## Developer Tooling
+
+```
+docs/                 # Documentation
+scripts/              # Utility scripts
+tests/                # Test suite
+templates/            # Templates for new components
+bin/                  # Executable scripts
+```
+
+## Key Relationships
+
+- **Core ↔ Plugin**: The core library provides abstract interfaces that plugins implement
+- **API ↔ Core**: The API exposes core functionality through HTTP endpoints
+- **Web UI ↔ API**: The playground web UI consumes the API for functionality
+- **Workflow ↔ Components**: Workflows compose functionality from multiple components
+
+## File Relationships
+
+- **config.yaml**: Global configuration for the entire framework
+- **.env**: Environment variables (credentials, etc.)
+- **pyproject.toml**: Project dependencies and metadata
+
+## Module Access Principles
+
+Always follow proper module access:
+
+✅ **CORRECT**: Access through public API
+```python
+from pepperpy import PepperPy
+from pepperpy.content import create_processor
+```
+
+❌ **INCORRECT**: Direct access to implementation
+```python
+from pepperpy.content.processors.specific import SpecificProcessor  # WRONG!
+from plugins.content.text_normalization.basic.provider import BasicProvider  # WRONG!
+```
+
+## Extending The Framework
+
+When adding new capabilities:
+
+1. Identify the appropriate domain (agent, content, llm, etc.)
+2. Create/update interface in core domain module
+3. Implement provider in plugins directory
+4. Register in the framework's orchestration system
+5. Expose through the API if needed
+
+## Plugin Testing Strategy
+
+```
+tests/plugins/        # Plugin-specific tests
+├── embedding/        # Tests for embedding plugins
+└── cache/            # Tests for cache plugins
+```
