@@ -1,12 +1,12 @@
-name: unknown/unknown
+name: storage/db
 version: 0.1.0
-description: Unknown plugin
+description: Storage provider for db
 author: PepperPy Team
 
-plugin_type: unknown
-category: provider
-provider_name: unknown
-entry_point: provider.UnknownProvider
+plugin_type: storage
+category: storage
+provider_name: db
+entry_point: provider.DbProvider
 
 config_schema:
   type: object

@@ -2,21 +2,32 @@
 
 import traceback
 from collections.abc import Callable
-from typing import Any
+import collections.abc
+from typing import dict, set, Any
 
 from aiohttp import web
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.routing import RoutingProvider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.routing.base import RoutingError
+from pepperpy.routing.base import RoutingError
+
+logger = logger.getLogger(__name__)
 
 
-class BasicRoutingProvider(BasePluginProvider):
-    """Basic routing provider using aiohttp."""
+class BasicRoutingProvider(class BasicRoutingProvider(RoutingProvider, BasePluginProvider):
+    """Basic routing provider using aiohttp."""):
+    """
+    Routing basicrouting provider.
+    
+    This provider implements basicrouting functionality for the PepperPy routing framework.
+    """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         # Initialize state
         self.initialized = True
 
@@ -38,12 +49,12 @@ class BasicRoutingProvider(BasePluginProvider):
         # Create aiohttp application
         self.app = web.Application(middlewares=[self._auth_middleware])
 
-        # Set up CORS
+        # set up CORS
         if self.cors_origins:
             self.logger.info(f"Configuring CORS with origins: {self.cors_origins}")
             # Note: In a production app, you would add proper CORS middleware here
 
-        # Set up routes
+        # set up routes
         self.app.router.add_get("/", self._handle_home)
         self.app.router.add_get("/health", self._handle_health)
         self.app.router.add_get("/providers", self._handle_providers)
@@ -52,10 +63,10 @@ class BasicRoutingProvider(BasePluginProvider):
         self.logger.info("Basic Routing Provider initialized")
 
     async def cleanup(self) -> None:
-        """Clean up resources.
+ """Clean up resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         if not self.initialized:
             return
 
@@ -89,7 +100,7 @@ class BasicRoutingProvider(BasePluginProvider):
         task = input_data.get("task")
 
         if not task:
-            return {"status": "error", "message": "No task specified"}
+            raise RoutingError("No task specified")
 
         try:
             if task == "configure":
@@ -115,10 +126,8 @@ class BasicRoutingProvider(BasePluginProvider):
                 provider = input_data.get("provider")
 
                 if not name or not provider:
-                    return {
-                        "status": "error",
-                        "message": "Name and provider are required",
-                    }
+                    raise RoutingError("Name and provider are required",
+                    )
 
                 return await self.register_backend(name, provider)
 
@@ -126,7 +135,7 @@ class BasicRoutingProvider(BasePluginProvider):
                 name = input_data.get("name")
 
                 if not name:
-                    return {"status": "error", "message": "Name is required"}
+                    raise RoutingError("Name is required")
 
                 return await self.unregister_backend(name)
 
@@ -134,7 +143,7 @@ class BasicRoutingProvider(BasePluginProvider):
                 auth_provider = input_data.get("auth_provider")
 
                 if not auth_provider:
-                    return {"status": "error", "message": "Auth provider is required"}
+                    raise RoutingError("Auth provider is required")
 
                 await self.set_auth_provider(auth_provider)
                 return {"status": "success", "message": "Auth provider set"}
@@ -150,7 +159,7 @@ class BasicRoutingProvider(BasePluginProvider):
                 }
 
             else:
-                return {"status": "error", "message": f"Unknown task: {task}"}
+                raise RoutingError(f"Unknown task: {task)"}
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task}': {e}")
@@ -169,7 +178,8 @@ class BasicRoutingProvider(BasePluginProvider):
         self.logger.info(f"Configured Basic Routing Provider for {host}:{port}")
 
     async def start(self) -> None:
-        """Start the routing server."""
+ """Start the routing server.
+ """
         if not self.initialized:
             await self.initialize()
 
@@ -193,7 +203,8 @@ class BasicRoutingProvider(BasePluginProvider):
         self.logger.info(f"Routing server started on {self.host}:{self.port}")
 
     async def stop(self) -> None:
-        """Stop the routing server."""
+ """Stop the routing server.
+ """
         if not self.running:
             self.logger.warning("Routing server is not running")
             return
@@ -222,7 +233,7 @@ class BasicRoutingProvider(BasePluginProvider):
             Registration result
         """
         if name in self.backends:
-            return {"status": "error", "message": f"Backend {name} already registered"}
+            raise RoutingError(f"Backend {name) already registered"}
 
         self.backends[name] = provider
         self.logger.info(f"Registered backend provider: {name}")
@@ -243,7 +254,7 @@ class BasicRoutingProvider(BasePluginProvider):
             Unregistration result
         """
         if name not in self.backends:
-            return {"status": "error", "message": f"Backend {name} not registered"}
+            raise RoutingError(f"Backend {name) not registered"}
 
         del self.backends[name]
         self.logger.info(f"Unregistered backend provider: {name}")
@@ -255,7 +266,7 @@ class BasicRoutingProvider(BasePluginProvider):
         }
 
     async def set_auth_provider(self, auth_provider: Any) -> None:
-        """Set the authentication provider.
+        """set the authentication provider.
 
         Args:
             auth_provider: The authentication provider instance
@@ -296,12 +307,13 @@ class BasicRoutingProvider(BasePluginProvider):
                     {"error": error_msg, "authenticated": False}, status=401
                 )
 
-            # Set user_id in request
+            # set user_id in request
             request["user_id"] = result.get("user_id", "anonymous")
             self.logger.debug(f"Authenticated user: {request['user_id']}")
 
             return await handler(request)
         except Exception as e:
+            raise RoutingError(f"Operation failed: {e}") from e
             self.logger.error(f"Authentication error: {e}")
             return web.json_response(
                 {"error": "Authentication error", "authenticated": False}, status=500
@@ -391,6 +403,7 @@ class BasicRoutingProvider(BasePluginProvider):
 
             return web.json_response(response)
         except Exception as e:
+            raise RoutingError(f"Operation failed: {e}") from e
             self.logger.error(f"Error processing request: {e}")
             self.logger.error(traceback.format_exc())
             return web.json_response(

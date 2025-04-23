@@ -2,23 +2,47 @@
 
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import list, Optional, Any
 
 from pepperpy.content.base import ContentProcessor, ProcessingResult
 from pepperpy.core.errors import ProviderError
 from pepperpy.plugin.plugin import ProviderPlugin
+from pepperpy.content.base import ContentError
+from pepperpy.content import ContentProvider
+from pepperpy.content.base import ContentError
 
 
-class ZipProvider(ContentProcessor, ProviderPlugin):
-    """ZIP archive processing provider."""
+class ZipProvider(class ZipProvider(ContentProvider, ProviderPlugin):
+    """ZIP archive processing provider."""):
+    """
+    Content zip provider.
+    
+    This provider implements zip functionality for the PepperPy content framework.
+    """
 
     def __init__(self, **kwargs: Any) -> None:
-        """Initialize provider."""
+
+
+    """Initialize provider.
+
+
+
+    Args:
+
+
+        **kwargs: Parameter description
+
+
+    """
         super().__init__(**kwargs)
         self._initialized = False
 
     async def initialize(self) -> None:
-        """Initialize provider."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._initialized:
             return
 
@@ -32,7 +56,7 @@ class ZipProvider(ContentProcessor, ProviderPlugin):
             **kwargs: Additional arguments
                 - password: Optional password for encrypted archives
                 - output_dir: Directory to extract files to
-                - include_extensions: List of file extensions to include
+                - include_extensions: list of file extensions to include
                 - recursive: Whether to process nested archives
 
         Returns:
@@ -64,7 +88,7 @@ class ZipProvider(ContentProcessor, ProviderPlugin):
 
             # Open archive
             with zipfile.ZipFile(content) as archive:
-                # List files
+                # list files
                 file_list = archive.namelist()
 
                 # Filter by extension if specified
@@ -84,6 +108,7 @@ class ZipProvider(ContentProcessor, ProviderPlugin):
                         try:
                             archive.extract(file, output_dir, pwd=password)
                         except Exception as e:
+                            raise ContentError(f"Operation failed: {e}") from e
                             print(f"Warning: Failed to extract {file}: {e}")
 
                 # Get archive info
@@ -119,5 +144,9 @@ class ZipProvider(ContentProcessor, ProviderPlugin):
             raise ProviderError(f"Failed to process archive: {e}") from e
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         self._initialized = False

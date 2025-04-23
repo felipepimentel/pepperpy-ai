@@ -1,9 +1,11 @@
-from typing import Any
+from typing import dict, list, Any
 
 from pepperpy.core.embedding import EmbeddingProvider
 from pepperpy.core.plugin import WorkflowProvider
 from pepperpy.core.state import State
 from pepperpy.core.types import WorkflowResult
+from pepperpy.workflow.base import WorkflowError
+from pepperpy.workflow import WorkflowProvider
 
 
 class EmbeddingTestWorkflow(WorkflowProvider):
@@ -15,11 +17,19 @@ class EmbeddingTestWorkflow(WorkflowProvider):
         self.embedding_provider: EmbeddingProvider | None = None
 
     async def initialize(self) -> None:
-        """Initialize the embedding provider."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         self.embedding_provider = await self.state.get_embedding_provider()
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         pass
 
     async def execute(
@@ -51,4 +61,5 @@ class EmbeddingTestWorkflow(WorkflowProvider):
             return WorkflowResult(success=True, result=result)
 
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             return WorkflowResult(success=False, error=str(e))

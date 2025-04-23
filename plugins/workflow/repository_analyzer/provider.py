@@ -2,24 +2,33 @@
 
 import os
 import pathlib
-from typing import Any
+from typing import dict, set, Optional, Any
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.workflow import WorkflowProvider
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.utils.file import get_file_stats
 from pepperpy.workflow.base import WorkflowError, WorkflowProvider
 
+logger = logger.getLogger(__name__)
 
-class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
-    """Analyzes code repositories and provides insights."""
+
+class RepositoryAnalyzerProvider(class RepositoryAnalyzerProvider(WorkflowProvider, ProviderPlugin):
+    """Analyzes code repositories and provides insights."""):
+    """
+    Workflow repositoryanalyzer provider.
+    
+    This provider implements repositoryanalyzer functionality for the PepperPy workflow framework.
+    """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
-        # Call the base class implementation first
-        await super().initialize()
-
+ """
+        # Skip if already initialized
+        if self.initialized:
+            return
+        
         # Repository configuration
         self.repository_path = self.config.get("repository_path", ".")
         self.analysis_types = self.config.get(
@@ -52,10 +61,10 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
             raise WorkflowError(f"Failed to initialize analyzer: {e}") from e
 
     async def cleanup(self) -> None:
-        """Clean up provider resources.
+ """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         # Clean up specific resources
         self.repo = None
 
@@ -108,21 +117,33 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
             raise WorkflowError(f"Analysis failed: {e}") from e
 
     async def _setup_repository(self) -> Any:
-        """Set up repository access."""
+ """set up repository access.
+
+ Returns:
+     Return description
+ """
         repo_path = pathlib.Path(self.repository_path)
         if not repo_path.exists():
             raise WorkflowError(f"Repository path does not exist: {repo_path}")
         return repo_path
 
     async def _setup_output_dir(self) -> None:
-        """Set up output directory."""
+ """set up output directory.
+ """
         output_path = pathlib.Path(self.output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
-    async def _analyze_code_quality(
-        self, repo_path: str, options: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Analyze code quality."""
+    async def _analyze_code_quality(self, repo_path: str, options: dict[str, Any]) -> dict[str, Any]:
+ """Analyze code quality.
+
+ Args:
+     repo_path: Parameter description
+     options: Parameter description
+     Any]: Parameter description
+
+ Returns:
+     Return description
+ """
         results = {"metrics": {}, "issues": [], "stats": {}}
 
         try:
@@ -147,6 +168,7 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
                     }
 
                 except Exception as e:
+                    raise WorkflowError(f"Operation failed: {e}") from e
                     self.logger.warning(f"Error analyzing file {file_path}: {e}")
                     continue
 
@@ -163,13 +185,21 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
             return results
 
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             self.logger.error(f"Code quality analysis failed: {e}")
             return {"metrics": {}, "issues": [str(e)], "stats": {}}
 
-    async def _analyze_structure(
-        self, repo_path: str, options: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Analyze repository structure."""
+    async def _analyze_structure(self, repo_path: str, options: dict[str, Any]) -> dict[str, Any]:
+ """Analyze repository structure.
+
+ Args:
+     repo_path: Parameter description
+     options: Parameter description
+     Any]: Parameter description
+
+ Returns:
+     Return description
+ """
         results = {
             "directories": {},
             "file_types": {},
@@ -240,6 +270,7 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
             return results
 
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             self.logger.error(f"Structure analysis failed: {e}")
             return {
                 "directories": {},
@@ -250,7 +281,15 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
             }
 
     async def _generate_insights(self, results: dict[str, Any]) -> dict[str, Any]:
-        """Generate insights from analysis results."""
+ """Generate insights from analysis results.
+
+ Args:
+     results: Parameter description
+     Any]: Parameter description
+
+ Returns:
+     Return description
+ """
         insights = {"code_quality": [], "structure": [], "general": []}
 
         try:
@@ -317,6 +356,7 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
             return insights
 
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             self.logger.error(f"Failed to generate insights: {e}")
             return {
                 "code_quality": [],
@@ -324,10 +364,16 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
                 "general": ["Failed to generate insights due to an error"],
             }
 
-    async def _generate_recommendations(
-        self, results: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Generate recommendations from analysis results."""
+    async def _generate_recommendations(self, results: dict[str, Any]) -> dict[str, Any]:
+ """Generate recommendations from analysis results.
+
+ Args:
+     results: Parameter description
+     Any]: Parameter description
+
+ Returns:
+     Return description
+ """
         recommendations = {"code_quality": [], "structure": [], "general": []}
 
         try:
@@ -392,6 +438,7 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
             return recommendations
 
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             self.logger.error(f"Failed to generate recommendations: {e}")
             return {
                 "code_quality": [],
@@ -400,7 +447,15 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
             }
 
     async def _create_summary(self, results: dict[str, Any]) -> dict[str, Any]:
-        """Create summary from analysis results."""
+ """Create summary from analysis results.
+
+ Args:
+     results: Parameter description
+     Any]: Parameter description
+
+ Returns:
+     Return description
+ """
         summary = {"overview": "", "key_metrics": {}, "findings": []}
 
         try:
@@ -439,6 +494,7 @@ class RepositoryAnalyzerProvider(WorkflowProvider, BasePluginProvider):
             return summary
 
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             self.logger.error(f"Failed to create summary: {e}")
             return {
                 "overview": "Failed to create summary due to an error",

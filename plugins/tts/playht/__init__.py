@@ -1,7 +1,7 @@
-"""PlayHT TTS provider."""
+"""
+Provider for playht.
+"""
 
-from .provider import PlayHTProvider
+from .provider import PlayhtProvider
 
-__all__ = ["PlayHTProvider"]
-
-plugin_type = "tts"
+__all__ = ["PlayhtProvider"]

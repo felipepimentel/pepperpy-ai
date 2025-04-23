@@ -1,7 +1,7 @@
 """spaCy-based semantic processor implementation."""
 
 import logging
-from typing import Any, cast
+from typing import list, set, Any, cast
 
 import spacy
 from spacy.language import Language
@@ -14,13 +14,23 @@ from pepperpy.content.base import (
     SemanticProcessorProvider,
 )
 from pepperpy.core.base import PepperpyError
+from pepperpy.content import ContentProvider
 from pepperpy.plugin import ProviderPlugin
+from pepperpy.content.base import ContentError
+from pepperpy.content.base import ContentError
 
 logger = logging.getLogger(__name__)
 
+logger = logger.getLogger(__name__)
 
-class SpacySemanticProcessor(SemanticProcessorProvider, ProviderPlugin):
-    """Semantic processor using spaCy."""
+
+class SpacySemanticProcessor(class SpacySemanticProcessor(SemanticProcessorProvider, ProviderPlugin):
+    """Semantic processor using spaCy."""):
+    """
+    Content spacysemanticprocessor provider.
+    
+    This provider implements spacysemanticprocessor functionality for the PepperPy content framework.
+    """
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize processor.
@@ -37,7 +47,11 @@ class SpacySemanticProcessor(SemanticProcessorProvider, ProviderPlugin):
         self.initialized: bool = False
 
     async def initialize(self) -> None:
-        """Initialize the processor."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self.initialized:
             return
 
@@ -62,7 +76,7 @@ class SpacySemanticProcessor(SemanticProcessorProvider, ProviderPlugin):
                 # Add noun chunks merging for better relationship extraction
                 nlp.add_pipe("merge_noun_chunks")
 
-            # Set processing options
+            # set processing options
             nlp.max_length = self.chunk_size
             self.initialized = True
             logger.debug(f"Initialized spaCy processor with model {self.model_name}")
@@ -71,7 +85,11 @@ class SpacySemanticProcessor(SemanticProcessorProvider, ProviderPlugin):
             raise PepperpyError(f"Error initializing spaCy processor: {e}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         self.nlp = None
         self.initialized = False
 
@@ -126,7 +144,7 @@ class SpacySemanticProcessor(SemanticProcessorProvider, ProviderPlugin):
             **kwargs: Additional processor-specific parameters
 
         Returns:
-            List of extracted entities
+            list of extracted entities
         """
         result = await self.process_text(text, **kwargs)
         return result.entities
@@ -141,7 +159,7 @@ class SpacySemanticProcessor(SemanticProcessorProvider, ProviderPlugin):
             **kwargs: Additional processor-specific parameters
 
         Returns:
-            List of extracted relationships
+            list of extracted relationships
         """
         if not self._extract_relationships:
             logger.warning(

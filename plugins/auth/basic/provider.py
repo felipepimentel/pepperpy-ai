@@ -4,19 +4,29 @@ Basic authentication provider for AI Gateway.
 This provider implements simple API key authentication.
 """
 
-from typing import Any
+from typing import dict, Any
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.auth import AuthProvider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.auth.base import AuthError
+from pepperpy.auth.base import AuthError
+
+logger = logger.getLogger(__name__)
 
 
-class BasicAuthProvider(BasePluginProvider):
-    """Basic authentication provider using API keys."""
+class BasicAuthProvider(class BasicAuthProvider(AuthProvider, BasePluginProvider):
+    """Basic authentication provider using API keys."""):
+    """
+    Auth basicauth provider.
+    
+    This provider implements basicauth functionality for the PepperPy auth framework.
+    """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         # Initialize state
         self.initialized = True
 
@@ -33,10 +43,10 @@ class BasicAuthProvider(BasePluginProvider):
         self.logger.info(f"Require Auth: {self.require_auth}")
 
     async def cleanup(self) -> None:
-        """Clean up resources.
+ """Clean up resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         if not self.initialized:
             return
 
@@ -59,7 +69,7 @@ class BasicAuthProvider(BasePluginProvider):
         task = input_data.get("task")
 
         if not task:
-            return {"status": "error", "message": "No task specified"}
+            raise AuthError("No task specified")
 
         try:
             if task == "authenticate":
@@ -72,10 +82,8 @@ class BasicAuthProvider(BasePluginProvider):
                 user_id = input_data.get("user_id")
 
                 if not api_key or not user_id:
-                    return {
-                        "status": "error",
-                        "message": "API key and user ID are required",
-                    }
+                    raise AuthError("API key and user ID are required",
+                    )
 
                 return await self.add_api_key(api_key, user_id)
 
@@ -83,7 +91,7 @@ class BasicAuthProvider(BasePluginProvider):
                 api_key = input_data.get("api_key")
 
                 if not api_key:
-                    return {"status": "error", "message": "API key is required"}
+                    raise AuthError("API key is required")
 
                 return await self.remove_api_key(api_key)
 
@@ -95,13 +103,13 @@ class BasicAuthProvider(BasePluginProvider):
                 port = input_data.get("port")
 
                 if not host or not port:
-                    return {"status": "error", "message": "Host and port are required"}
+                    raise AuthError("Host and port are required")
 
                 await self.configure(host, port)
                 return {"status": "success", "message": "Auth provider configured"}
 
             else:
-                return {"status": "error", "message": f"Unknown task: {task}"}
+                raise AuthError(f"Unknown task: {task)"}
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task}': {e}")
@@ -160,7 +168,7 @@ class BasicAuthProvider(BasePluginProvider):
             Result of the operation
         """
         if api_key in self.api_keys:
-            return {"status": "error", "message": "API key already exists"}
+            raise AuthError("API key already exists")
 
         self.api_keys[api_key] = user_id
         return {"status": "success", "message": "API key added"}
@@ -175,7 +183,7 @@ class BasicAuthProvider(BasePluginProvider):
             Result of the operation
         """
         if api_key not in self.api_keys:
-            return {"status": "error", "message": "API key not found"}
+            raise AuthError("API key not found")
 
         del self.api_keys[api_key]
         return {"status": "success", "message": "API key removed"}

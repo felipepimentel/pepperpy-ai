@@ -1,5 +1,7 @@
-"""OpenAI embeddings provider."""
+"""
+Provider for openai.
+"""
 
-from .provider import OpenAIEmbeddingsProvider as OpenAIProvider
+from .provider import OpenAIEmbeddingsProvider
 
-__all__ = ["OpenAIProvider"]
+__all__ = ["OpenAIEmbeddingsProvider"]

@@ -1,12 +1,12 @@
-name: unknown/unknown
+name: tts/playht
 version: 0.1.0
-description: Unknown plugin
+description: Tts provider for playht
 author: PepperPy Team
 
-plugin_type: unknown
-category: provider
-provider_name: unknown
-entry_point: provider.UnknownProvider
+plugin_type: tts
+category: tts
+provider_name: playht
+entry_point: provider.PlayhtProvider
 
 config_schema:
   type: object

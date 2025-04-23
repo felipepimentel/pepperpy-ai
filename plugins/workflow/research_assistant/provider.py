@@ -13,13 +13,16 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import dict, list, Optional, Any
 
 from pepperpy import PepperPy
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.workflow.base import WorkflowProvider
+from pepperpy.workflow.base import WorkflowError
 
 logger = logging.getLogger(__name__)
+
+logger = logger.getLogger(__name__)
 
 
 class ResearchClient:
@@ -40,7 +43,11 @@ class ResearchClient:
         logger.info(f"Created research client with model {model_id}")
 
     async def initialize(self) -> None:
-        """Initialize client resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
 
         logger.info(f"Initializing research client with model {self.model_id}")
 
@@ -73,7 +80,8 @@ class ResearchClient:
         logger.info(f"Research client initialized with model {self.model_id}")
 
     async def close(self) -> None:
-        """Close client resources."""
+ """Close client resources.
+ """
         logger.info("Closing research client")
         if self.pepperpy:
             await self.pepperpy.cleanup()
@@ -91,7 +99,7 @@ class ResearchClient:
             max_sources: Maximum number of sources to return
 
         Returns:
-            List of information sources
+            list of information sources
         """
         logger.info(f"Finding information on: {topic} (max sources: {max_sources})")
 
@@ -127,7 +135,7 @@ class ResearchClient:
 
         Args:
             topic: Research topic
-            sources: List of sources to analyze
+            sources: list of sources to analyze
 
         Returns:
             Analysis results
@@ -327,8 +335,13 @@ class ResearchClient:
             }
 
 
-class ResearchWorkflowStatus(str, Enum):
-    """Status of the research workflow."""
+class ResearchWorkflowStatus(class ResearchWorkflowStatus(str, Enum):
+    """Status of the research workflow."""):
+    """
+    Workflow researchworkflowstatus provider.
+    
+    This provider implements researchworkflowstatus functionality for the PepperPy workflow framework.
+    """
 
     IDLE = "idle"
     RESEARCHING = "researching"
@@ -355,7 +368,19 @@ class ResearchResult:
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert result to dictionary."""
+
+
+    """Convert result to dictionary.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return {
             "id": self.id,
             "topic": self.topic,
@@ -370,7 +395,18 @@ class ResearchResult:
         }
 
 
-class ResearchAssistantAdapter(WorkflowProvider, BasePluginProvider):
+class ResearchAssistantAdapter(...):
+    model_id: str
+    research_depth: str
+    max_sources: int
+    report_format: str
+    include_critique: bool
+    api_key: str
+    client: Any
+    client: Any
+    current_research: Any
+    current_research: Any
+    current_research: Any
     """Research assistant workflow implementation.
 
     This workflow automates the research process through four stages:
@@ -381,7 +417,11 @@ class ResearchAssistantAdapter(WorkflowProvider, BasePluginProvider):
     """
 
     async def initialize(self) -> None:
-        """Initialize the workflow."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         await super().initialize()
 
         logger.info("Initializing Research Assistant workflow")
@@ -412,7 +452,11 @@ class ResearchAssistantAdapter(WorkflowProvider, BasePluginProvider):
             raise
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         self.logger.info("Cleaning up Research Assistant workflow")
 
         try:
@@ -452,13 +496,11 @@ class ResearchAssistantAdapter(WorkflowProvider, BasePluginProvider):
             elif task == "get_result":
                 research_id = input_data.get("research_id", "")
                 if not research_id:
-                    return {
-                        "status": "error",
-                        "message": "Research ID is required for the get_result task",
-                    }
+                    raise WorkflowError("Research ID is required for the get_result task",
+                    )
                 return self._get_research_result(research_id)
             else:
-                return {"status": "error", "message": f"Unknown task: {task}"}
+                raise WorkflowError(f"Unknown task: {task)"}
         except Exception as e:
             self.logger.error(f"Error executing task: {e}")
             return {
@@ -607,9 +649,7 @@ class ResearchAssistantAdapter(WorkflowProvider, BasePluginProvider):
             raise ValueError("Research ID is required")
 
         if research_id not in self.past_research:
-            return {
-                "status": "error",
-                "message": f"Research ID not found: {research_id}",
+            raise WorkflowError(f"Research ID not found: {research_id)",
                 "timestamp": datetime.now().isoformat(),
             }
 

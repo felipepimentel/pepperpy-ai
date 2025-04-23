@@ -5,14 +5,19 @@ Implements a Master Control Program (MCP) topology for agent coordination with
 centralized control and distributed execution capabilities.
 """
 
-from typing import Any
+from typing import dict, Any
 
 from pepperpy.agent.topology.base import TopologyError
 from pepperpy.agent.topology.mcp import MCPTopology
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.agent import AgentProvider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.agent.base import AgentError
+from pepperpy.agent.base import AgentError
+
+logger = logger.getLogger(__name__)
 
 
-class MCPTopologyProvider(MCPTopology, BasePluginProvider):
+class MCPTopologyProvider(class MCPTopologyProvider(AgentProvider, ProviderPlugin):
     """MCP topology provider plugin.
 
     Extends the core MCP topology with additional plugin capabilities,
@@ -21,13 +26,18 @@ class MCPTopologyProvider(MCPTopology, BasePluginProvider):
 
     This topology is designed for complex multi-agent systems where centralized
     control and resource management are essential.
+    """):
+    """
+    Agent mcptopology provider.
+    
+    This provider implements mcptopology functionality for the PepperPy agent framework.
     """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         if self.initialized:
             return
 
@@ -53,10 +63,10 @@ class MCPTopologyProvider(MCPTopology, BasePluginProvider):
             self.logger.info("Enabled performance metrics for MCP topology")
 
     async def cleanup(self) -> None:
-        """Clean up resources.
+ """Clean up resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         # Log performance metrics if enabled
         if self.performance_metrics and self.initialized:
             self.logger.info(f"MCP Performance Metrics: {self.metrics}")
@@ -77,7 +87,7 @@ class MCPTopologyProvider(MCPTopology, BasePluginProvider):
         task_type = input_data.get("task")
 
         if not task_type:
-            return {"status": "error", "message": "No task specified"}
+            raise AgentError("No task specified")
 
         try:
             if task_type == "run_topology":
@@ -91,7 +101,7 @@ class MCPTopologyProvider(MCPTopology, BasePluginProvider):
                 previous_metrics = await self.reset_metrics()
                 return {"status": "success", "previous_metrics": previous_metrics}
             else:
-                return {"status": "error", "message": f"Unknown task: {task_type}"}
+                raise AgentError(f"Unknown task: {task_type)"}
         except Exception as e:
             self.logger.error(f"Error executing task '{task_type}': {e}")
             return {"status": "error", "message": str(e)}
@@ -182,11 +192,11 @@ class MCPTopologyProvider(MCPTopology, BasePluginProvider):
         return status
 
     async def optimize_resources(self) -> None:
-        """Optimize resource allocation based on agent performance.
+ """Optimize resource allocation based on agent performance.
 
         This dynamically adjusts resource weights based on agent success rates
         and processing times to improve overall system performance.
-        """
+ """
         if not self.initialized or not self.performance_metrics:
             return
 

@@ -1,18 +1,28 @@
 """Weather tool provider implementation."""
 
-from typing import Any
+from typing import dict, list, Any
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.tool import ToolProvider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.tool.base import ToolError
+from pepperpy.tool.base import ToolError
+
+logger = logger.getLogger(__name__)
 
 
-class WeatherProvider(BasePluginProvider):
-    """Provider for weather information."""
+class WeatherProvider(class WeatherProvider(ToolProvider, BasePluginProvider):
+    """Provider for weather information."""):
+    """
+    Tool weather provider.
+    
+    This provider implements weather functionality for the PepperPy tool framework.
+    """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         if self.initialized:
             return
 
@@ -36,10 +46,10 @@ class WeatherProvider(BasePluginProvider):
         self.logger.info("Weather tool initialized")
 
     async def cleanup(self) -> None:
-        """Clean up resources.
+ """Clean up resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         self.logger.info("Weather tool cleaned up")
 
     async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
@@ -60,14 +70,14 @@ class WeatherProvider(BasePluginProvider):
         task = input_data.get("task")
 
         if not task:
-            return {"status": "error", "message": "No task specified"}
+            raise ToolError("No task specified")
 
         try:
             if task == "get_weather":
                 location = input_data.get("location")
 
                 if not location:
-                    return {"status": "error", "message": "No location provided"}
+                    raise ToolError("No location provided")
 
                 # Generate weather data
                 if self.use_static_data:
@@ -82,13 +92,11 @@ class WeatherProvider(BasePluginProvider):
                 days = input_data.get("days", 5)
 
                 if not location:
-                    return {"status": "error", "message": "No location provided"}
+                    raise ToolError("No location provided")
 
                 if not isinstance(days, int) or days < 1 or days > 10:
-                    return {
-                        "status": "error",
-                        "message": "Days must be between 1 and 10",
-                    }
+                    raise ToolError("Days must be between 1 and 10",
+                    )
 
                 # Generate forecast data
                 forecast = self._get_forecast(location, days)
@@ -102,7 +110,7 @@ class WeatherProvider(BasePluginProvider):
                 }
 
             else:
-                return {"status": "error", "message": f"Unknown task: {task}"}
+                raise ToolError(f"Unknown task: {task)"}
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task}': {e}")
@@ -152,7 +160,7 @@ class WeatherProvider(BasePluginProvider):
             days: Number of days for forecast
 
         Returns:
-            List of daily forecasts
+            list of daily forecasts
         """
 
         forecast = []

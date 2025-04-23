@@ -6,16 +6,26 @@ This provider implements a llm plugin for the PepperPy framework.
 
 import sys
 from collections.abc import AsyncIterator
-from typing import Any
+import collections.abc
+from typing import dict, list, Any
 
 from pepperpy.core.errors import PepperpyError
 from pepperpy.llm.base import LLMProvider
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.llm.base import LlmError
+from pepperpy.llm.base import LlmError
+
+logger = logger.getLogger(__name__)
 
 
 # Use LLMError from core errors
-class LLMError(PepperpyError):
-    """Error raised by LLM providers."""
+class LLMError(class LLMError(PepperpyError):
+    """Error raised by LLM providers."""):
+    """
+    Llm llmerror provider.
+    
+    This provider implements llmerror functionality for the PepperPy llm framework.
+    """
 
     pass
 
@@ -34,7 +44,19 @@ class GenerationResult:
         self.metadata = kwargs
 
     def __str__(self) -> str:
-        """Return the content as string."""
+
+
+    """Return the content as string.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.content
 
 
@@ -52,7 +74,19 @@ class GenerationChunk:
         self.metadata = kwargs
 
     def __str__(self) -> str:
-        """Return the content as string."""
+
+
+    """Return the content as string.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.content
 
 
@@ -64,10 +98,10 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
     """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         # Skip if already initialized
         if self.initialized:
             return
@@ -77,7 +111,7 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
 
         # Initialize OpenAI client
         try:
-            api_key = self.config.get("api_key")
+            api_key = self.api_key
             if not api_key:
                 raise LLMError("OpenAI API key not provided")
 
@@ -93,13 +127,13 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
                     try:
                         self.client = openai.AsyncOpenAI(
                             api_key=api_key,
-                            organization=self.config.get("organization", None),
+                            organization=self.organization,
                         )
                     except AttributeError:
                         # Fall back to older client pattern if available
                         self.client = openai.OpenAI(
                             api_key=api_key,
-                            organization=self.config.get("organization", None),
+                            organization=self.organization,
                         )
             except ImportError:
                 self.logger.warning(
@@ -108,16 +142,16 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
                 self.client = None
 
             self.logger.debug(
-                f"Initialized with model={self.config.get('model', 'gpt-4-turbo')}"
+                f"Initialized with model={self.model}"
             )
         except Exception as e:
             raise LLMError(f"Failed to initialize OpenAI client: {e}") from e
 
     async def cleanup(self) -> None:
-        """Clean up provider resources.
+ """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         # Clean up client if it exists
         if hasattr(self, "client") and self.client:
             # Close the client if it has a close method
@@ -142,7 +176,7 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
         task_type = input_data.get("task")
 
         if not task_type:
-            return {"status": "error", "error": "No task specified"}
+            raise LlmError("No task specified")
 
         try:
             # Ensure initialization
@@ -164,20 +198,20 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
                 )
                 return {"status": "success", "result": response.content}
             else:
-                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                raise LlmError(f"Unknown task type: {task_type)"}
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task_type}': {e}")
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _convert_messages(self, messages: list[Any]) -> list[dict[str, Any]]:
         """Convert PepperPy messages to OpenAI format.
 
         Args:
-            messages: List of messages to convert
+            messages: list of messages to convert
 
         Returns:
-            List of OpenAI-formatted messages
+            list of OpenAI-formatted messages
         """
         openai_messages = []
 
@@ -199,7 +233,7 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
         """Generate a response using the LLM.
 
         Args:
-            messages: List of messages to generate a response for
+            messages: list of messages to generate a response for
             **kwargs: Additional parameters for the generation
 
         Returns:
@@ -213,9 +247,9 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
             openai_messages = self._convert_messages(messages)
 
             # Get parameters with defaults from config
-            model = kwargs.get("model", self.config.get("model", "gpt-4-turbo"))
-            temperature = kwargs.get("temperature", self.config.get("temperature", 0.7))
-            max_tokens = kwargs.get("max_tokens", self.config.get("max_tokens", 1024))
+            model = kwargs.get("model", self.model)
+            temperature = kwargs.get("temperature", self.temperature)
+            max_tokens = kwargs.get("max_tokens", self.max_tokens)
 
             # If client exists, call OpenAI API
             if self.client:
@@ -225,13 +259,13 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
                         messages=openai_messages,
                         temperature=temperature,
                         max_tokens=max_tokens,
-                        top_p=kwargs.get("top_p", self.config.get("top_p", 1.0)),
+                        top_p=kwargs.get("top_p", self.top_p),
                         presence_penalty=kwargs.get(
-                            "presence_penalty", self.config.get("presence_penalty", 0.0)
+                            "presence_penalty", self.presence_penalty
                         ),
                         frequency_penalty=kwargs.get(
                             "frequency_penalty",
-                            self.config.get("frequency_penalty", 0.0),
+                            self.frequency_penalty,
                         ),
                     )
 
@@ -287,7 +321,7 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
         """Stream a response using the LLM.
 
         Args:
-            messages: List of messages to generate a response for
+            messages: list of messages to generate a response for
             **kwargs: Additional parameters for the generation
 
         Returns:
@@ -308,9 +342,9 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
             openai_messages = self._convert_messages(messages)
 
             # Get parameters with defaults from config
-            model = kwargs.get("model", self.config.get("model", "gpt-4-turbo"))
-            temperature = kwargs.get("temperature", self.config.get("temperature", 0.7))
-            max_tokens = kwargs.get("max_tokens", self.config.get("max_tokens", 1024))
+            model = kwargs.get("model", self.model)
+            temperature = kwargs.get("temperature", self.temperature)
+            max_tokens = kwargs.get("max_tokens", self.max_tokens)
 
             try:
                 # Call OpenAI API with streaming
@@ -319,12 +353,12 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
                     messages=openai_messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
-                    top_p=kwargs.get("top_p", self.config.get("top_p", 1.0)),
+                    top_p=kwargs.get("top_p", self.top_p),
                     presence_penalty=kwargs.get(
-                        "presence_penalty", self.config.get("presence_penalty", 0.0)
+                        "presence_penalty", self.presence_penalty
                     ),
                     frequency_penalty=kwargs.get(
-                        "frequency_penalty", self.config.get("frequency_penalty", 0.0)
+                        "frequency_penalty", self.frequency_penalty
                     ),
                     stream=True,
                 )

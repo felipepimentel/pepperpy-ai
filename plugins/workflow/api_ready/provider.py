@@ -10,17 +10,26 @@ import json
 import asyncio
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Any, Optional, TypedDict, Union, Literal
+from typing import tuple, dict, list, Any, Optional, TypedDict, Union, Literal
 from enum import Enum
 
 from pepperpy.core.logging import get_logger
+from pepperpy.workflow import WorkflowProvider
 from pepperpy.plugin import ProviderPlugin
 from pepperpy.workflow import BaseWorkflowProvider
+from pepperpy.workflow.base import WorkflowError
+
+logger = logger.getLogger(__name__)
 
 logger = get_logger(__name__)
 
-class APIScaffoldConfig(TypedDict):
-    """Configuration for API scaffolding."""
+class APIScaffoldConfig(class APIScaffoldConfig(TypedDict):
+    """Configuration for API scaffolding."""):
+    """
+    Workflow apiscaffoldconfig provider.
+    
+    This provider implements apiscaffoldconfig functionality for the PepperPy workflow framework.
+    """
     agent_discovery: bool
     auth_mechanism: Literal["api_key", "oauth", "jwt", "none"]
     observability: bool
@@ -32,7 +41,7 @@ class EnhancementResult(TypedDict):
     """Results of API enhancement."""
     original_endpoints: int
     enhanced_endpoints: int
-    added_endpoints: List[str]
+    added_endpoints: list[str]
     enhancement_summary: str
     spec_path: str
 
@@ -75,8 +84,20 @@ class ReadinessFinding:
         self.path = path
         self.recommendation = recommendation
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert finding to dictionary."""
+    def to_dict(self) -> dict[str, Any]:
+
+
+    """Convert finding to dictionary.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return {
             "title": self.title,
             "description": self.description,
@@ -94,8 +115,8 @@ class APIReadinessReport:
         self,
         api_name: str,
         api_version: str,
-        api_spec: Dict[str, Any],
-        findings: List[ReadinessFinding],
+        api_spec: dict[str, Any],
+        findings: list[ReadinessFinding],
     ):
         self.api_name = api_name
         self.api_version = api_version
@@ -103,8 +124,20 @@ class APIReadinessReport:
         self.findings = findings
         self.summary = self._generate_summary()
 
-    def _generate_summary(self) -> Dict[str, Any]:
-        """Generate a summary of findings by level and category."""
+    def _generate_summary(self) -> dict[str, Any]:
+
+
+    """Generate a summary of findings by level and category.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         total_findings = len(self.findings)
         findings_by_level = {level.value: 0 for level in ReadinessLevel}
         findings_by_category = {category.value: 0 for category in ReadinessCategory}
@@ -123,7 +156,19 @@ class APIReadinessReport:
         }
 
     def _calculate_readiness_score(self) -> int:
-        """Calculate an overall readiness score (0-100)."""
+
+
+    """Calculate an overall readiness score (0-100).
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         if not self.findings:
             return 100
 
@@ -147,8 +192,20 @@ class APIReadinessReport:
         
         return score
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert report to dictionary."""
+    def to_dict(self) -> dict[str, Any]:
+
+
+    """Convert report to dictionary.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return {
             "api_name": self.api_name,
             "api_version": self.api_version,
@@ -157,7 +214,19 @@ class APIReadinessReport:
         }
 
     def to_markdown(self) -> str:
-        """Convert report to markdown format."""
+
+
+    """Convert report to markdown format.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         md = [
             f"# API Readiness Report: {self.api_name} v{self.api_version}",
             "",
@@ -214,7 +283,13 @@ class APIReadinessReport:
         return "\n".join(md)
 
 
-class APIReadyProvider(BaseWorkflowProvider, ProviderPlugin):
+class APIReadyProvider(...):
+    output_format: str
+    min_readiness_score: int
+    checks: Any
+    default_scaffold_config: Any
+    initialized: bool
+    initialized: bool
     """Provider for evaluating APIs for production readiness.
     
     This workflow evaluates an existing API specification against industry best practices
@@ -223,7 +298,11 @@ class APIReadyProvider(BaseWorkflowProvider, ProviderPlugin):
     """
     
     async def initialize(self) -> None:
-        """Initialize the provider."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self.initialized:
             return
         
@@ -254,18 +333,22 @@ class APIReadyProvider(BaseWorkflowProvider, ProviderPlugin):
         logger.info("API Ready workflow provider initialized")
     
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if not self.initialized:
             return
         
         logger.info("Cleaning up API Ready workflow provider")
         self.initialized = False
     
-    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Execute the API Ready workflow.
         
         Args:
-            input_data: Dict containing:
+            input_data: dict containing:
                 - spec_path: Path to the API spec file
                 - mode: "evaluate" (default) or "enhance"
                 - enhancement_options: Options for API enhancement (if mode is "enhance")
@@ -381,7 +464,7 @@ class APIReadyProvider(BaseWorkflowProvider, ProviderPlugin):
                 "error": str(e)
             }
     
-    async def _load_api_spec(self, spec_path: str) -> Dict[str, Any]:
+    async def _load_api_spec(self, spec_path: str) -> dict[str, Any]:
         """Load an API specification from file.
         
         Args:
@@ -412,8 +495,8 @@ class APIReadyProvider(BaseWorkflowProvider, ProviderPlugin):
             raise ValueError(f"Failed to load API specification: {str(e)}")
     
     async def _enhance_api_spec(self, 
-                               spec: Dict[str, Any], 
-                               scaffold_config: Dict[str, Any]) -> tuple[Dict[str, Any], Dict[str, Any]]:
+                               spec: dict[str, Any], 
+                               scaffold_config: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         """Enhance the API specification with agent-ready features.
         
         Args:
@@ -421,7 +504,7 @@ class APIReadyProvider(BaseWorkflowProvider, ProviderPlugin):
             scaffold_config: Enhancement configuration
             
         Returns:
-            Tuple of (enhanced spec, enhancement details)
+            tuple of (enhanced spec, enhancement details)
         """
         # Count original endpoints
         original_endpoints = 0
@@ -742,7 +825,7 @@ API Enhancement Summary:
         return enhanced_spec, enhancements
     
     async def _save_enhanced_spec(self, 
-                                 spec: Dict[str, Any], 
+                                 spec: dict[str, Any], 
                                  original_path: str, 
                                  output_dir: str) -> str:
         """Save the enhanced API specification.
@@ -783,14 +866,14 @@ API Enhancement Summary:
         except Exception as e:
             raise IOError(f"Failed to save enhanced API specification: {str(e)}")
     
-    async def _extract_api_metadata(self, spec: Dict[str, Any]) -> tuple[str, str]:
+    async def _extract_api_metadata(self, spec: dict[str, Any]) -> tuple[str, str]:
         """Extract API name and version from specification.
         
         Args:
             spec: API specification
             
         Returns:
-            Tuple of (api_name, api_version)
+            tuple of (api_name, api_version)
         """
         api_name = "Unknown API"
         api_version = "1.0.0"
@@ -806,8 +889,8 @@ API Enhancement Summary:
         return api_name, api_version
     
     async def _evaluate_api_readiness(self, 
-                                    spec: Dict[str, Any],
-                                    enabled_checks: Dict[str, bool]) -> List[ReadinessFinding]:
+                                    spec: dict[str, Any],
+                                    enabled_checks: dict[str, bool]) -> list[ReadinessFinding]:
         """Evaluate API readiness against best practices.
         
         Args:
@@ -815,7 +898,7 @@ API Enhancement Summary:
             enabled_checks: Dictionary of enabled check categories
             
         Returns:
-            List of readiness findings
+            list of readiness findings
         """
         findings = []
         
@@ -845,14 +928,14 @@ API Enhancement Summary:
         
         return findings
     
-    async def _evaluate_security(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+    async def _evaluate_security(self, spec: dict[str, Any]) -> list[ReadinessFinding]:
         """Evaluate API security readiness.
         
         Args:
             spec: API specification
             
         Returns:
-            List of security findings
+            list of security findings
         """
         findings = []
         
@@ -928,14 +1011,14 @@ API Enhancement Summary:
         
         return findings
     
-    async def _evaluate_performance(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+    async def _evaluate_performance(self, spec: dict[str, Any]) -> list[ReadinessFinding]:
         """Evaluate API performance readiness.
         
         Args:
             spec: API specification
             
         Returns:
-            List of performance findings
+            list of performance findings
         """
         findings = []
         
@@ -977,14 +1060,14 @@ API Enhancement Summary:
         
         return findings
     
-    async def _evaluate_reliability(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+    async def _evaluate_reliability(self, spec: dict[str, Any]) -> list[ReadinessFinding]:
         """Evaluate API reliability readiness.
         
         Args:
             spec: API specification
             
         Returns:
-            List of reliability findings
+            list of reliability findings
         """
         findings = []
         
@@ -1011,14 +1094,14 @@ API Enhancement Summary:
         
         return findings
     
-    async def _evaluate_documentation(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+    async def _evaluate_documentation(self, spec: dict[str, Any]) -> list[ReadinessFinding]:
         """Evaluate API documentation readiness.
         
         Args:
             spec: API specification
             
         Returns:
-            List of documentation findings
+            list of documentation findings
         """
         findings = []
         
@@ -1075,14 +1158,14 @@ API Enhancement Summary:
         
         return findings
     
-    async def _evaluate_standards(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+    async def _evaluate_standards(self, spec: dict[str, Any]) -> list[ReadinessFinding]:
         """Evaluate API standards compliance.
         
         Args:
             spec: API specification
             
         Returns:
-            List of standards findings
+            list of standards findings
         """
         findings = []
         
@@ -1132,14 +1215,14 @@ API Enhancement Summary:
         
         return findings
     
-    async def _evaluate_observability(self, spec: Dict[str, Any]) -> List[ReadinessFinding]:
+    async def _evaluate_observability(self, spec: dict[str, Any]) -> list[ReadinessFinding]:
         """Evaluate API observability readiness.
         
         Args:
             spec: API specification
             
         Returns:
-            List of observability findings
+            list of observability findings
         """
         findings = []
         

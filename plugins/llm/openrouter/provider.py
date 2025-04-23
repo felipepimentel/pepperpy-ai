@@ -5,15 +5,25 @@ This provider implements a llm plugin for the PepperPy framework.
 """
 
 from collections.abc import AsyncIterator
-from typing import Any
+import collections.abc
+from typing import dict, list, Any
 
 from pepperpy.core.errors import PepperpyError
 from pepperpy.llm.base import LLMProvider
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.llm.base import LlmError
+from pepperpy.llm.base import LlmError
+
+logger = logger.getLogger(__name__)
 
 
-class LLMError(PepperpyError):
-    """Error raised by LLM providers."""
+class LLMError(class LLMError(PepperpyError):
+    """Error raised by LLM providers."""):
+    """
+    Llm llmerror provider.
+    
+    This provider implements llmerror functionality for the PepperPy llm framework.
+    """
 
     pass
 
@@ -32,7 +42,19 @@ class GenerationResult:
         self.metadata = kwargs
 
     def __str__(self) -> str:
-        """Return the content as string."""
+
+
+    """Return the content as string.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.content
 
 
@@ -50,7 +72,19 @@ class GenerationChunk:
         self.metadata = kwargs
 
     def __str__(self) -> str:
-        """Return the content as string."""
+
+
+    """Return the content as string.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.content
 
 
@@ -62,10 +96,10 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
     """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         # Skip if already initialized
         if self.initialized:
             return
@@ -75,7 +109,7 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
 
         # Initialize OpenRouter client
         try:
-            api_key = self.config.get("api_key")
+            api_key = self.api_key
             if not api_key:
                 raise LLMError("OpenRouter API key not provided")
 
@@ -89,7 +123,7 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
                         "HTTP-Referer": self.config.get(
                             "http_referer", "https://pepperpy.ai"
                         ),
-                        "X-Title": self.config.get("app_title", "PepperPy"),
+                        "X-Title": self.app_title,
                     }
                 )
                 self.api_base = self.config.get(
@@ -106,10 +140,10 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
             raise LLMError(f"Failed to initialize OpenRouter client: {e}") from e
 
     async def cleanup(self) -> None:
-        """Clean up provider resources.
+ """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         # Clean up session if it exists
         if hasattr(self, "session") and self.session:
             await self.session.close()
@@ -131,7 +165,7 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
         task_type = input_data.get("task")
 
         if not task_type:
-            return {"status": "error", "error": "No task specified"}
+            raise LlmError("No task specified")
 
         try:
             # Ensure initialization
@@ -154,24 +188,24 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
                 )
                 return {"status": "success", "result": response.content}
             elif task_type == "models":
-                # List available models
+                # list available models
                 return await self._list_models()
             else:
-                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                raise LlmError(f"Unknown task type: {task_type)"}
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task_type}': {e}")
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "message": str(e)}
 
     async def _list_models(self) -> dict[str, Any]:
-        """List available models from OpenRouter.
+        """list available models from OpenRouter.
 
         Returns:
             Dictionary with available models
         """
         try:
             if not self.session:
-                return {"status": "error", "error": "Session not initialized"}
+                raise LlmError("Session not initialized")
 
             async with self.session.get(f"{self.api_base}/models") as response:
                 if response.status != 200:
@@ -186,16 +220,16 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
 
         except Exception as e:
             self.logger.error(f"Error listing models: {e}")
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _convert_messages(self, messages: list[Any]) -> list[dict[str, Any]]:
         """Convert PepperPy messages to OpenAI/OpenRouter format.
 
         Args:
-            messages: List of messages to convert
+            messages: list of messages to convert
 
         Returns:
-            List of properly formatted messages
+            list of properly formatted messages
         """
         formatted_messages = []
 
@@ -217,7 +251,7 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
         """Generate a response using the LLM.
 
         Args:
-            messages: List of messages to generate a response for
+            messages: list of messages to generate a response for
             **kwargs: Additional parameters for the generation
 
         Returns:
@@ -232,10 +266,10 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
 
             # Get parameters with defaults from config
             model = kwargs.get(
-                "model", self.config.get("model", "openai/gpt-3.5-turbo")
+                "model", self.model
             )
-            temperature = kwargs.get("temperature", self.config.get("temperature", 0.7))
-            max_tokens = kwargs.get("max_tokens", self.config.get("max_tokens", 1024))
+            temperature = kwargs.get("temperature", self.temperature)
+            max_tokens = kwargs.get("max_tokens", self.max_tokens)
 
             # Call OpenRouter API
             if self.session:
@@ -244,17 +278,17 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
                     "messages": formatted_messages,
                     "temperature": temperature,
                     "max_tokens": max_tokens,
-                    "top_p": kwargs.get("top_p", self.config.get("top_p", 1.0)),
+                    "top_p": kwargs.get("top_p", self.top_p),
                     "presence_penalty": kwargs.get(
-                        "presence_penalty", self.config.get("presence_penalty", 0.0)
+                        "presence_penalty", self.presence_penalty
                     ),
                     "frequency_penalty": kwargs.get(
-                        "frequency_penalty", self.config.get("frequency_penalty", 0.0)
+                        "frequency_penalty", self.frequency_penalty
                     ),
                     "transforms": kwargs.get(
-                        "transforms", self.config.get("transforms", [])
+                        "transforms", self.transforms
                     ),
-                    "route": kwargs.get("route", self.config.get("route", "")),
+                    "route": kwargs.get("route", self.route),
                 }
 
                 # Remove empty parameters
@@ -320,7 +354,7 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
         """Stream a response using the LLM.
 
         Args:
-            messages: List of messages to generate a response for
+            messages: list of messages to generate a response for
             **kwargs: Additional parameters for the generation
 
         Returns:
@@ -342,27 +376,27 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
 
             # Get parameters with defaults from config
             model = kwargs.get(
-                "model", self.config.get("model", "openai/gpt-3.5-turbo")
+                "model", self.model
             )
-            temperature = kwargs.get("temperature", self.config.get("temperature", 0.7))
-            max_tokens = kwargs.get("max_tokens", self.config.get("max_tokens", 1024))
+            temperature = kwargs.get("temperature", self.temperature)
+            max_tokens = kwargs.get("max_tokens", self.max_tokens)
 
             payload = {
                 "model": model,
                 "messages": formatted_messages,
                 "temperature": temperature,
                 "max_tokens": max_tokens,
-                "top_p": kwargs.get("top_p", self.config.get("top_p", 1.0)),
+                "top_p": kwargs.get("top_p", self.top_p),
                 "presence_penalty": kwargs.get(
-                    "presence_penalty", self.config.get("presence_penalty", 0.0)
+                    "presence_penalty", self.presence_penalty
                 ),
                 "frequency_penalty": kwargs.get(
-                    "frequency_penalty", self.config.get("frequency_penalty", 0.0)
+                    "frequency_penalty", self.frequency_penalty
                 ),
                 "transforms": kwargs.get(
-                    "transforms", self.config.get("transforms", [])
+                    "transforms", self.transforms
                 ),
-                "route": kwargs.get("route", self.config.get("route", "")),
+                "route": kwargs.get("route", self.route),
                 "stream": True,
             }
 
@@ -393,9 +427,11 @@ class OpenRouterProvider(LLMProvider, BasePluginProvider):
                                     if content:
                                         yield GenerationChunk(content=content)
                             except Exception as e:
+                                raise LlmError(f"Operation failed: {e}") from e
                                 self.logger.error(f"Error parsing stream data: {e}")
 
             except Exception as e:
+                raise LlmError(f"Operation failed: {e}") from e
                 self.logger.error(f"Error in streaming request: {e}")
                 yield GenerationChunk(content="[Error during streaming]")
 

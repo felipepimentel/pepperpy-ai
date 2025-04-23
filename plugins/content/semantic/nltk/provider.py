@@ -1,7 +1,7 @@
 """NLTK-based semantic processor implementation."""
 
 import logging
-from typing import Any
+from typing import list, set, Any
 
 import nltk
 from nltk import ne_chunk, pos_tag, word_tokenize
@@ -15,12 +15,22 @@ from pepperpy.content.base import (
     SemanticProcessorProvider,
 )
 from pepperpy.core.base import PepperpyError
+from pepperpy.content.base import ContentError
+from pepperpy.content import ContentProvider
+from pepperpy.content.base import ContentError
 
 logger = logging.getLogger(__name__)
 
+logger = logger.getLogger(__name__)
 
-class NLTKSemanticProcessor(SemanticProcessorProvider):
-    """Semantic processor using NLTK."""
+
+class NLTKSemanticProcessor(class NLTKSemanticProcessor(SemanticProcessorProvider):
+    """Semantic processor using NLTK."""):
+    """
+    Content nltksemanticprocessor provider.
+    
+    This provider implements nltksemanticprocessor functionality for the PepperPy content framework.
+    """
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize processor.
@@ -53,7 +63,11 @@ class NLTKSemanticProcessor(SemanticProcessorProvider):
         self.initialized: bool = False
 
     async def initialize(self) -> None:
-        """Initialize the processor."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self.initialized:
             return
 
@@ -69,7 +83,11 @@ class NLTKSemanticProcessor(SemanticProcessorProvider):
             raise PepperpyError(f"Error initializing NLTK processor: {e}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         self.initialized = False
 
     async def process_text(self, text: str, **kwargs: Any) -> SemanticExtractionResult:
@@ -115,7 +133,7 @@ class NLTKSemanticProcessor(SemanticProcessorProvider):
             **kwargs: Additional processor-specific parameters
 
         Returns:
-            List of extracted entities
+            list of extracted entities
         """
         result = await self.process_text(text, **kwargs)
         return result.entities
@@ -130,7 +148,7 @@ class NLTKSemanticProcessor(SemanticProcessorProvider):
             **kwargs: Additional processor-specific parameters
 
         Returns:
-            List of extracted relationships
+            list of extracted relationships
         """
         if not self._extract_relationships:
             logger.warning(
@@ -201,7 +219,7 @@ class NLTKSemanticProcessor(SemanticProcessorProvider):
             text: Text to process
 
         Returns:
-            List of extracted entities
+            list of extracted entities
         """
         entities: list[Entity] = []
         sentences = sent_tokenize(text)

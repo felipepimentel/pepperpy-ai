@@ -1,21 +1,31 @@
 """Transformers text processor implementation."""
 
 import logging
-from typing import Any
+from typing import dict, list, Any
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.rag import RAGProvider
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.rag.processor import (
+from pepperpy.rag.base import RagError
+from pepperpy.rag.base import RagError
+
+logger = logging.getLogger(__name__)
     ProcessedText,
     ProcessingOptions,
     TextProcessingError,
     TextProcessor,
 )
 
-logger = logging.getLogger(__name__)
+logger = logger.getLogger(__name__)
 
 
-class TransformersProcessor(TextProcessor, BasePluginProvider):
-    """Text processor using Hugging Face Transformers."""
+class TransformersProcessor(class TransformersProcessor(TextProcessor, ProviderPlugin):
+    """Text processor using Hugging Face Transformers."""):
+    """
+    Rag transformersprocessor provider.
+    
+    This provider implements transformersprocessor functionality for the PepperPy rag framework.
+    """
 
     def __init__(
         self,
@@ -45,7 +55,11 @@ class TransformersProcessor(TextProcessor, BasePluginProvider):
         self.initialized = False
 
     async def initialize(self) -> None:
-        """Initialize Transformers resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self.initialized:
             return
             
@@ -77,7 +91,11 @@ class TransformersProcessor(TextProcessor, BasePluginProvider):
             raise TextProcessingError(f"Failed to load Transformers model: {e}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         self._model = None
         self._tokenizer = None
         self._pipeline = None
@@ -163,7 +181,7 @@ class TransformersProcessor(TextProcessor, BasePluginProvider):
             options: Processing options
 
         Returns:
-            List of processed text results
+            list of processed text results
 
         Raises:
             TextProcessingError: If processing fails
@@ -175,12 +193,28 @@ class TransformersProcessor(TextProcessor, BasePluginProvider):
 
     @property
     def name(self) -> str:
-        """Get the processor name."""
+
+    """Get the processor name.
+
+
+    Returns:
+
+        Return description
+
+    """
         return "transformers"
 
     @property
     def capabilities(self) -> dict[str, Any]:
-        """Get the processor capabilities."""
+
+    """Get the processor capabilities.
+
+
+    Returns:
+
+        Return description
+
+    """
         return {
             "tokenization": True,
             "embeddings": True,
@@ -202,7 +236,7 @@ class TransformersProcessor(TextProcessor, BasePluginProvider):
         task_type = input_data.get("task")
         
         if not task_type:
-            return {"status": "error", "error": "No task specified"}
+            raise RagError("No task specified")
             
         try:
             if not self.initialized:
@@ -211,7 +245,7 @@ class TransformersProcessor(TextProcessor, BasePluginProvider):
             if task_type == "process":
                 text = input_data.get("text")
                 if not text:
-                    return {"status": "error", "error": "No text provided"}
+                    raise RagError("No text provided")
                     
                 options_dict = input_data.get("options", {})
                 options = ProcessingOptions(
@@ -233,7 +267,7 @@ class TransformersProcessor(TextProcessor, BasePluginProvider):
             elif task_type == "process_batch":
                 texts = input_data.get("texts", [])
                 if not texts:
-                    return {"status": "error", "error": "No texts provided"}
+                    raise RagError("No texts provided")
                     
                 options_dict = input_data.get("options", {})
                 options = ProcessingOptions(
@@ -258,8 +292,8 @@ class TransformersProcessor(TextProcessor, BasePluginProvider):
                 }
                 
             else:
-                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                raise RagError(f"Unknown task type: {task_type)"}
                 
         except Exception as e:
             logger.error(f"Error executing task '{task_type}': {e}")
-            return {"status": "error", "error": str(e)} 
+            return {"status": "error", "message": str(e)} 

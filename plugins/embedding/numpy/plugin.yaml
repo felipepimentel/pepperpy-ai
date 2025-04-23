@@ -1,12 +1,12 @@
-name: unknown/unknown
+name: embedding/numpy
 version: 0.1.0
-description: Unknown plugin
+description: Embedding provider for numpy
 author: PepperPy Team
 
-plugin_type: unknown
-category: provider
-provider_name: unknown
-entry_point: provider.UnknownProvider
+plugin_type: embedding
+category: embedding
+provider_name: numpy
+entry_point: provider.NumpyProvider
 
 config_schema:
   type: object

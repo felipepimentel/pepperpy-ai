@@ -11,16 +11,22 @@ import asyncio
 import tempfile
 from pathlib import Path
 from enum import Enum
-from typing import Dict, List, Any, Optional, TypedDict, Union, Literal
+from typing import set, dict, list, Any, Optional, TypedDict, Union, Literal
 
 from pepperpy.core.logging import get_logger
+from pepperpy.workflow import WorkflowProvider
 from pepperpy.plugin import ProviderPlugin
 from pepperpy.workflow import BaseWorkflowProvider
 
 logger = get_logger(__name__)
 
-class OutputFormat(str, Enum):
-    """Output formats for API specifications."""
+class OutputFormat(class OutputFormat(str, Enum):
+    """Output formats for API specifications."""):
+    """
+    Workflow outputformat provider.
+    
+    This provider implements outputformat functionality for the PepperPy workflow framework.
+    """
     OPENAPI = "openapi"
     RAML = "raml"
     JSON_SCHEMA = "json_schema"
@@ -31,8 +37,8 @@ class APIResource(TypedDict):
     """Structure for an API resource."""
     name: str
     description: str
-    endpoints: List[Dict[str, Any]]
-    schema: Dict[str, Any]
+    endpoints: list[dict[str, Any]]
+    schema: dict[str, Any]
 
 
 class APIBlueprint(TypedDict):
@@ -40,10 +46,10 @@ class APIBlueprint(TypedDict):
     title: str
     version: str
     description: str
-    resources: List[APIResource]
-    security_schemes: List[Dict[str, Any]]
-    tags: List[Dict[str, Any]]
-    servers: List[Dict[str, Any]]
+    resources: list[APIResource]
+    security_schemes: list[dict[str, Any]]
+    tags: list[dict[str, Any]]
+    servers: list[dict[str, Any]]
 
 
 class DocumentationOutput(TypedDict):
@@ -56,19 +62,24 @@ class DocumentationOutput(TypedDict):
 class ProjectStructure(TypedDict):
     """Structure for generated project code."""
     language: str
-    files: List[Dict[str, Any]]
-    dependencies: List[str]
+    files: list[dict[str, Any]]
+    dependencies: list[str]
     setup_instructions: str
 
 
 class BlueprintResult(TypedDict):
     """Result of API blueprint generation."""
     blueprint: APIBlueprint
-    documentation: List[DocumentationOutput]
+    documentation: list[DocumentationOutput]
     project: Optional[ProjectStructure]
 
 
-class APIBlueprintProvider(BaseWorkflowProvider, ProviderPlugin):
+class APIBlueprintProvider(...):
+    llm_config: Any
+    llm_config: Any
+    default_output_formats: List[Any]
+    initialized: bool
+    initialized: bool
     """Provider for generating API blueprints from user stories.
     
     This workflow takes natural language user stories and converts them
@@ -76,37 +87,45 @@ class APIBlueprintProvider(BaseWorkflowProvider, ProviderPlugin):
     """
     
     async def initialize(self) -> None:
-        """Initialize the provider."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self.initialized:
             return
         
         logger.info("Initializing API Blueprint workflow provider")
         
         # Initialize properties from config
-        self.llm_provider = self.config.get("llm_config", {}).get("provider", "openai")
-        self.llm_model = self.config.get("llm_config", {}).get("model", "gpt-4")
+        self.llm_provider = self.llm_config.get("provider", "openai")
+        self.llm_model = self.llm_config.get("model", "gpt-4")
         
-        # Set default output formats
+        # set default output formats
         self.default_output_formats = [OutputFormat.OPENAPI]
         
         self.initialized = True
         logger.info("API Blueprint workflow provider initialized")
     
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if not self.initialized:
             return
         
         logger.info("Cleaning up API Blueprint workflow provider")
         self.initialized = False
     
-    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Execute the API Blueprint workflow.
         
         Args:
-            input_data: Dict containing:
+            input_data: dict containing:
                 - user_stories: User stories text
-                - output_formats: List of output formats
+                - output_formats: list of output formats
                 - generate_code: Whether to generate code
                 - language: Programming language for code generation
                 - output_dir: Directory for saving outputs
@@ -163,13 +182,14 @@ class APIBlueprintProvider(BaseWorkflowProvider, ProviderPlugin):
             }
         
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             logger.error(f"Error executing API Blueprint workflow: {str(e)}")
             return {
                 "status": "error",
                 "error": str(e)
             }
     
-    async def _analyze_user_stories(self, user_stories: str) -> Dict[str, Any]:
+    async def _analyze_user_stories(self, user_stories: str) -> dict[str, Any]:
         """Analyze user stories to extract API requirements.
         
         Args:
@@ -208,7 +228,7 @@ class APIBlueprintProvider(BaseWorkflowProvider, ProviderPlugin):
             "stories": stories
         }
     
-    async def _design_api_structure(self, analysis: Dict[str, Any]) -> APIBlueprint:
+    async def _design_api_structure(self, analysis: dict[str, Any]) -> APIBlueprint:
         """Design API structure based on analysis.
         
         Args:
@@ -238,7 +258,7 @@ class APIBlueprintProvider(BaseWorkflowProvider, ProviderPlugin):
             endpoints.append({
                 "path": f"/{entity}s",
                 "method": "get",
-                "summary": f"List all {entity}s",
+                "summary": f"list all {entity}s",
                 "description": f"Returns a list of {entity}s with pagination",
                 "parameters": [
                     {"name": "page", "in": "query", "required": False, "schema": {"type": "integer"}},
@@ -435,17 +455,17 @@ class APIBlueprintProvider(BaseWorkflowProvider, ProviderPlugin):
     
     async def _generate_outputs(self, 
                               blueprint: APIBlueprint, 
-                              output_formats: List[str],
-                              output_dir: Optional[str]) -> List[DocumentationOutput]:
+                              output_formats: list[str],
+                              output_dir: Optional[str]) -> list[DocumentationOutput]:
         """Generate API documentation in the requested formats.
         
         Args:
             blueprint: API blueprint
-            output_formats: List of output formats
+            output_formats: list of output formats
             output_dir: Directory for saving outputs
             
         Returns:
-            List of documentation outputs
+            list of documentation outputs
         """
         documentation = []
         
@@ -531,7 +551,7 @@ class APIBlueprintProvider(BaseWorkflowProvider, ProviderPlugin):
         
         return documentation
     
-    async def _generate_openapi_spec(self, blueprint: APIBlueprint) -> Dict[str, Any]:
+    async def _generate_openapi_spec(self, blueprint: APIBlueprint) -> dict[str, Any]:
         """Generate OpenAPI 3.0 specification from blueprint.
         
         Args:
@@ -699,7 +719,7 @@ class APIBlueprintProvider(BaseWorkflowProvider, ProviderPlugin):
         
         return raml
     
-    async def _generate_json_schema(self, blueprint: APIBlueprint) -> Dict[str, Any]:
+    async def _generate_json_schema(self, blueprint: APIBlueprint) -> dict[str, Any]:
         """Generate JSON Schema from blueprint.
         
         Args:
@@ -728,7 +748,7 @@ class APIBlueprintProvider(BaseWorkflowProvider, ProviderPlugin):
         
         return json_schema
     
-    async def _generate_postman_collection(self, blueprint: APIBlueprint) -> Dict[str, Any]:
+    async def _generate_postman_collection(self, blueprint: APIBlueprint) -> dict[str, Any]:
         """Generate Postman collection from blueprint.
         
         Args:
@@ -895,7 +915,7 @@ if __name__ == "__main__":
                 model_py = """
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import set, Optional
 from uuid import UUID, uuid4
 
 class {resource_title}Base(BaseModel):
@@ -926,17 +946,20 @@ class {resource_title}({resource_title}Base):
                 # Create router
                 router_py = """
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List, Optional
+from typing import set, list, Optional
 from uuid import UUID
 
 from models.{resource} import {resource_title}, {resource_title}Create, {resource_title}Update
+from pepperpy.workflow.base import WorkflowError
+
+logger = logger.getLogger(__name__)
 
 router = APIRouter(
     prefix="/{resources}",
     tags=["{resource_title}s"]
 )
 
-@router.get("/", response_model=List[{resource_title}])
+@router.get("/", response_model=list[{resource_title}])
 async def get_{resources}(skip: int = 0, limit: int = 100):
     # In a real app, this would query a database
     return []

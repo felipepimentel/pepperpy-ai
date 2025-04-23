@@ -6,15 +6,25 @@ This provider implements a llm plugin for the PepperPy framework.
 
 import os
 from collections.abc import AsyncIterator
-from typing import Any
+import collections.abc
+from typing import dict, list, set, Any
 
 from pepperpy.core.errors import PepperpyError
 from pepperpy.llm.base import LLMProvider
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.llm.base import LlmError
+from pepperpy.llm.base import LlmError
+
+logger = logger.getLogger(__name__)
 
 
-class LLMError(PepperpyError):
-    """Error raised by LLM providers."""
+class LLMError(class LLMError(PepperpyError):
+    """Error raised by LLM providers."""):
+    """
+    Llm llmerror provider.
+    
+    This provider implements llmerror functionality for the PepperPy llm framework.
+    """
 
     pass
 
@@ -33,7 +43,19 @@ class GenerationResult:
         self.metadata = kwargs
 
     def __str__(self) -> str:
-        """Return the content as string."""
+
+
+    """Return the content as string.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.content
 
 
@@ -51,7 +73,19 @@ class GenerationChunk:
         self.metadata = kwargs
 
     def __str__(self) -> str:
-        """Return the content as string."""
+
+
+    """Return the content as string.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.content
 
 
@@ -63,10 +97,10 @@ class LocalProvider(LLMProvider, BasePluginProvider):
     """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         # Skip if already initialized
         if self.initialized:
             return
@@ -77,10 +111,10 @@ class LocalProvider(LLMProvider, BasePluginProvider):
         # Initialize local model client
         try:
             # Get configuration parameters
-            model_path = self.config.get("model_path")
-            host = self.config.get("host", "localhost")
-            port = self.config.get("port", 8000)
-            api_type = self.config.get("api_type", "llama.cpp").lower()
+            model_path = self.model_path
+            host = self.host
+            port = self.port
+            api_type = self.api_type.lower()
 
             if not model_path and not (host and port):
                 self.logger.warning(
@@ -97,8 +131,8 @@ class LocalProvider(LLMProvider, BasePluginProvider):
 
                     self.client = llama_cpp.Llama(
                         model_path=model_path,
-                        n_ctx=self.config.get("context_length", 2048),
-                        n_threads=self.config.get("threads", os.cpu_count() or 4),
+                        n_ctx=self.context_length,
+                        n_threads=self.threads or 4),
                     )
                 except ImportError:
                     self.logger.warning(
@@ -119,7 +153,7 @@ class LocalProvider(LLMProvider, BasePluginProvider):
     async def _setup_http_client(
         self, host: str, port: int, api_type: str = "default"
     ) -> None:
-        """Set up HTTP client for remote local models.
+        """set up HTTP client for remote local models.
 
         Args:
             host: API host
@@ -139,10 +173,10 @@ class LocalProvider(LLMProvider, BasePluginProvider):
             self.client = None
 
     async def cleanup(self) -> None:
-        """Clean up provider resources.
+ """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         # Clean up client if it exists
         if hasattr(self, "client") and self.client:
             # Close aiohttp session if it's that type
@@ -167,7 +201,7 @@ class LocalProvider(LLMProvider, BasePluginProvider):
         task_type = input_data.get("task")
 
         if not task_type:
-            return {"status": "error", "error": "No task specified"}
+            raise LlmError("No task specified")
 
         try:
             # Ensure initialization
@@ -184,7 +218,7 @@ class LocalProvider(LLMProvider, BasePluginProvider):
             elif task_type == "completion":
                 prompt = input_data.get("prompt", "")
                 if not prompt:
-                    return {"status": "error", "error": "No prompt provided"}
+                    raise LlmError("No prompt provided")
 
                 # Convert prompt to message format
                 messages = [{"role": "user", "content": prompt}]
@@ -202,20 +236,20 @@ class LocalProvider(LLMProvider, BasePluginProvider):
                 )
                 return {"status": "success", "result": response.content}
             else:
-                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                raise LlmError(f"Unknown task type: {task_type)"}
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task_type}': {e}")
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "message": str(e)}
 
     def _convert_messages(self, messages: list[Any]) -> list[dict[str, Any]]:
         """Convert PepperPy messages to a standard format.
 
         Args:
-            messages: List of messages to convert
+            messages: list of messages to convert
 
         Returns:
-            List of properly formatted messages
+            list of properly formatted messages
         """
         formatted_messages = []
 
@@ -237,7 +271,7 @@ class LocalProvider(LLMProvider, BasePluginProvider):
         """Format messages as a prompt string for text completion models.
 
         Args:
-            messages: List of message dictionaries
+            messages: list of message dictionaries
 
         Returns:
             Formatted prompt string
@@ -263,7 +297,7 @@ class LocalProvider(LLMProvider, BasePluginProvider):
         """Generate a response using the LLM.
 
         Args:
-            messages: List of messages to generate a response for
+            messages: list of messages to generate a response for
             **kwargs: Additional parameters for the generation
 
         Returns:
@@ -277,9 +311,9 @@ class LocalProvider(LLMProvider, BasePluginProvider):
             formatted_messages = self._convert_messages(messages)
 
             # Get parameters with defaults from config
-            model = kwargs.get("model", self.config.get("model", "default"))
-            temperature = kwargs.get("temperature", self.config.get("temperature", 0.7))
-            max_tokens = kwargs.get("max_tokens", self.config.get("max_tokens", 1024))
+            model = kwargs.get("model", self.model)
+            temperature = kwargs.get("temperature", self.temperature)
+            max_tokens = kwargs.get("max_tokens", self.max_tokens)
 
             # If client exists, call local model API
             if self.client:
@@ -327,7 +361,7 @@ class LocalProvider(LLMProvider, BasePluginProvider):
         """Generate response using HTTP API.
 
         Args:
-            messages: List of formatted message dictionaries
+            messages: list of formatted message dictionaries
             model: Model name/path
             temperature: Sampling temperature
             max_tokens: Maximum tokens to generate
@@ -414,7 +448,7 @@ class LocalProvider(LLMProvider, BasePluginProvider):
         """Stream a response using the LLM.
 
         Args:
-            messages: List of messages to generate a response for
+            messages: list of messages to generate a response for
             **kwargs: Additional parameters for the generation
 
         Returns:
@@ -437,9 +471,9 @@ class LocalProvider(LLMProvider, BasePluginProvider):
             formatted_messages = self._convert_messages(messages)
 
             # Get parameters with defaults from config
-            model = kwargs.get("model", self.config.get("model", "default"))
-            temperature = kwargs.get("temperature", self.config.get("temperature", 0.7))
-            max_tokens = kwargs.get("max_tokens", self.config.get("max_tokens", 1024))
+            model = kwargs.get("model", self.model)
+            temperature = kwargs.get("temperature", self.temperature)
+            max_tokens = kwargs.get("max_tokens", self.max_tokens)
 
             # Different streaming implementations depending on API type
             if hasattr(self, "api_type") and hasattr(self, "api_base_url"):
@@ -569,7 +603,9 @@ class LocalProvider(LLMProvider, BasePluginProvider):
                                 if content:
                                     yield GenerationChunk(content=content)
                         except Exception as e:
+                            raise LlmError(f"Operation failed: {e}") from e
                             self.logger.error(f"Error parsing stream data: {e}")
         except Exception as e:
+            raise LlmError(f"Operation failed: {e}") from e
             self.logger.error(f"Error in streaming request: {e}")
             yield GenerationChunk(content="[Error during streaming]")

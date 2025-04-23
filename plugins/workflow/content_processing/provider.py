@@ -10,13 +10,16 @@ This workflow provides a comprehensive pipeline for processing textual content:
 
 import importlib
 import os
-from typing import Any
+from typing import dict, list, Optional, Any
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.workflow.base import WorkflowProvider
+from pepperpy.workflow.base import WorkflowError
+
+logger = logger.getLogger(__name__)
 
 
-class ContentProcessingProvider(WorkflowProvider, BasePluginProvider):
+class ContentProcessingProvider(class ContentProcessingProvider(WorkflowProvider, ProviderPlugin):
     """Content processing workflow provider for extraction, normalization, generation, and summarization.
 
     This workflow makes it easy to process content through multiple stages,
@@ -27,10 +30,19 @@ class ContentProcessingProvider(WorkflowProvider, BasePluginProvider):
     - Text Normalization: Normalize text with consistent terminology and formatting
     - Content Generation: Generate new content based on input and prompts
     - Content Summarization: Create concise summaries of longer documents
+    """):
+    """
+    Workflow contentprocessing provider.
+    
+    This provider implements contentprocessing functionality for the PepperPy workflow framework.
     """
 
     async def initialize(self) -> None:
-        """Initialize the pipeline and resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         # Call parent initialize first
         await super().initialize()
 
@@ -72,7 +84,11 @@ class ContentProcessingProvider(WorkflowProvider, BasePluginProvider):
             raise
 
     async def cleanup(self) -> None:
-        """Clean up resources used by the provider."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         try:
             # Release resources
             self.pepper = None
@@ -90,7 +106,7 @@ class ContentProcessingProvider(WorkflowProvider, BasePluginProvider):
             task_input: Input parameters for the workflow
 
         Returns:
-            List of processor configurations
+            list of processor configurations
         """
         if not self.initialized or not hasattr(self, "pepper") or not self.pepper:
             raise RuntimeError("Workflow not initialized. Call initialize() first.")
@@ -159,7 +175,7 @@ class ContentProcessingProvider(WorkflowProvider, BasePluginProvider):
         """Process content through the configured processors.
 
         Args:
-            processors: List of configured processors
+            processors: list of configured processors
 
         Returns:
             Dictionary of processing results
@@ -187,6 +203,7 @@ class ContentProcessingProvider(WorkflowProvider, BasePluginProvider):
                         f"Processor {processor_type} completed successfully"
                     )
                 except Exception as e:
+                    raise WorkflowError(f"Operation failed: {e}") from e
                     self.logger.error(
                         f"Error executing processor {processor_type}: {e}"
                     )
@@ -206,7 +223,7 @@ class ContentProcessingProvider(WorkflowProvider, BasePluginProvider):
                     "task": str,  # Task name (default: "process_content")
                     "input": {    # Content and processor configurations
                         "content": str,  # Text content to process
-                        "processors": [  # List of processor configurations
+                        "processors": [  # list of processor configurations
                             {
                                 "type": str,  # Processor type
                                 "prompt": str,  # Processing prompt
@@ -237,7 +254,7 @@ class ContentProcessingProvider(WorkflowProvider, BasePluginProvider):
             self.logger.info(f"Executing task: {task}")
 
             if task != "process_content":
-                return {"status": "error", "message": f"Unsupported task: {task}"}
+                raise WorkflowError(f"Unsupported task: {task)"}
 
             # Get input parameters
             task_input = input_data.get("input", {})
@@ -249,12 +266,12 @@ class ContentProcessingProvider(WorkflowProvider, BasePluginProvider):
                 )
 
             if not task_input:
-                return {"status": "error", "message": "No input content provided"}
+                raise WorkflowError("No input content provided")
 
             # Create and execute workflow
             processors = self._create_workflow(task_input)
             if not processors:
-                return {"status": "error", "message": "No processors configured"}
+                raise WorkflowError("No processors configured")
 
             # Process the content
             results = await self._process_content(processors)

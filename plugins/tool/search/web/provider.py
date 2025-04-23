@@ -4,20 +4,30 @@ Web Search Tool Plugin.
 Plugin for searching the web for information.
 """
 
-from typing import Any
+from typing import dict, list, Any
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.tool import ToolProvider
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.tool.result import ToolResult
+from pepperpy.tool.base import ToolError
+from pepperpy.tool.base import ToolError
+
+logger = logger.getLogger(__name__)
 
 
-class WebSearchToolPlugin(BasePluginProvider):
-    """Web search tool plugin implementation."""
+class WebSearchToolPlugin(class WebSearchToolPlugin(BasePluginProvider):
+    """Web search tool plugin implementation."""):
+    """
+    Tool websearchtoolplugin provider.
+    
+    This provider implements websearchtoolplugin functionality for the PepperPy tool framework.
+    """
 
     async def initialize(self) -> None:
-        """Initialize search client.
+ """Initialize search client.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         if self.initialized:
             return
 
@@ -41,10 +51,10 @@ class WebSearchToolPlugin(BasePluginProvider):
         )
 
     async def cleanup(self) -> None:
-        """Clean up resources.
+ """Clean up resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         if not self.initialized:
             return
 
@@ -77,13 +87,13 @@ class WebSearchToolPlugin(BasePluginProvider):
         task = input_data.get("task")
 
         if not task:
-            return {"status": "error", "message": "No task specified"}
+            raise ToolError("No task specified")
 
         try:
             if task == "search":
                 query = input_data.get("query")
                 if not query:
-                    return {"status": "error", "message": "No query specified"}
+                    raise ToolError("No query specified")
 
                 num_results = input_data.get("num_results", 5)
                 language = input_data.get("language", "en")
@@ -94,7 +104,7 @@ class WebSearchToolPlugin(BasePluginProvider):
             elif task == "image_search":
                 query = input_data.get("query")
                 if not query:
-                    return {"status": "error", "message": "No query specified"}
+                    raise ToolError("No query specified")
 
                 num_results = input_data.get("num_results", 5)
 
@@ -104,7 +114,7 @@ class WebSearchToolPlugin(BasePluginProvider):
             elif task == "news_search":
                 query = input_data.get("query")
                 if not query:
-                    return {"status": "error", "message": "No query specified"}
+                    raise ToolError("No query specified")
 
                 num_results = input_data.get("num_results", 5)
 
@@ -116,7 +126,7 @@ class WebSearchToolPlugin(BasePluginProvider):
                 return {"status": "success", "capabilities": capabilities}
 
             else:
-                return {"status": "error", "message": f"Unknown task: {task}"}
+                raise ToolError(f"Unknown task: {task)"}
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task}': {e}")
@@ -151,7 +161,12 @@ class WebSearchToolPlugin(BasePluginProvider):
             ).to_dict()
 
     def _create_google_client(self) -> None:
-        """Create Google search client."""
+
+
+    """Create Google search client.
+
+
+    """
         if not self.api_key:
             raise ValueError("API key required for Google search")
 
@@ -163,7 +178,12 @@ class WebSearchToolPlugin(BasePluginProvider):
         }
 
     def _create_bing_client(self) -> None:
-        """Create Bing search client."""
+
+
+    """Create Bing search client.
+
+
+    """
         if not self.api_key:
             raise ValueError("API key required for Bing search")
 
@@ -175,7 +195,12 @@ class WebSearchToolPlugin(BasePluginProvider):
         }
 
     def _create_duckduckgo_client(self) -> None:
-        """Create DuckDuckGo search client."""
+
+
+    """Create DuckDuckGo search client.
+
+
+    """
         # No API key needed for DuckDuckGo
         self.client = {"type": "duckduckgo", "safe_search": self.safe_search}
 
@@ -225,6 +250,7 @@ class WebSearchToolPlugin(BasePluginProvider):
                 },
             )
         except Exception as e:
+            raise ToolError(f"Operation failed: {e}") from e
             self.logger.error(f"Search error: {e}")
             return ToolResult(success=False, data={}, error=f"Search failed: {e!s}")
 
@@ -271,6 +297,7 @@ class WebSearchToolPlugin(BasePluginProvider):
                 },
             )
         except Exception as e:
+            raise ToolError(f"Operation failed: {e}") from e
             self.logger.error(f"Image search error: {e}")
             return ToolResult(
                 success=False, data={}, error=f"Image search failed: {e!s}"
@@ -320,6 +347,7 @@ class WebSearchToolPlugin(BasePluginProvider):
                 },
             )
         except Exception as e:
+            raise ToolError(f"Operation failed: {e}") from e
             self.logger.error(f"News search error: {e}")
             return ToolResult(
                 success=False, data={}, error=f"News search failed: {e!s}"
@@ -329,6 +357,6 @@ class WebSearchToolPlugin(BasePluginProvider):
         """Get the tool's capabilities.
 
         Returns:
-            List of capability strings
+            list of capability strings
         """
         return ["search", "image_search", "news_search"]

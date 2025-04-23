@@ -2,15 +2,23 @@
 
 import logging
 import time
-from typing import Any
+from typing import dict, Any
 
 from pepperpy.core.base import PepperpyError
 from pepperpy.workflow.base import WorkflowProvider
 from pepperpy.workflow.decorators import workflow
+from pepperpy.workflow.base import WorkflowError
+
+logger = logging.getLogger(__name__)
 
 
-class WorkflowError(PepperpyError):
-    """Base error for workflow errors."""
+class WorkflowError(class WorkflowError(PepperpyError):
+    """Base error for workflow errors."""):
+    """
+    Workflow workflowerror provider.
+    
+    This provider implements workflowerror functionality for the PepperPy workflow framework.
+    """
 
 
 class WorkflowResult:
@@ -39,11 +47,32 @@ class WorkflowResult:
     description="Example workflow using the OpenWeather API integration",
     version="0.1.0",
 )
-class WeatherAPIWorkflow(WorkflowProvider):
+class WeatherAPIWorkflow(...):
+    api_key: str
+    units: str
+    include_forecast: bool
+    forecast_days: int
+    cache_ttl: int
+    config: Any
+    logger: Any
+    integration: Any
+    integration: Any
     """Weather API example workflow provider."""
 
     def __init__(self, **kwargs: Any) -> None:
-        """Initialize with configuration."""
+
+
+    """Initialize with configuration.
+
+
+
+    Args:
+
+
+        **kwargs: Parameter description
+
+
+    """
         super().__init__(**kwargs)
 
         # Configuration values with defaults
@@ -56,13 +85,17 @@ class WeatherAPIWorkflow(WorkflowProvider):
 
         # Initialize state
         self._initialized = False
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger.getLogger(__name__)
         self.integration = None
         self.cache: dict[str, dict[str, Any]] = {}
         self.cache_timestamps: dict[str, float] = {}
 
     async def initialize(self) -> None:
-        """Initialize resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._initialized:
             return
 
@@ -94,7 +127,11 @@ class WeatherAPIWorkflow(WorkflowProvider):
             ) from e
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if not self._initialized:
             return
 
@@ -104,6 +141,7 @@ class WeatherAPIWorkflow(WorkflowProvider):
             self._initialized = False
             self.logger.info("Cleaned up Weather API workflow")
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             self.logger.error(f"Error during cleanup: {e}")
 
     async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
@@ -155,6 +193,7 @@ class WeatherAPIWorkflow(WorkflowProvider):
             return {"success": True, "result": weather_data}
 
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             self.logger.error(f"Error executing Weather API workflow: {e}")
             return {"success": False, "error": str(e)}
 

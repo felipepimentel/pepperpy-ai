@@ -8,7 +8,7 @@ structured API calls, with options for execution and response handling.
 import json
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
+from typing import Any, dict, list, Optional, tuple, TypedDict, cast
 import aiohttp
 import yaml
 
@@ -16,12 +16,20 @@ from pepperpy.core.logging import get_logger
 from pepperpy.plugin import ProviderPlugin
 from pepperpy.workflow import WorkflowProvider
 from pepperpy.llm import create_provider as create_llm_provider
+from pepperpy.workflow.base import WorkflowError
+
+logger = logger.getLogger(__name__)
 
 logger = get_logger(__name__)
 
 
-class APIInfo(TypedDict):
-    """Information about an API."""
+class APIInfo(class APIInfo(TypedDict):
+    """Information about an API."""):
+    """
+    Workflow apiinfo provider.
+    
+    This provider implements apiinfo functionality for the PepperPy workflow framework.
+    """
     
     name: str
     description: str
@@ -36,9 +44,9 @@ class IntentAnalysis(TypedDict):
     
     api_name: str
     operation_type: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     required_auth: bool
-    constraints: Optional[List[str]]
+    constraints: Optional[list[str]]
 
 
 class APICallTemplate(TypedDict):
@@ -46,10 +54,10 @@ class APICallTemplate(TypedDict):
     
     http_method: str
     endpoint: str
-    path_params: Dict[str, Any]
-    query_params: Dict[str, Any]
-    headers: Dict[str, str]
-    body: Optional[Dict[str, Any]]
+    path_params: dict[str, Any]
+    query_params: dict[str, Any]
+    headers: dict[str, str]
+    body: Optional[dict[str, Any]]
 
 
 class APIQueryResult(TypedDict):
@@ -59,7 +67,7 @@ class APIQueryResult(TypedDict):
     intent: IntentAnalysis
     call_template: APICallTemplate
     formatted_call: str
-    response: Optional[Dict[str, Any]]
+    response: Optional[dict[str, Any]]
     execution_status: str
     execution_time: Optional[float]
 
@@ -72,20 +80,37 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
     """
     
     def __init__(self) -> None:
-        """Initialize the NLP-to-API provider."""
+
+    
+    """Initialize the NLP-to-API provider.
+
+    
+    """
         self._initialized = False
-        self._config: Dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
         self._llm = None
-        self._api_specs: Dict[str, APIInfo] = {}
+        self._api_specs: dict[str, APIInfo] = {}
         self._http_client = None
     
     @property
     def initialized(self) -> bool:
-        """Return whether the provider is initialized."""
+
+    """Return whether the provider is initialized.
+
+
+    Returns:
+
+        Return description
+
+    """
         return self._initialized
     
     async def initialize(self) -> None:
-        """Initialize provider resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._initialized:
             return
         
@@ -110,7 +135,11 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
             raise
     
     async def cleanup(self) -> None:
-        """Clean up provider resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if not self._initialized:
             return
         
@@ -128,19 +157,40 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
             logger.error(f"Error cleaning up NLP-to-API provider resources: {e}")
             raise
     
-    async def get_config(self) -> Dict[str, Any]:
-        """Return the current configuration."""
+    async def get_config(self) -> dict[str, Any]:
+ """Return the current configuration.
+
+ Returns:
+     Return description
+ """
         return self._config
     
     def has_config(self) -> bool:
-        """Return whether the provider has a configuration."""
+
+    
+    """Return whether the provider has a configuration.
+
+
+    
+    Returns:
+
+    
+        Return description
+
+    
+    """
         return bool(self._config)
     
-    async def update_config(self, config: Dict[str, Any]) -> None:
-        """Update the configuration."""
+    async def update_config(self, config: dict[str, Any]) -> None:
+ """Update the configuration.
+
+ Args:
+     config: Parameter description
+     Any]: Parameter description
+ """
         self._config = config
     
-    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Execute the NLP-to-API workflow.
         
         Args:
@@ -160,10 +210,8 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
             # Get the natural language query
             query = input_data.get("query")
             if not query:
-                return {
-                    "status": "error",
-                    "message": "No query provided"
-                }
+                raise WorkflowError("No query provided"
+                )
             
             # Get API context if specified
             api_context = input_data.get("api_context")
@@ -212,6 +260,7 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
                 "result": result
             }
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             logger.error(f"Error executing NLP-to-API workflow: {e}")
             return {
                 "status": "error",
@@ -219,7 +268,8 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
             }
     
     async def _load_api_specs(self) -> None:
-        """Load API specifications from configured location."""
+ """Load API specifications from configured location.
+ """
         # Get API spec location
         spec_location = self._config.get("api_spec_location", "./api_specs")
         
@@ -261,6 +311,7 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
                         
                         logger.info(f"Loaded API spec: {api_name}")
                     except Exception as e:
+                        raise WorkflowError(f"Operation failed: {e}") from e
                         logger.error(f"Error loading API spec {file_path}: {e}")
             
             logger.info(f"Loaded {len(self._api_specs)} API specifications")
@@ -268,7 +319,7 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
             # TODO: Handle single file or URL scenarios
             logger.warning(f"API spec location is not a directory: {spec_location}")
     
-    def _extract_base_url(self, spec: Dict[str, Any]) -> str:
+    def _extract_base_url(self, spec: dict[str, Any]) -> str:
         """Extract base URL from API specification.
         
         Args:
@@ -289,7 +340,7 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
         
         return f"{scheme}://{host}{base_path}"
     
-    def _extract_auth_type(self, spec: Dict[str, Any]) -> Optional[str]:
+    def _extract_auth_type(self, spec: dict[str, Any]) -> Optional[str]:
         """Extract authentication type from API specification.
         
         Args:
@@ -314,7 +365,7 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
         
         return None
     
-    def _extract_auth_location(self, spec: Dict[str, Any]) -> Optional[str]:
+    def _extract_auth_location(self, spec: dict[str, Any]) -> Optional[str]:
         """Extract authentication location from API specification.
         
         Args:
@@ -606,8 +657,8 @@ class NLPToAPIProvider(WorkflowProvider, ProviderPlugin):
         self, 
         api_call: APICallTemplate,
         api_name: str,
-        auth_credentials: Dict[str, str]
-    ) -> Tuple[Optional[Dict[str, Any]], str, Optional[float]]:
+        auth_credentials: dict[str, str]
+    ) -> tuple[Optional[dict[str, Any]], str, Optional[float]]:
         """Execute the API call and return the response.
         
         Args:

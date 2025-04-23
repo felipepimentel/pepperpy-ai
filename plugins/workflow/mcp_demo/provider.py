@@ -10,7 +10,7 @@ import asyncio
 import json
 import uuid
 from enum import Enum
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, dict, list, Optional, cast
 
 from pepperpy.plugin import ProviderPlugin
 from pepperpy.workflow import WorkflowProvider
@@ -22,12 +22,20 @@ from pepperpy.communication import (
     TextPart,
 )
 from pepperpy.llm import create_provider as create_llm_provider
+from pepperpy.workflow.base import WorkflowError
+
+logger = logger.getLogger(__name__)
 
 logger = get_logger(__name__)
 
 
-class DemoMode(str, Enum):
-    """Demo modes for the MCP workflow."""
+class DemoMode(class DemoMode(str, Enum):
+    """Demo modes for the MCP workflow."""):
+    """
+    Workflow demomode provider.
+    
+    This provider implements demomode functionality for the PepperPy workflow framework.
+    """
     
     BASIC = "basic"
     SERVER_CLIENT = "server_client"
@@ -46,9 +54,14 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
     """
     
     def __init__(self) -> None:
-        """Initialize the MCP demo workflow."""
+
+    
+    """Initialize the MCP demo workflow.
+
+    
+    """
         self._initialized = False
-        self._config: Dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
         self._server_provider: Optional[Any] = None
         self._client_provider: Optional[Any] = None
         self._llm_provider: Optional[Any] = None
@@ -56,11 +69,23 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
     
     @property
     def initialized(self) -> bool:
-        """Return whether the provider is initialized."""
+
+    """Return whether the provider is initialized.
+
+
+    Returns:
+
+        Return description
+
+    """
         return self._initialized
     
     async def initialize(self) -> None:
-        """Initialize the provider and required resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._initialized:
             return
         
@@ -107,7 +132,11 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             raise
     
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if not self._initialized:
             return
         
@@ -137,28 +166,59 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             logger.error(f"Error cleaning up MCP Demo workflow: {e}")
             raise
     
-    async def get_config(self) -> Dict[str, Any]:
-        """Return the current configuration."""
+    async def get_config(self) -> dict[str, Any]:
+ """Return the current configuration.
+
+ Returns:
+     Return description
+ """
         return self._config
     
     def has_config(self) -> bool:
-        """Return whether the provider has a configuration."""
+
+    
+    """Return whether the provider has a configuration.
+
+
+    
+    Returns:
+
+    
+        Return description
+
+    
+    """
         return bool(self._config)
     
-    async def update_config(self, config: Dict[str, Any]) -> None:
-        """Update the configuration."""
+    async def update_config(self, config: dict[str, Any]) -> None:
+ """Update the configuration.
+
+ Args:
+     config: Parameter description
+     Any]: Parameter description
+ """
         self._config = config
     
     async def __aenter__(self) -> "MCPDemoWorkflow":
-        """Enter context manager."""
+ """Enter context manager.
+
+ Returns:
+     Return description
+ """
         await self.initialize()
         return self
     
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Exit context manager."""
+ """Exit context manager.
+
+ Args:
+     exc_type: Parameter description
+     exc_val: Parameter description
+     exc_tb: Parameter description
+ """
         await self.cleanup()
     
-    async def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, data: dict[str, Any]) -> dict[str, Any]:
         """Execute the MCP demo workflow.
         
         Args:
@@ -190,9 +250,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             elif mode == DemoMode.AGENT_ORCHESTRATION:
                 return await self._run_agent_orchestration_demo(data)
             else:
-                return {
-                    "status": "error",
-                    "message": f"Unknown demo mode: {mode}"
+                raise WorkflowError(f"Unknown demo mode: {mode)"
                 }
         except Exception as e:
             logger.error(f"Error executing MCP Demo workflow: {e}")
@@ -202,7 +260,8 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             }
     
     async def _register_default_tools(self) -> None:
-        """Register default tools for the MCP server."""
+ """Register default tools for the MCP server.
+ """
         if not self._server_provider:
             return
         
@@ -233,7 +292,8 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
         logger.info("Registered default MCP tools")
     
     async def _run_server(self) -> None:
-        """Run the MCP server in the background."""
+ """Run the MCP server in the background.
+ """
         if not self._server_provider:
             return
         
@@ -244,7 +304,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             logger.error(f"Error running MCP server: {e}")
             raise
     
-    async def _handle_chat(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_chat(self, request: dict[str, Any]) -> dict[str, Any]:
         """Handle chat requests.
         
         Args:
@@ -254,19 +314,15 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             Chat response
         """
         if not self._llm_provider:
-            return {
-                "status": "error",
-                "message": "LLM provider not initialized"
-            }
+            raise WorkflowError("LLM provider not initialized"
+            )
         
         try:
             # Extract the message from the request
             prompt = request.get("prompt", "")
             if not prompt:
-                return {
-                    "status": "error",
-                    "message": "No prompt provided"
-                }
+                raise WorkflowError("No prompt provided"
+                )
             
             # Send to the LLM
             messages = [
@@ -290,7 +346,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
                 "message": str(e)
             }
     
-    async def _handle_calculate(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_calculate(self, request: dict[str, Any]) -> dict[str, Any]:
         """Handle calculate requests.
         
         Args:
@@ -303,10 +359,8 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             # Extract the expression from the request
             expression = request.get("expression", "")
             if not expression:
-                return {
-                    "status": "error",
-                    "message": "No expression provided"
-                }
+                raise WorkflowError("No expression provided"
+                )
             
             # Evaluate the expression (safely)
             # This is just for demo purposes - would use a safer method in production
@@ -324,7 +378,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
                 "message": str(e)
             }
     
-    async def _handle_weather(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_weather(self, request: dict[str, Any]) -> dict[str, Any]:
         """Handle weather requests.
         
         Args:
@@ -337,10 +391,8 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             # Extract the location from the request
             location = request.get("location", "")
             if not location:
-                return {
-                    "status": "error",
-                    "message": "No location provided"
-                }
+                raise WorkflowError("No location provided"
+                )
             
             # Simulate weather data (would use a real API in production)
             weather_data = {
@@ -363,7 +415,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
                 "message": str(e)
             }
     
-    async def _handle_translate(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_translate(self, request: dict[str, Any]) -> dict[str, Any]:
         """Handle translate requests.
         
         Args:
@@ -373,10 +425,8 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             Translation result
         """
         if not self._llm_provider:
-            return {
-                "status": "error",
-                "message": "LLM provider not initialized"
-            }
+            raise WorkflowError("LLM provider not initialized"
+            )
         
         try:
             # Extract the text and target language from the request
@@ -384,16 +434,12 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             target_language = request.get("target_language", "")
             
             if not text:
-                return {
-                    "status": "error",
-                    "message": "No text provided"
-                }
+                raise WorkflowError("No text provided"
+                )
             
             if not target_language:
-                return {
-                    "status": "error",
-                    "message": "No target language provided"
-                }
+                raise WorkflowError("No target language provided"
+                )
             
             # Use the LLM for translation
             messages = [
@@ -423,7 +469,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
                 "message": str(e)
             }
     
-    async def _run_basic_demo(self, prompt: str) -> Dict[str, Any]:
+    async def _run_basic_demo(self, prompt: str) -> dict[str, Any]:
         """Run a basic MCP demo.
         
         Args:
@@ -453,7 +499,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             "demo_mode": DemoMode.BASIC
         }
     
-    async def _run_server_client_demo(self, prompt: str) -> Dict[str, Any]:
+    async def _run_server_client_demo(self, prompt: str) -> dict[str, Any]:
         """Run a server-client MCP demo with multiple requests.
         
         Args:
@@ -522,7 +568,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             "demo_mode": DemoMode.SERVER_CLIENT
         }
     
-    async def _run_tools_demo(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run_tools_demo(self, data: dict[str, Any]) -> dict[str, Any]:
         """Run a tools MCP demo.
         
         Args:
@@ -621,7 +667,7 @@ class MCPDemoWorkflow(WorkflowProvider, ProviderPlugin):
             "demo_mode": DemoMode.TOOLS
         }
     
-    async def _run_agent_orchestration_demo(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _run_agent_orchestration_demo(self, data: dict[str, Any]) -> dict[str, Any]:
         """Run an agent orchestration MCP demo.
         
         Args:

@@ -8,18 +8,42 @@ import fitz
 from pepperpy.content.base import ContentProcessor, ProcessingResult
 from pepperpy.core.errors import ProviderError
 from pepperpy.plugin.plugin import ProviderPlugin
+from pepperpy.content.base import ContentError
+from pepperpy.content import ContentProvider
+from pepperpy.content.base import ContentError
 
 
-class PyMuPDFProvider(ContentProcessor, ProviderPlugin):
-    """PyMuPDF document processing provider."""
+class PyMuPDFProvider(class PyMuPDFProvider(ContentProvider, ProviderPlugin):
+    """PyMuPDF document processing provider."""):
+    """
+    Content pymupdf provider.
+    
+    This provider implements pymupdf functionality for the PepperPy content framework.
+    """
 
     def __init__(self, **kwargs: Any) -> None:
-        """Initialize provider."""
+
+
+    """Initialize provider.
+
+
+
+    Args:
+
+
+        **kwargs: Parameter description
+
+
+    """
         super().__init__(**kwargs)
         self._initialized = False
 
     async def initialize(self) -> None:
-        """Initialize provider."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._initialized:
             return
 
@@ -67,5 +91,9 @@ class PyMuPDFProvider(ContentProcessor, ProviderPlugin):
             raise ProviderError(f"Failed to process document: {e}") from e
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         self._initialized = False

@@ -1,0 +1,12 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Tool System Architecture
+
+The Tool system provides a framework for creating and using tools that extend agent capabilities with external integrations and specialized functions.
+
+## Core Architecture
+
+### Directory Structure

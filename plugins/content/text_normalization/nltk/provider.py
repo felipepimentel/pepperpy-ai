@@ -5,12 +5,17 @@ for advanced text processing features like lemmatization and stopword removal.
 """
 
 import logging
-from typing import Any
+from typing import set, Any
 
 from pepperpy.content.base import TextNormalizationError, TextNormalizer
 from pepperpy.plugin.base import PepperpyPlugin
+from pepperpy.content.base import ContentError
+from pepperpy.content import ContentProvider
+from pepperpy.content.base import ContentError
 
 logger = logging.getLogger(__name__)
+
+logger = logger.getLogger(__name__)
 
 try:
     import nltk
@@ -23,11 +28,16 @@ except ImportError:
     NLTK_AVAILABLE = False
 
 
-class NLTKTextNormalizer(TextNormalizer, PepperpyPlugin):
+class NLTKTextNormalizer(class NLTKTextNormalizer(TextNormalizer, ProviderPlugin):
     """NLTK-based text normalizer implementation.
 
     This normalizer extends the basic normalizer with NLTK-based features
     like lemmatization and stopword removal.
+    """):
+    """
+    Content nltktextnormalizer provider.
+    
+    This provider implements nltktextnormalizer functionality for the PepperPy content framework.
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -66,10 +76,11 @@ class NLTKTextNormalizer(TextNormalizer, PepperpyPlugin):
         self.initialized = False
 
     async def initialize(self) -> None:
-        """Initialize the normalizer.
+ """Initialize the provider.
 
-        Downloads required NLTK data and initializes components.
-        """
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self.initialized:
             return
 
@@ -111,7 +122,11 @@ class NLTKTextNormalizer(TextNormalizer, PepperpyPlugin):
             raise TextNormalizationError(f"Failed to initialize NLTK components: {e}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         # No resources to clean up
         pass
 
@@ -171,6 +186,7 @@ class NLTKTextNormalizer(TextNormalizer, PepperpyPlugin):
             return " ".join(lemmatized)
 
         except Exception as e:
+            raise ContentError(f"Operation failed: {e}") from e
             logger.warning(f"Error lemmatizing text: {e}")
             return text
 
@@ -197,5 +213,6 @@ class NLTKTextNormalizer(TextNormalizer, PepperpyPlugin):
             return " ".join(filtered)
 
         except Exception as e:
+            raise ContentError(f"Operation failed: {e}") from e
             logger.warning(f"Error removing stopwords: {e}")
             return text

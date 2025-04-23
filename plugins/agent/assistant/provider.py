@@ -4,28 +4,39 @@ This module provides an assistant provider that can engage in conversations,
 maintain context, and execute tasks using language models.
 """
 
-from typing import Any
+from typing import dict, list, Optional, Any
 
 from pepperpy.agents.base import Agent
 from pepperpy.llm import Message, MessageRole
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.agent import AgentProvider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.agent.base import AgentError
+from pepperpy.agent.base import AgentError
+
+logger = logger.getLogger(__name__)
 
 
-class Assistant(Agent, BasePluginProvider):
+class Assistant(class Assistant(Agent, ProviderPlugin):
     """Assistant provider for agent tasks.
 
     This provider implements an AI assistant that can engage in conversations,
     maintain context, and execute tasks using language models.
+    """):
+    """
+    Agent assistant provider.
+    
+    This provider implements assistant functionality for the PepperPy agent framework.
     """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
-        # Call the base class implementation first
-        await super().initialize()
-
+ """
+        # Skip if already initialized
+        if self.initialized:
+            return
+        
         # Create initial message list with system prompt
         system_prompt = self.config.get(
             "system_prompt", "You are a helpful AI assistant."
@@ -34,14 +45,14 @@ class Assistant(Agent, BasePluginProvider):
         self.context = {}
 
         self.logger.debug(
-            f"Initialized with model={self.config.get('model', 'default')}"
+            f"Initialized with model={self.model}"
         )
 
     async def cleanup(self) -> None:
-        """Clean up provider resources.
+ """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         # Clean up resources
         self.messages = []
         self.context = {}
@@ -62,7 +73,7 @@ class Assistant(Agent, BasePluginProvider):
         task_type = input_data.get("task")
 
         if not task_type:
-            return {"status": "error", "error": "No task specified"}
+            raise AgentError("No task specified")
 
         try:
             # Handle chat task
@@ -78,7 +89,7 @@ class Assistant(Agent, BasePluginProvider):
                         "messages": [m.to_dict() for m in self.messages],
                     }
                 else:
-                    return {"status": "error", "error": "No message provided"}
+                    raise AgentError("No message provided")
             else:
                 # Treat task as direct message
                 response = await self.chat(task_type)
@@ -86,7 +97,7 @@ class Assistant(Agent, BasePluginProvider):
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task_type}': {e}")
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "message": str(e)}
 
     async def chat(
         self,
@@ -127,16 +138,16 @@ class Assistant(Agent, BasePluginProvider):
         self.messages.append(message)
 
         # Get memory size from config
-        memory_size = self.config.get("memory_size", 10)
+        memory_size = self.memory_size
 
         # Trim history if needed
         if len(self.messages) > memory_size + 1:  # +1 for system prompt
             self.messages = [self.messages[0]] + self.messages[-memory_size:]
 
         # Get model parameters from config or kwargs
-        model = kwargs.get("model", self.config.get("model", "gpt-3.5-turbo"))
-        temperature = kwargs.get("temperature", self.config.get("temperature", 0.7))
-        max_tokens = kwargs.get("max_tokens", self.config.get("max_tokens", None))
+        model = kwargs.get("model", self.model)
+        temperature = kwargs.get("temperature", self.temperature)
+        max_tokens = kwargs.get("max_tokens", self.max_tokens)
 
         # Generate response using LLM
         response = await llm_provider.generate(
@@ -166,7 +177,7 @@ class Assistant(Agent, BasePluginProvider):
             task: The task to execute.
 
         Returns:
-            List of messages from the execution.
+            list of messages from the execution.
         """
         response = await self.chat(task)
         return [Message(role=MessageRole.ASSISTANT, content=response)]

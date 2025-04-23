@@ -8,19 +8,28 @@ and provides actionable recommendations for improvement.
 
 import json
 import asyncio
-from typing import Dict, List, Any, Optional, Tuple, Set
+from typing import dict, list, Any, Optional, tuple, set
 from enum import Enum
 from datetime import datetime
 
 from pepperpy.plugin.plugin import ProviderPlugin
 from pepperpy.workflow.workflow import BaseWorkflowProvider
 from pepperpy.util.logging import get_logger
+from pepperpy.workflow.base import WorkflowError
+from pepperpy.workflow import WorkflowProvider
+
+logger = logger.getLogger(__name__)
 
 logger = get_logger(__name__)
 
 
-class SeverityLevel(str, Enum):
-    """Severity levels for documentation findings."""
+class SeverityLevel(class SeverityLevel(str, Enum):
+    """Severity levels for documentation findings."""):
+    """
+    Workflow severitylevel provider.
+    
+    This provider implements severitylevel functionality for the PepperPy workflow framework.
+    """
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -60,7 +69,7 @@ class Finding:
         self.recommendation = recommendation
         self.timestamp = datetime.now().isoformat()
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the finding to a dictionary.
         
         Returns:
@@ -84,15 +93,15 @@ class DocumentationReviewReport:
     def __init__(
         self,
         api_name: str,
-        findings: List[Finding],
-        summary: Dict[str, Any],
-        review_criteria: Dict[str, Any],
+        findings: list[Finding],
+        summary: dict[str, Any],
+        review_criteria: dict[str, Any],
     ):
         """Initialize a new documentation review report.
         
         Args:
             api_name: Name of the API being reviewed
-            findings: List of findings from the review
+            findings: list of findings from the review
             summary: Summary statistics and information about the review
             review_criteria: The criteria used for the review
         """
@@ -102,7 +111,7 @@ class DocumentationReviewReport:
         self.review_criteria = review_criteria
         self.timestamp = datetime.now().isoformat()
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the report to a dictionary.
         
         Returns:
@@ -166,7 +175,15 @@ class DocumentationReviewReport:
         return md
 
 
-class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
+class APIDocumentationReviewProvider(...):
+    review_criteria: Any
+    output_format: str
+    config: Any
+    initialized: bool
+    llm_provider: Any
+    config: Any
+    initialized: bool
+    initialized: bool
     """Provider for the API Documentation Review workflow."""
     
     def __init__(self):
@@ -176,7 +193,7 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
         self.initialized = False
         self.llm_provider = None
     
-    async def initialize(self, config: Dict[str, Any]) -> None:
+    async def initialize(self, config: dict[str, Any]) -> None:
         """Initialize the provider with the given configuration.
         
         Args:
@@ -202,7 +219,11 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
             raise
     
     async def cleanup(self) -> None:
-        """Clean up resources used by the provider."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if not self.initialized:
             return
         
@@ -217,7 +238,7 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
             logger.error(f"Failed to clean up API Documentation Review Provider: {e}")
             raise
     
-    def _validate_config(self, config: Dict[str, Any]) -> None:
+    def _validate_config(self, config: dict[str, Any]) -> None:
         """Validate the provider configuration.
         
         Args:
@@ -254,7 +275,7 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
                 f"Must be one of {valid_formats}"
             )
     
-    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Execute the documentation review workflow.
         
         Args:
@@ -275,7 +296,7 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
                 raise ValueError("Missing required input: api_documentation")
             
             # Get review criteria from config
-            review_criteria = self.config.get("review_criteria", {})
+            review_criteria = self.review_criteria
             
             # Perform the documentation review
             findings = []
@@ -316,7 +337,7 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
             )
             
             # Convert report to the requested format
-            output_format = self.config.get("output_format", "json")
+            output_format = self.output_format
             if output_format == "json":
                 return {"report": report.to_dict()}
             elif output_format == "markdown":
@@ -330,14 +351,14 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
             logger.error(f"Error executing documentation review workflow: {e}")
             raise
     
-    async def _review_accessibility(self, api_docs: Dict[str, Any]) -> List[Finding]:
+    async def _review_accessibility(self, api_docs: dict[str, Any]) -> list[Finding]:
         """Review the API documentation for accessibility issues.
         
         Args:
             api_docs: API documentation to review
             
         Returns:
-            List of findings related to accessibility
+            list of findings related to accessibility
         """
         # This would typically involve LLM analysis
         findings = []
@@ -362,14 +383,14 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
         
         return findings
     
-    async def _review_examples(self, api_docs: Dict[str, Any]) -> List[Finding]:
+    async def _review_examples(self, api_docs: dict[str, Any]) -> list[Finding]:
         """Review the API documentation for issues with examples.
         
         Args:
             api_docs: API documentation to review
             
         Returns:
-            List of findings related to examples
+            list of findings related to examples
         """
         findings = []
         
@@ -393,14 +414,14 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
         
         return findings
     
-    async def _review_completeness(self, api_docs: Dict[str, Any]) -> List[Finding]:
+    async def _review_completeness(self, api_docs: dict[str, Any]) -> list[Finding]:
         """Review the API documentation for completeness.
         
         Args:
             api_docs: API documentation to review
             
         Returns:
-            List of findings related to completeness
+            list of findings related to completeness
         """
         findings = []
         
@@ -425,14 +446,14 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
         
         return findings
     
-    async def _review_terminology(self, api_docs: Dict[str, Any]) -> List[Finding]:
+    async def _review_terminology(self, api_docs: dict[str, Any]) -> list[Finding]:
         """Review the API documentation for consistent terminology.
         
         Args:
             api_docs: API documentation to review
             
         Returns:
-            List of findings related to terminology
+            list of findings related to terminology
         """
         findings = []
         
@@ -473,12 +494,12 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
         return findings
     
     def _filter_findings_by_severity(
-        self, findings: List[Finding], threshold: SeverityLevel
-    ) -> List[Finding]:
+        self, findings: list[Finding], threshold: SeverityLevel
+    ) -> list[Finding]:
         """Filter findings based on severity threshold.
         
         Args:
-            findings: List of findings to filter
+            findings: list of findings to filter
             threshold: Minimum severity level to include
             
         Returns:
@@ -497,11 +518,11 @@ class APIDocumentationReviewProvider(BaseWorkflowProvider, ProviderPlugin):
             if severity_order.get(finding.severity, 0) >= threshold_value
         ]
     
-    def _generate_summary(self, findings: List[Finding]) -> Dict[str, Any]:
+    def _generate_summary(self, findings: list[Finding]) -> dict[str, Any]:
         """Generate summary statistics for the findings.
         
         Args:
-            findings: List of findings to summarize
+            findings: list of findings to summarize
             
         Returns:
             Summary statistics dictionary

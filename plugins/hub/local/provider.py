@@ -18,10 +18,15 @@ Example:
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, dict, list, Optional, Union
 
 from pepperpy.core import NotFoundError
 from pepperpy.hub.provider import (
+from pepperpy.hub.base import HubError
+from pepperpy.hub import HubProvider
+from pepperpy.hub.base import HubError
+
+logger = logging.getLogger(__name__)
     Asset,
     AssetStatus,
     AssetType,
@@ -30,20 +35,47 @@ from pepperpy.hub.provider import (
     HubProvider,
 )
 
-logger = logging.getLogger(__name__)
+logger = logger.getLogger(__name__)
 
 
-class LocalHubProvider(HubProvider):
-    """Local in-memory implementation of the hub provider interface."""
+class LocalHubProvider(class LocalHubProvider(HubProvider):
+    """Local in-memory implementation of the hub provider interface."""):
+    """
+    Hub localhub provider.
+    
+    This provider implements localhub functionality for the PepperPy hub framework.
+    """
 
     name = "local"
 
     
     # Attributes auto-bound from plugin.yaml com valores padrão como fallback
     api_key: str
+
+    async def initialize(self, config: dict[str, Any]) -> bool:
+        """
+        Initialize the provider with the given configuration.
+        
+        Args:
+            config: Configuration parameters
+            
+        Returns:
+            True if initialization was successful, False otherwise
+        """
+        self.config = config
+        return True
+
+    async def cleanup(self) -> bool:
+        """
+        Clean up resources used by the provider.
+        
+        Returns:
+            True if cleanup was successful, False otherwise
+        """
+        return True
 def __init__(
         self,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
     ) -> None:
         """Initialize local hub provider.
 
@@ -51,8 +83,8 @@ def __init__(
             config: Optional configuration dictionary
         """
         super().__init__(base_url="memory://localhost", config=config)
-        self._assets: Dict[str, Asset] = {}
-        self._versions: Dict[str, List[AssetVersion]] = {}
+        self._assets: dict[str, Asset] = {}
+        self._versions: dict[str, list[AssetVersion]] = {}
 
     def _validate_asset_type(self, type: Union[str, AssetType]) -> AssetType:
         """Validate and convert asset type.
@@ -119,7 +151,7 @@ def __init__(
         type: Union[str, AssetType],
         content: Any,
         version: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Asset:
         """Create a new asset.
@@ -233,7 +265,7 @@ def __init__(
         asset_id: str,
         content: Any,
         version: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Asset:
         """Update an existing asset.
@@ -324,11 +356,11 @@ def __init__(
 
     async def list_assets(
         self,
-        type: Optional[Union[str, AssetType, List[Union[str, AssetType]]]] = None,
-        status: Optional[Union[str, AssetStatus, List[Union[str, AssetStatus]]]] = None,
+        type: Optional[Union[str, AssetType, list[Union[str, AssetType]]]] = None,
+        status: Optional[Union[str, AssetStatus, list[Union[str, AssetStatus]]]] = None,
         **kwargs: Any,
-    ) -> List[Asset]:
-        """List assets with optional filters.
+    ) -> list[Asset]:
+        """list assets with optional filters.
 
         Args:
             type: Optional type or types to filter by
@@ -336,7 +368,7 @@ def __init__(
             **kwargs: Additional options (ignored)
 
         Returns:
-            List of assets
+            list of assets
 
         Raises:
             HubError: If listing fails
@@ -367,7 +399,7 @@ def __init__(
         self,
         asset_id: str,
         **kwargs: Any,
-    ) -> List[AssetVersion]:
+    ) -> list[AssetVersion]:
         """Get version history for an asset.
 
         Args:
@@ -375,7 +407,7 @@ def __init__(
             **kwargs: Additional options (ignored)
 
         Returns:
-            List of asset versions
+            list of asset versions
 
         Raises:
             NotFoundError: If asset does not exist
@@ -393,7 +425,7 @@ def __init__(
         self,
         asset_id: str,
         version: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Asset:
         """Publish an asset version.
@@ -434,7 +466,7 @@ def __init__(
     async def archive_asset(
         self,
         asset_id: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Asset:
         """Archive an asset.
@@ -471,8 +503,20 @@ def __init__(
                 raise HubError(f"Failed to archive asset: {e}")
             raise
 
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get local hub provider capabilities."""
+    def get_capabilities(self) -> dict[str, Any]:
+
+
+    """Get local hub provider capabilities.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         capabilities = super().get_capabilities()
         capabilities.update({
             "max_size": None,  # No limit

@@ -7,7 +7,7 @@ following Google's A2A protocol specification.
 
 import asyncio
 import json
-from typing import Any
+from typing import dict, list, set, Any
 
 import aiohttp
 from aiohttp import ClientError, ClientSession
@@ -25,18 +25,31 @@ from pepperpy.a2a.base import (
     TextPart,
 )
 from pepperpy.core.logging import get_logger
+from pepperpy.a2a import A2aProvider
 from pepperpy.plugin import ProviderPlugin
+from pepperpy.a2a.base import A2aError
+from pepperpy.a2a.base import A2aError
+
+logger = logger.getLogger(__name__)
 
 logger = get_logger(__name__)
 
 
-class RestA2AError(A2AError):
-    """Exceptions related to REST A2A provider."""
+class RestA2AError(class RestA2AError(A2AError):
+    """Exceptions related to REST A2A provider."""):
+    """
+    A2a resta2aerror provider.
+    
+    This provider implements resta2aerror functionality for the PepperPy a2a framework.
+    """
 
     pass
 
 
-class RestA2AProvider(A2AProvider, ProviderPlugin):
+class RestA2AProvider(...):
+    session: Any
+    session: Any
+    config: Any
     """REST implementation of the A2A protocol provider.
 
     This provider implements the A2A protocol using RESTful API calls.
@@ -92,10 +105,10 @@ class RestA2AProvider(A2AProvider, ProviderPlugin):
         self.config.update(kwargs)
 
     async def _initialize_resources(self) -> None:
-        """Initialize provider resources.
+ """Initialize provider resources.
 
         Creates HTTP session and registers agent if needed.
-        """
+ """
         if not self.base_url:
             raise RestA2AError("base_url is required")
 
@@ -105,24 +118,25 @@ class RestA2AProvider(A2AProvider, ProviderPlugin):
             headers={"Content-Type": "application/json"},
         )
 
-        # Set up authentication if configured
+        # set up authentication if configured
         if self.auth.get("type") != "none":
             await self._setup_authentication()
 
         logger.debug(f"Initialized REST A2A provider with base URL: {self.base_url}")
 
     async def _cleanup_resources(self) -> None:
-        """Clean up provider resources.
+ """Clean up provider resources.
 
         Closes the HTTP session.
-        """
+ """
         if self.session:
             await self.session.close()
             self.session = None
         logger.debug("Cleaned up REST A2A provider resources")
 
     async def _setup_authentication(self) -> None:
-        """Set up authentication for the HTTP session."""
+ """set up authentication for the HTTP session.
+ """
         if not self.session:
             raise RestA2AError("Session not initialized")
 
@@ -207,7 +221,7 @@ class RestA2AProvider(A2AProvider, ProviderPlugin):
         url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         auth = None
 
-        # Set up basic auth if configured
+        # set up basic auth if configured
         if self.auth.get("type") == "basic":
             auth = aiohttp.BasicAuth(
                 login=self.auth.get("username", ""),
@@ -432,10 +446,10 @@ class RestA2AProvider(A2AProvider, ProviderPlugin):
         )
 
     async def list_agents(self) -> list[AgentCard]:
-        """List available agents.
+        """list available agents.
 
         Returns:
-            List of agent cards
+            list of agent cards
 
         Raises:
             RestA2AError: If agent listing fails
@@ -459,3 +473,25 @@ class RestA2AProvider(A2AProvider, ProviderPlugin):
             return agents
         except Exception as e:
             raise RestA2AError(f"Failed to list agents: {e!s}") from e
+
+    async def initialize(self, config: dict[str, Any]) -> bool:
+        """
+        Initialize the provider with the given configuration.
+        
+        Args:
+            config: Configuration parameters
+            
+        Returns:
+            True if initialization was successful, False otherwise
+        """
+        self.config = config
+        return True
+
+    async def cleanup(self) -> bool:
+        """
+        Clean up resources used by the provider.
+        
+        Returns:
+            True if cleanup was successful, False otherwise
+        """
+        return True

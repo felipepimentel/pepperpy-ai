@@ -3,7 +3,7 @@
 import logging
 import os
 import re
-from typing import Any
+from typing import dict, list, set, Any
 
 import stanza
 from stanza.models.common.doc import Document
@@ -16,12 +16,22 @@ from pepperpy.content.base import (
     SemanticProcessorProvider,
 )
 from pepperpy.core.base import PepperpyError
+from pepperpy.content.base import ContentError
+from pepperpy.content import ContentProvider
+from pepperpy.content.base import ContentError
 
 logger = logging.getLogger(__name__)
 
+logger = logger.getLogger(__name__)
 
-class StanzaSemanticProcessor(SemanticProcessorProvider):
-    """Semantic processor using Stanza."""
+
+class StanzaSemanticProcessor(class StanzaSemanticProcessor(SemanticProcessorProvider):
+    """Semantic processor using Stanza."""):
+    """
+    Content stanzasemanticprocessor provider.
+    
+    This provider implements stanzasemanticprocessor functionality for the PepperPy content framework.
+    """
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize processor.
@@ -58,7 +68,11 @@ class StanzaSemanticProcessor(SemanticProcessorProvider):
         self.initialized: bool = False
 
     async def initialize(self) -> None:
-        """Initialize the processor."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self.initialized:
             return
 
@@ -86,7 +100,11 @@ class StanzaSemanticProcessor(SemanticProcessorProvider):
             raise PepperpyError(f"Error initializing Stanza processor: {e}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         self.pipeline = None
         self.initialized = False
 
@@ -139,7 +157,7 @@ class StanzaSemanticProcessor(SemanticProcessorProvider):
             **kwargs: Additional processor-specific parameters
 
         Returns:
-            List of extracted entities
+            list of extracted entities
         """
         result = await self.process_text(text, **kwargs)
         return result.entities
@@ -154,7 +172,7 @@ class StanzaSemanticProcessor(SemanticProcessorProvider):
             **kwargs: Additional processor-specific parameters
 
         Returns:
-            List of extracted relationships
+            list of extracted relationships
         """
         if not self._extract_relationships:
             logger.warning(
@@ -231,7 +249,7 @@ class StanzaSemanticProcessor(SemanticProcessorProvider):
             text: Original text
 
         Returns:
-            List of extracted entities
+            list of extracted entities
         """
         entities: list[Entity] = []
 

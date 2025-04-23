@@ -5,12 +5,16 @@ This module implements a workflow for comprehensive API governance assessment.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, dict, list
 import json
 
 from pepperpy.core.llm import create_llm_provider
 from pepperpy.core.logging import get_logger
 from pepperpy.core.workflow import ProviderPlugin, WorkflowProvider
+from pepperpy.workflow.base import WorkflowError
+from pepperpy.workflow import WorkflowProvider
+
+logger = logger.getLogger(__name__)
 
 logger = get_logger(__name__)
 
@@ -48,8 +52,13 @@ class GovernanceRule:
         }
 
 
-class SecurityRule(GovernanceRule):
-    """Security-specific governance rule."""
+class SecurityRule(class SecurityRule(GovernanceRule):
+    """Security-specific governance rule."""):
+    """
+    Workflow securityrule provider.
+    
+    This provider implements securityrule functionality for the PepperPy workflow framework.
+    """
 
     def __init__(
         self,
@@ -90,7 +99,9 @@ class SecurityRule(GovernanceRule):
         return result
 
 
-class StandardRule(GovernanceRule):
+class StandardRule(...):
+    standard: Any
+    best_practice: Any
     """Standards-specific governance rule."""
 
     def __init__(
@@ -240,7 +251,7 @@ class GovernanceReport:
         """Calculate pass rate for a set of findings.
 
         Args:
-            findings: List of findings
+            findings: list of findings
 
         Returns:
             Pass rate as a percentage
@@ -313,7 +324,7 @@ class GovernanceReport:
         """Generate prioritized remediation list.
 
         Returns:
-            List of issues to remediate, in priority order
+            list of issues to remediate, in priority order
         """
         # Collect all failed findings
         failed_findings = []
@@ -348,19 +359,36 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
     """
     
     def __init__(self) -> None:
-        """Initialize the API Governance provider."""
+
+    
+    """Initialize the API Governance provider.
+
+    
+    """
         self._initialized = False
-        self._config: Dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
         self._llm = None
         self._default_rules = []
     
     @property
     def initialized(self) -> bool:
-        """Return whether the provider is initialized."""
+
+    """Return whether the provider is initialized.
+
+
+    Returns:
+
+        Return description
+
+    """
         return self._initialized
     
     async def initialize(self) -> None:
-        """Initialize provider resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._initialized:
             return
         
@@ -382,7 +410,11 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
             raise
     
     async def cleanup(self) -> None:
-        """Clean up provider resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if not self._initialized:
             return
         
@@ -396,19 +428,40 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
             logger.error(f"Error cleaning up API Governance provider resources: {e}")
             raise
     
-    async def get_config(self) -> Dict[str, Any]:
-        """Return the current configuration."""
+    async def get_config(self) -> dict[str, Any]:
+ """Return the current configuration.
+
+ Returns:
+     Return description
+ """
         return self._config
     
     def has_config(self) -> bool:
-        """Return whether the provider has a configuration."""
+
+    
+    """Return whether the provider has a configuration.
+
+
+    
+    Returns:
+
+    
+        Return description
+
+    
+    """
         return bool(self._config)
     
-    async def update_config(self, config: Dict[str, Any]) -> None:
-        """Update the configuration."""
+    async def update_config(self, config: dict[str, Any]) -> None:
+ """Update the configuration.
+
+ Args:
+     config: Parameter description
+     Any]: Parameter description
+ """
         self._config = config
     
-    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Execute the API Governance workflow.
         
         Args:
@@ -428,10 +481,8 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
             # Extract API specification 
             api_spec = input_data.get("api_spec")
             if not api_spec:
-                return {
-                    "status": "error",
-                    "message": "No API specification provided"
-                }
+                raise WorkflowError("No API specification provided"
+                )
             
             # Get API metadata
             api_name = input_data.get("api_name", "Unnamed API")
@@ -472,6 +523,7 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
                 "overall_score": report._calculate_overall_score()
             }
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             logger.error(f"Error executing API Governance workflow: {e}")
             return {
                 "status": "error",
@@ -479,7 +531,12 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
             }
     
     def _load_default_rules(self) -> None:
-        """Load default governance rules."""
+
+    
+    """Load default governance rules.
+
+    
+    """
         # Security rules
         self._default_rules.extend([
             SecurityRule(
@@ -536,7 +593,7 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
             )
         ])
     
-    def _merge_rules(self, config_rules: Dict[str, Any], custom_rules: Dict[str, Any]) -> Dict[str, Any]:
+    def _merge_rules(self, config_rules: dict[str, Any], custom_rules: dict[str, Any]) -> dict[str, Any]:
         """Merge default, configuration, and custom rules.
         
         Args:
@@ -562,7 +619,7 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
         
         return merged
     
-    async def _assess_security(self, api_spec: Dict[str, Any], security_rules: Dict[str, Any]) -> List[FindingResult]:
+    async def _assess_security(self, api_spec: dict[str, Any], security_rules: dict[str, Any]) -> list[FindingResult]:
         """Assess API specification against security rules.
         
         Args:
@@ -570,7 +627,7 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
             security_rules: Security rules to check
             
         Returns:
-            List of security findings
+            list of security findings
         """
         findings = []
         
@@ -707,7 +764,7 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
         
         return findings
     
-    async def _assess_standards(self, api_spec: Dict[str, Any], standard_rules: Dict[str, Any]) -> List[FindingResult]:
+    async def _assess_standards(self, api_spec: dict[str, Any], standard_rules: dict[str, Any]) -> list[FindingResult]:
         """Assess API specification against standard rules.
         
         Args:
@@ -715,7 +772,7 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
             standard_rules: Standard rules to check
             
         Returns:
-            List of standard findings
+            list of standard findings
         """
         findings = []
         
@@ -845,7 +902,7 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
         
         return findings
     
-    async def _assess_performance(self, api_spec: Dict[str, Any], performance_rules: Dict[str, Any]) -> List[FindingResult]:
+    async def _assess_performance(self, api_spec: dict[str, Any], performance_rules: dict[str, Any]) -> list[FindingResult]:
         """Assess API specification against performance rules.
         
         Args:
@@ -853,12 +910,12 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
             performance_rules: Performance rules to check
             
         Returns:
-            List of performance findings
+            list of performance findings
         """
         # For demo purposes, return empty list (placeholder for future implementation)
         return []
     
-    async def _assess_compliance(self, api_spec: Dict[str, Any], compliance_rules: Dict[str, Any]) -> List[FindingResult]:
+    async def _assess_compliance(self, api_spec: dict[str, Any], compliance_rules: dict[str, Any]) -> list[FindingResult]:
         """Assess API specification against compliance rules.
         
         Args:
@@ -866,12 +923,12 @@ class APIGovernanceProvider(WorkflowProvider, ProviderPlugin):
             compliance_rules: Compliance rules to check
             
         Returns:
-            List of compliance findings
+            list of compliance findings
         """
         # For demo purposes, return empty list (placeholder for future implementation)
         return []
     
-    def _format_report(self, report: GovernanceReport, output_format: str) -> Dict[str, Any]:
+    def _format_report(self, report: GovernanceReport, output_format: str) -> dict[str, Any]:
         """Format the governance report in the specified format.
         
         Args:

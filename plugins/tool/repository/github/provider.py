@@ -4,17 +4,31 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import dict, list, set, Optional, Any
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.tool import ToolProvider
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.tool.repository.base import RepositoryError, RepositoryProvider
+from pepperpy.tool.base import ToolError
+from pepperpy.tool.base import ToolError
+
+logger = logger.getLogger(__name__)
 
 
-class GitHubProvider(RepositoryProvider, BasePluginProvider):
-    """GitHub repository provider implementation."""
+class GitHubProvider(class GitHubProvider(ToolProvider, ProviderPlugin):
+    """GitHub repository provider implementation."""):
+    """
+    Tool github provider.
+    
+    This provider implements github functionality for the PepperPy tool framework.
+    """
 
     async def initialize(self) -> None:
-        """Initialize the repository provider."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         # Always call base initialize first
         await super().initialize()
 
@@ -23,7 +37,7 @@ class GitHubProvider(RepositoryProvider, BasePluginProvider):
 
         if not self.token:
             raise RepositoryError(
-                "GitHub token not provided. Set GITHUB_TOKEN environment variable "
+                "GitHub token not provided. set GITHUB_TOKEN environment variable "
                 "or pass token in config."
             )
 
@@ -54,7 +68,7 @@ class GitHubProvider(RepositoryProvider, BasePluginProvider):
             path: Optional path within repository
 
         Returns:
-            List of file metadata dictionaries
+            list of file metadata dictionaries
 
         Raises:
             RepositoryError: If files cannot be accessed
@@ -86,7 +100,7 @@ class GitHubProvider(RepositoryProvider, BasePluginProvider):
             limit: Optional limit on number of commits to retrieve
 
         Returns:
-            List of commit metadata dictionaries
+            list of commit metadata dictionaries
 
         Raises:
             RepositoryError: If commits cannot be accessed
@@ -140,7 +154,7 @@ class GitHubProvider(RepositoryProvider, BasePluginProvider):
             path: Optional path to list files from
 
         Returns:
-            List of file paths
+            list of file paths
 
         Raises:
             RepositoryError: If repository not cloned
@@ -187,7 +201,11 @@ class GitHubProvider(RepositoryProvider, BasePluginProvider):
             raise RepositoryError(f"Failed to read file: {e}")
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if self._repo_path and self._repo_path.exists():
             try:
                 # Remove temp directory
@@ -201,6 +219,7 @@ class GitHubProvider(RepositoryProvider, BasePluginProvider):
                     text=True,
                 )
             except Exception as e:
+                raise ToolError(f"Operation failed: {e}") from e
                 self.logger.warning(f"Error cleaning up repository: {e}")
 
         # Call parent cleanup

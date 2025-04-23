@@ -1,22 +1,43 @@
 """LLM test workflow provider implementation."""
 
-from typing import Any
+from typing import dict, Any
 
 from pepperpy import PepperPy
 from pepperpy.core.base import PepperpyError
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.workflow.base import WorkflowProvider
+from pepperpy.workflow.base import WorkflowError
+
+logger = logger.getLogger(__name__)
 
 
-class WorkflowError(PepperpyError):
-    """Base error for workflow errors."""
+class WorkflowError(class WorkflowError(PepperpyError):
+    """Base error for workflow errors."""):
+    """
+    Workflow workflowerror provider.
+    
+    This provider implements workflowerror functionality for the PepperPy workflow framework.
+    """
 
 
-class LLMTestWorkflow(WorkflowProvider, BasePluginProvider):
+class LLMTestWorkflow(...):
+    model: str
+    temperature: float
+    max_tokens: int
+    llm: Any
+    pepperpy: Any
+    pepperpy: Any
+    pepperpy: Any
+    pepperpy: Any
+    llm: Any
     """Test workflow for LLM capabilities."""
 
     async def initialize(self) -> None:
-        """Initialize resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         await super().initialize()
 
         # Get configuration from self.config
@@ -51,7 +72,11 @@ class LLMTestWorkflow(WorkflowProvider, BasePluginProvider):
             raise WorkflowError("Failed to initialize LLM") from e
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         try:
             if hasattr(self, "pepperpy") and self.pepperpy:
                 await self.pepperpy.cleanup()
@@ -78,7 +103,7 @@ class LLMTestWorkflow(WorkflowProvider, BasePluginProvider):
             # Get prompt from input
             prompt = input_data.get("prompt")
             if not prompt:
-                return {"status": "error", "message": "No prompt provided"}
+                raise WorkflowError("No prompt provided")
 
             # Get optional parameters
             system_prompt = input_data.get(
@@ -89,7 +114,7 @@ class LLMTestWorkflow(WorkflowProvider, BasePluginProvider):
 
             # Execute LLM call
             if not self.llm:
-                return {"status": "error", "message": "LLM not initialized"}
+                raise WorkflowError("LLM not initialized")
 
             response = await self.llm.generate(
                 prompt=prompt,
@@ -111,6 +136,7 @@ class LLMTestWorkflow(WorkflowProvider, BasePluginProvider):
             }
 
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             self.logger.error(f"Error executing LLM test: {e}")
             return {
                 "status": "error",

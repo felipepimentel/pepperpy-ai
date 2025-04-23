@@ -13,6 +13,9 @@ This directory contains rules that define architecture, coding standards, and be
 | 004-web-ui-architecture | Web UI patterns and best practices | When working with web UI components |
 | 005-api-architecture | API server patterns and implementation | When working with API server components |
 | 006-workflow-plugin-system | Workflow plugin requirements | When implementing workflow plugins |
+| 007-embedding-architecture | Embedding system patterns and implementation | When working with embedding providers or vector operations |
+| 008-rag-architecture | RAG system architecture and patterns | When implementing RAG components or vector stores |
+| 009-tool-architecture | Tool system architecture and patterns | When creating tools or agent integrations |
 | 999-mdc-format | MDC file format guide | When creating or updating *.mdc files |
 
 ## How to Apply Rules

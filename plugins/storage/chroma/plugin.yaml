@@ -1,12 +1,12 @@
-name: unknown/unknown
+name: storage/chroma
 version: 0.1.0
-description: Unknown plugin
+description: Storage provider for chroma
 author: PepperPy Team
 
-plugin_type: unknown
-category: provider
-provider_name: unknown
-entry_point: provider.UnknownProvider
+plugin_type: storage
+category: storage
+provider_name: chroma
+entry_point: provider.ChromaProvider
 
 config_schema:
   type: object

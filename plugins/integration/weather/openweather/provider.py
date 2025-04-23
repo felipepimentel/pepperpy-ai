@@ -1,20 +1,33 @@
 """OpenWeather API integration provider."""
 
 import logging
-from typing import Any
+from typing import dict, Any
 from urllib.parse import urljoin
 
 import aiohttp
 
 from pepperpy.core.base import PepperpyError
+from pepperpy.integration import IntegrationProvider
+from pepperpy.integration.errors import IntegrationError
 from pepperpy.plugin import ProviderPlugin
+from pepperpy.integration.base import IntegrationError
+
+logger = logging.getLogger(__name__)
 
 
-class IntegrationError(PepperpyError):
-    """Base error for integration errors."""
+class IntegrationError(class IntegrationError(PepperpyError):
+    """Base error for integration errors."""):
+    """
+    Integration integrationerror provider.
+    
+    This provider implements integrationerror functionality for the PepperPy integration framework.
+    """
 
 
-class OpenWeatherProvider(ProviderPlugin):
+class OpenWeatherProvider(...):
+    logger: Any
+    session: Any
+    session: Any
     """Provider for OpenWeather API integration.
 
     This provider implements the OpenWeather API for weather data.
@@ -27,14 +40,30 @@ class OpenWeatherProvider(ProviderPlugin):
     units: str = "metric"
 
     def __init__(self, **kwargs: Any) -> None:
-        """Initialize with configuration."""
+
+
+    """Initialize with configuration.
+
+
+
+    Args:
+
+
+        **kwargs: Parameter description
+
+
+    """
         super().__init__(**kwargs)
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logger.getLogger(self.__class__.__name__)
         self.session: aiohttp.ClientSession | None = None
         self._initialized = False
 
     async def initialize(self) -> None:
-        """Initialize provider resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._initialized:
             return
 
@@ -50,7 +79,11 @@ class OpenWeatherProvider(ProviderPlugin):
         )
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if self.session:
             await self.session.close()
             self.session = None

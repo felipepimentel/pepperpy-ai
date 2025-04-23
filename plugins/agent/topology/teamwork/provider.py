@@ -5,16 +5,21 @@ Implements a collaborative agent topology where agents work together
 as a team to solve complex problems through deliberation and consensus.
 """
 
-from typing import Any
+from typing import dict, list, tuple, Any
 
 from pepperpy.agent.topology.base import AgentTopologyProvider, TopologyError
 from pepperpy.core.logging import get_logger
+from pepperpy.agent import AgentProvider
 from pepperpy.plugin import ProviderPlugin
+from pepperpy.agent.base import AgentError
+from pepperpy.agent.base import AgentError
+
+logger = logger.getLogger(__name__)
 
 logger = get_logger(__name__)
 
 
-class TeamworkTopologyProvider(AgentTopologyProvider, ProviderPlugin):
+class TeamworkTopologyProvider(class TeamworkTopologyProvider(AgentProvider, ProviderPlugin):
     """Teamwork topology provider.
 
     Implements a collaborative approach to agent coordination where agents
@@ -33,6 +38,11 @@ class TeamworkTopologyProvider(AgentTopologyProvider, ProviderPlugin):
         max_iterations: Maximum iterations for deliberation
         consensus_required: Whether full consensus is needed
         agent_roles: Role definitions for each agent
+    """):
+    """
+    Agent teamworktopology provider.
+    
+    This provider implements teamworktopology functionality for the PepperPy agent framework.
     """
 
     # Type-annotated config attributes
@@ -42,7 +52,11 @@ class TeamworkTopologyProvider(AgentTopologyProvider, ProviderPlugin):
     consensus_required: bool = True
 
     async def initialize(self) -> None:
-        """Initialize topology resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self.initialized:
             return
 
@@ -101,6 +115,7 @@ class TeamworkTopologyProvider(AgentTopologyProvider, ProviderPlugin):
         try:
             return await self._execute_teamwork_process(task, input_data)
         except Exception as e:
+            raise AgentError(f"Operation failed: {e}") from e
             logger.error(f"Error in teamwork process: {e}")
             return {
                 "status": "error",
@@ -233,6 +248,7 @@ class TeamworkTopologyProvider(AgentTopologyProvider, ProviderPlugin):
         try:
             return await leader.process_message(leader_prompt)
         except Exception as e:
+            raise AgentError(f"Operation failed: {e}") from e
             logger.error(f"Error getting analysis from leader: {e}")
             return f"Error in analysis: {e}"
 
@@ -244,7 +260,7 @@ class TeamworkTopologyProvider(AgentTopologyProvider, ProviderPlugin):
             analysis: Leader's analysis
 
         Returns:
-            Dict mapping agent IDs to their perspectives
+            dict mapping agent IDs to their perspectives
         """
         perspectives: dict[str, str] = {}
 
@@ -274,6 +290,7 @@ class TeamworkTopologyProvider(AgentTopologyProvider, ProviderPlugin):
                 perspective = await agent.process_message(prompt)
                 perspectives[agent_id] = perspective
             except Exception as e:
+                raise AgentError(f"Operation failed: {e}") from e
                 logger.error(f"Error getting perspective from {agent_id}: {e}")
                 perspectives[agent_id] = f"Error: {e}"
 
@@ -318,6 +335,7 @@ class TeamworkTopologyProvider(AgentTopologyProvider, ProviderPlugin):
         try:
             return await leader.process_message(proposal_prompt)
         except Exception as e:
+            raise AgentError(f"Operation failed: {e}") from e
             logger.error(f"Error generating proposal: {e}")
             return f"Error in proposal: {e}"
 
@@ -330,7 +348,7 @@ class TeamworkTopologyProvider(AgentTopologyProvider, ProviderPlugin):
             proposal: Proposal text
 
         Returns:
-            Tuple of (votes, comments) where votes maps agent IDs to
+            tuple of (votes, comments) where votes maps agent IDs to
             vote values (0.0-1.0) and comments maps agent IDs to feedback
         """
         votes: dict[str, float] = {}
@@ -370,8 +388,18 @@ class TeamworkTopologyProvider(AgentTopologyProvider, ProviderPlugin):
                 votes[agent_id] = vote_score
                 comments[agent_id] = response
             except Exception as e:
+                raise AgentError(f"Operation failed: {e}") from e
                 logger.error(f"Error collecting vote from {agent_id}: {e}")
                 votes[agent_id] = 0.0
                 comments[agent_id] = f"Error: {e}"
 
         return votes, comments
+
+    async def cleanup(self) -> bool:
+        """
+        Clean up resources used by the provider.
+        
+        Returns:
+            True if cleanup was successful, False otherwise
+        """
+        return True

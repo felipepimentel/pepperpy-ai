@@ -1,12 +1,12 @@
-name: unknown/unknown
+name: rag/tiny_vector
 version: 0.1.0
-description: Unknown plugin
+description: Rag provider for tiny_vector
 author: PepperPy Team
 
-plugin_type: unknown
-category: provider
-provider_name: unknown
-entry_point: provider.UnknownProvider
+plugin_type: rag
+category: rag
+provider_name: tiny_vector
+entry_point: provider.Tiny_vectorProvider
 
 config_schema:
   type: object

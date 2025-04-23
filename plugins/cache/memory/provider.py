@@ -2,10 +2,15 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Self, TypeVar
+from typing import dict, list, set, Any, Self, TypeVar
 
 from pepperpy.cache.provider import CacheError, CacheProvider
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.cache import CacheProvider
+from pepperpy.cache.errors import CacheError
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.cache.base import CacheError
+
+logger = logger.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -21,12 +26,25 @@ class CacheEntry:
 
     @property
     def is_expired(self) -> bool:
-        """Check if entry is expired."""
+
+    """Check if entry is expired.
+
+
+    Returns:
+
+        Return description
+
+    """
         return self.expires_at is not None and datetime.now() > self.expires_at
 
 
-class MemoryCacheProvider(CacheProvider, BasePluginProvider):
-    """In-memory cache provider implementation."""
+class MemoryCacheProvider(class MemoryCacheProvider(CacheProvider, ProviderPlugin):
+    """In-memory cache provider implementation."""):
+    """
+    Cache memorycache provider.
+    
+    This provider implements memorycache functionality for the PepperPy cache framework.
+    """
 
     # Type-annotated config attributes
     max_entries: int = 10000
@@ -37,22 +55,42 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
     _tags: dict[str, set[str]]
 
     async def __aenter__(self) -> Self:
-        """Enter async context manager.
+ """Enter async context manager.
 
         This allows the provider to be used with async with.
-        """
+
+ Returns:
+     Return description
+ """
         await self.initialize()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Exit async context manager.
+ """Exit async context manager.
 
         This ensures resources are properly cleaned up when the context is exited.
-        """
+
+ Args:
+     exc_type: Parameter description
+     exc_val: Parameter description
+     exc_tb: Parameter description
+ """
         await self.cleanup()
 
     def __repr__(self) -> str:
-        """Return string representation of provider."""
+
+
+    """Return string representation of provider.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         initialized = getattr(self, "initialized", False)
         entry_count = len(getattr(self, "_entries", {}))
         return (
@@ -62,10 +100,10 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
         )
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         if self.initialized:
             return
 
@@ -92,10 +130,10 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
         )
 
     async def cleanup(self) -> None:
-        """Clean up provider resources.
+ """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         # Clear cache storage
         if hasattr(self, "_entries"):
             self._entries.clear()
@@ -132,7 +170,7 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
         task = input_data.get("task")
 
         if not task:
-            return {"status": "error", "message": "No task specified"}
+            raise CacheError("No task specified")
 
         try:
             if task == "get":
@@ -140,7 +178,7 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
                 default = input_data.get("default")
 
                 if not key:
-                    return {"status": "error", "message": "Key is required"}
+                    raise CacheError("Key is required")
 
                 value = self.get(key, default)
                 return {
@@ -157,20 +195,20 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
                 metadata = input_data.get("metadata", {})
 
                 if not key:
-                    return {"status": "error", "message": "Key is required"}
+                    raise CacheError("Key is required")
 
                 if value is None:
-                    return {"status": "error", "message": "Value is required"}
+                    raise CacheError("Value is required")
 
                 # Validate ttl
                 if ttl is not None and ttl < 0:
-                    return {"status": "error", "message": "TTL cannot be negative"}
+                    raise CacheError("TTL cannot be negative")
 
                 # Convert tags to set if it's a list
                 if isinstance(tags, list):
                     tags = set(tags)
                 elif not isinstance(tags, set):
-                    return {"status": "error", "message": "Tags must be a list or set"}
+                    raise CacheError("Tags must be a list or set")
 
                 # Check if we've reached max entries
                 if len(self._entries) >= self.max_entries and key not in self._entries:
@@ -191,7 +229,7 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
                 key = input_data.get("key")
 
                 if not key:
-                    return {"status": "error", "message": "Key is required"}
+                    raise CacheError("Key is required")
 
                 self.delete(key)
                 return {"status": "success", "message": "Key deleted"}
@@ -200,7 +238,7 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
                 tag = input_data.get("tag")
 
                 if not tag:
-                    return {"status": "error", "message": "Tag is required"}
+                    raise CacheError("Tag is required")
 
                 self.invalidate_tag(tag)
                 return {"status": "success", "message": "Tag invalidated"}
@@ -223,16 +261,14 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
                 query = input_data.get("query")
 
                 if not query or not isinstance(query, dict):
-                    return {
-                        "status": "error",
-                        "message": "Valid query is required for search",
-                    }
+                    raise CacheError("Valid query is required for search",
+                    )
 
                 results = self.search_by_metadata(query)
                 return {"status": "success", "results": results, "count": len(results)}
 
             else:
-                return {"status": "error", "message": f"Unknown task: {task}"}
+                raise CacheError(f"Unknown task: {task)"}
 
         except CacheError as e:
             self.logger.error(f"Cache error during task '{task}': {e}")
@@ -248,7 +284,7 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
             query: Dictionary of metadata keys and values to match
 
         Returns:
-            List of matching entries (key, value, metadata)
+            list of matching entries (key, value, metadata)
         """
         results = []
 
@@ -325,12 +361,32 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
 
         return len(expired_keys)
 
-    def get(
-        self,
+    def get(self,
         key: str,
-        default: T | None = None,
-    ) -> T | None:
-        """Get value from cache."""
+        default: T | None = None,) -> T | None:
+
+
+    """Get value from cache.
+
+
+
+    Args:
+
+
+        key: Parameter description
+
+
+        default: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         entry = self._entries.get(key)
         if entry is None or entry.is_expired:
             if entry and entry.is_expired:
@@ -339,15 +395,40 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
             return default
         return entry.value
 
-    def set(
-        self,
+    def set(self,
         key: str,
         value: T,
         ttl: int | None = None,
         tags: set[str] | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> None:
-        """Set value in cache."""
+        metadata: dict[str, Any] | None = None,) -> None:
+
+
+    """set value in cache.
+
+
+
+    Args:
+
+
+        key: Parameter description
+
+
+        value: Parameter description
+
+
+        ttl: Parameter description
+
+
+        tags: Parameter description
+
+
+        metadata: Parameter description
+
+
+        Any] | None = None: Parameter description
+
+
+    """
         # Use default_ttl if ttl is None
         ttl_value = self.default_ttl if ttl is None else ttl
 
@@ -372,7 +453,19 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
                 self._tags[tag].add(key)
 
     def delete(self, key: str) -> None:
-        """Delete value from cache."""
+
+
+    """Delete value from cache.
+
+
+
+    Args:
+
+
+        key: Parameter description
+
+
+    """
         if key in self._entries:
             # Remove from tag indices
             for tag_keys in self._tags.values():
@@ -380,7 +473,19 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
             del self._entries[key]
 
     def invalidate_tag(self, tag: str) -> None:
-        """Invalidate all entries with tag."""
+
+
+    """Invalidate all entries with tag.
+
+
+
+    Args:
+
+
+        tag: Parameter description
+
+
+    """
         if tag in self._tags:
             keys = self._tags[
                 tag
@@ -390,6 +495,11 @@ class MemoryCacheProvider(CacheProvider, BasePluginProvider):
             del self._tags[tag]
 
     def clear(self) -> None:
-        """Clear all entries."""
+
+
+    """Clear all entries.
+
+
+    """
         self._entries.clear()
         self._tags.clear()

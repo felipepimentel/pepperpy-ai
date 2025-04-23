@@ -1,0 +1,5 @@
+---
+description: Overview of embedding system architecture, provider implementation, and validation requirements
+globs: **/embedding/**
+---
+# Embedding System Architecture

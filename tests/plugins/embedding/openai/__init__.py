@@ -1,0 +1,1 @@
+"""Test OpenAI embedding provider."""

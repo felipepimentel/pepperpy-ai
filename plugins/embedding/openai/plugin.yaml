@@ -1,4 +1,4 @@
-name: embedding/openai
+name: embedding/provider/openai
 version: 0.1.0
 description: OpenAI Embeddings provider for PepperPy
 author: PepperPy Team
@@ -42,3 +42,13 @@ examples:
         key: "value"
     expected_output:
       status: "success"
+      result: "Task executed successfully"
+  
+  - name: "embedding_example"
+    description: "Text embedding test"
+    input:
+      task: "embed_text"
+      text: "This is a test sentence for embedding."
+    expected_output:
+      status: "success"
+      result: "VECTOR_DATA"  # Actual vector data will vary

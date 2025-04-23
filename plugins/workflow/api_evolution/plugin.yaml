@@ -1,4 +1,4 @@
-name: api_evolution
+name: workflow/api_evolution
 version: 0.1.0
 description: Workflow for managing API versioning, compatibility analysis, and migration strategies
 author: PepperPy Team

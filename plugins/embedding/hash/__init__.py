@@ -1,5 +1,7 @@
-"""Hash embeddings provider package."""
+"""
+Provider for hash.
+"""
 
-from .provider import HashEmbeddingProvider
+from .provider import HashProvider
 
-__all__ = ["HashEmbeddingProvider"]
+__all__ = ["HashProvider"]

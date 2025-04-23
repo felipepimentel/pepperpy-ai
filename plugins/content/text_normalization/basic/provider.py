@@ -7,16 +7,26 @@ that don't require external dependencies.
 import re
 import string
 import unicodedata
-from typing import Any
+from typing import dict, list, set, Optional, Any
 
 from pepperpy.content.base import TextNormalizationError, TextNormalizer
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.content import ContentProvider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.content.base import ContentError
+from pepperpy.content.base import ContentError
+
+logger = logger.getLogger(__name__)
 
 
-class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
+class BasicTextNormalizer(class BasicTextNormalizer(TextNormalizer, ProviderPlugin):
     """Basic text normalizer implementation.
 
     This normalizer provides common text transformations without external dependencies.
+    """):
+    """
+    Content basictextnormalizer provider.
+    
+    This provider implements basictextnormalizer functionality for the PepperPy content framework.
     """
 
     # Default cleanup patterns
@@ -52,10 +62,10 @@ class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
     }
 
     async def initialize(self) -> None:
-        """Initialize the normalizer.
+ """Initialize the normalizer.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         # Initialize state
         self.initialized = True
 
@@ -70,17 +80,17 @@ class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
             ],
         )
 
-        # Set patterns
-        custom_patterns = self.config.get("custom_patterns", {})
+        # set patterns
+        custom_patterns = self.custom_patterns
         self.patterns = self.DEFAULT_PATTERNS.copy()
         self.patterns.update(custom_patterns)
 
-        # Set replacements
-        custom_replacements = self.config.get("custom_replacements", {})
+        # set replacements
+        custom_replacements = self.custom_replacements
         self.replacements = self.DEFAULT_REPLACEMENTS.copy()
         self.replacements.update(custom_replacements)
 
-        # Set language
+        # set language
         self.language = self.config.get("language", "en")
 
         # Compile patterns
@@ -93,10 +103,10 @@ class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
         )
 
     async def cleanup(self) -> None:
-        """Clean up resources.
+ """Clean up resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         # No resources to clean up
         self.compiled_patterns = {}
         self.initialized = False
@@ -107,14 +117,14 @@ class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
         Args:
             input_data: Input data containing:
                 - text: Text to normalize
-                - transformations: (Optional) List of transformations to apply
+                - transformations: (Optional) list of transformations to apply
 
         Returns:
-            Dict with normalized text
+            dict with normalized text
         """
         text = input_data.get("text", "")
         if not text:
-            return {"status": "error", "error": "No text provided"}
+            raise ContentError("No text provided")
 
         # Check if we should override default transformations
         override_transformations = input_data.get("transformations")
@@ -141,7 +151,7 @@ class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
             if override_transformations:
                 self.transformations = temp_transformations
 
-            return {"status": "error", "error": str(e)}
+            raise ContentError(str(e))
 
     def normalize(self, text: str) -> str:
         """Apply all configured normalizations to text.
@@ -178,19 +188,95 @@ class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
         return result
 
     def transform_strip_whitespace(self, text: str) -> str:
-        """Strip leading and trailing whitespace."""
+
+
+    """Strip leading and trailing whitespace.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return text.strip()
 
     def transform_normalize_unicode(self, text: str) -> str:
-        """Normalize Unicode characters to NFKC form."""
+
+
+    """Normalize Unicode characters to NFKC form.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return unicodedata.normalize("NFKC", text)
 
     def transform_normalize_whitespace(self, text: str) -> str:
-        """Replace multiple whitespace with single space."""
+
+
+    """Replace multiple whitespace with single space.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return re.sub(r"\s+", " ", text)
 
     def transform_remove_control_chars(self, text: str) -> str:
-        """Remove control characters except newlines and tabs."""
+
+
+    """Remove control characters except newlines and tabs.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return "".join(
             c
             for c in text
@@ -198,25 +284,120 @@ class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
         )
 
     def transform_replace_chars(self, text: str) -> str:
-        """Replace special characters with standard ones."""
+
+
+    """Replace special characters with standard ones.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         for old, new in self.replacements.items():
             text = text.replace(old, new)
         return text
 
     def transform_lowercase(self, text: str) -> str:
-        """Convert text to lowercase."""
+
+
+    """Convert text to lowercase.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return text.lower()
 
     def transform_remove_punctuation(self, text: str) -> str:
-        """Remove all punctuation."""
+
+
+    """Remove all punctuation.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return "".join(c for c in text if c not in string.punctuation)
 
     def transform_remove_numbers(self, text: str) -> str:
-        """Remove all digits."""
+
+
+    """Remove all digits.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return "".join(c for c in text if not c.isdigit())
 
     def transform_fix_encoding(self, text: str) -> str:
-        """Fix common encoding issues."""
+
+
+    """Fix common encoding issues.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         fixed = text
         fixed = fixed.replace("Â", " ")
         fixed = fixed.replace("â€™", "'")
@@ -230,31 +411,164 @@ class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
         return fixed
 
     def transform_remove_urls(self, text: str) -> str:
-        """Remove URLs."""
+
+
+    """Remove URLs.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.compiled_patterns["url"].sub("", text)
 
     def transform_remove_emails(self, text: str) -> str:
-        """Remove email addresses."""
+
+
+    """Remove email addresses.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.compiled_patterns["email"].sub("", text)
 
     def transform_remove_phone_numbers(self, text: str) -> str:
-        """Remove phone numbers."""
+
+
+    """Remove phone numbers.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.compiled_patterns["phone"].sub("", text)
 
     def transform_remove_ssn(self, text: str) -> str:
-        """Remove Social Security Numbers."""
+
+
+    """Remove Social Security Numbers.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.compiled_patterns["ssn"].sub("", text)
 
     def transform_remove_credit_cards(self, text: str) -> str:
-        """Remove credit card numbers."""
+
+
+    """Remove credit card numbers.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.compiled_patterns["credit_card"].sub("", text)
 
     def transform_remove_ip_addresses(self, text: str) -> str:
-        """Remove IP addresses."""
+
+
+    """Remove IP addresses.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.compiled_patterns["ip_address"].sub("", text)
 
     def transform_remove_markdown(self, text: str) -> str:
-        """Remove Markdown formatting."""
+
+
+    """Remove Markdown formatting.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         text = self.compiled_patterns["markdown_links"].sub(r"\1", text)
         text = re.sub(r"[*_]{1,2}(.*?)[*_]{1,2}", r"\1", text)  # Bold/Italic
         text = re.sub(r"~{2}(.*?)~{2}", r"\1", text)  # Strikethrough
@@ -263,11 +577,49 @@ class BasicTextNormalizer(TextNormalizer, BasePluginProvider):
         return text
 
     def transform_remove_html(self, text: str) -> str:
-        """Remove HTML tags."""
+
+
+    """Remove HTML tags.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return self.compiled_patterns["html_tags"].sub("", text)
 
     def transform_fix_line_breaks(self, text: str) -> str:
-        """Fix inconsistent line breaks."""
+
+
+    """Fix inconsistent line breaks.
+
+
+
+    Args:
+
+
+        text: Parameter description
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         text = re.sub(r"\r\n", "\n", text)  # Windows to Unix
         text = re.sub(r"\r", "\n", text)  # Mac to Unix
         text = re.sub(r"(?<=[a-z,;:])\n(?=[a-z])", " ", text)  # Fix broken sentences

@@ -1,12 +1,12 @@
-name: unknown/unknown
+name: storage/object_store
 version: 0.1.0
-description: Unknown plugin
+description: Storage provider for object_store
 author: PepperPy Team
 
-plugin_type: unknown
-category: provider
-provider_name: unknown
-entry_point: provider.UnknownProvider
+plugin_type: storage
+category: storage
+provider_name: object_store
+entry_point: provider.ObjectStoreProvider
 
 config_schema:
   type: object
@@ -29,3 +29,4 @@ examples:
         key: "value"
     expected_output:
       status: "success"
+      result: "Task executed successfully"

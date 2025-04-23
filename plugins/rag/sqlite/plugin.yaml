@@ -1,12 +1,12 @@
-name: unknown/unknown
+name: rag/sqlite
 version: 0.1.0
-description: Unknown plugin
+description: Rag provider for sqlite
 author: PepperPy Team
 
-plugin_type: unknown
-category: provider
-provider_name: unknown
-entry_point: provider.UnknownProvider
+plugin_type: rag
+category: rag
+provider_name: sqlite
+entry_point: provider.SqliteProvider
 
 config_schema:
   type: object

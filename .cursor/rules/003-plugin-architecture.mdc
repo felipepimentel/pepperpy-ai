@@ -14,7 +14,30 @@ plugins/
     └── provider_type/       # Provider type (text_normalization, etc)
         └── impl/            # Implementation (basic, nltk, etc)
             ├── plugin.yaml  # Plugin metadata and configuration
-            └── provider.py  # Provider implementation
+            ├── provider.py  # Provider implementation
+            ├── __init__.py  # Module exports
+            └── requirements.txt  # Plugin-specific dependencies
+```
+
+## Plugin Creation and Maintenance
+
+PepperPy provides several tools for plugin development:
+
+```bash
+# Create new plugin from template
+python scripts/create_plugin.py domain/category/provider
+
+# Validate plugin against schema
+python scripts/plugin_schema_validator.py -s plugins/domain/category/provider
+
+# Generate tests from plugin examples
+python scripts/generate_plugin_tests.py -s plugins/domain/category/provider
+
+# Generate plugin documentation
+python scripts/generate_plugin_docs.py -s plugins/domain/category/provider
+
+# Check plugin version compatibility
+python scripts/plugin_version_checker.py -s plugins/domain/category/provider
 ```
 
 ## Plugin.yaml Requirements
@@ -32,6 +55,10 @@ category: provider_type              # Provider category
 provider_name: implementation_name   # Provider name
 entry_point: provider.ClassName      # Implementation class path
 
+# Version constraints (recommended)
+min_framework_version: 0.1.0         # Minimum compatible framework version
+# max_framework_version: 0.2.0       # Maximum compatible framework version
+
 # Configuration schema (JSON Schema format)
 config_schema:
   type: object
@@ -43,10 +70,23 @@ config_schema:
       type: string
       description: Description
       default: default_value
+  required:
+    - required_option
 
 # Default configuration
 default_config:
   optional_option: default_value
+
+# Examples for testing (at least one required)
+examples:
+  - name: basic_example
+    description: Basic example of plugin functionality
+    input:
+      task: example_task
+      parameter: example_value
+    expected_output:
+      status: success
+      result: example_result
 ```
 
 ## Provider Implementation Pattern
@@ -88,16 +128,53 @@ class MyProvider(DomainProvider, ProviderPlugin):
             await self.client.close()
             self.client = None
     
-    async def process(self, input: str) -> str:
-        """Process input data.
+    async def execute(self, input_data: dict) -> dict:
+        """Execute provider functionality.
         
-        ALWAYS handle errors properly.
+        ALWAYS handle errors properly and return structured responses.
+        
+        Args:
+            input_data: Input data containing task and parameters
+            
+        Returns:
+            Response dictionary with status and result/message
         """
         try:
-            response = await self.client.call_api(
-                input, 
-                option=self.option
-            )
+            task = input_data.get("task")
+            
+            if task == "process":
+                result = await self._process_data(input_data)
+                return {
+                    "status": "success",
+                    "result": result
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Unknown task: {task}"
+                }
+        except Exception as e:
+            self.logger.error(f"Error executing task: {e}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+            
+    async def _process_data(self, input_data: dict) -> dict:
+        """Process input data (internal method).
+        
+        Args:
+            input_data: Input parameters
+            
+        Returns:
+            Processed result
+            
+        Raises:
+            DomainError: If processing fails
+        """
+        try:
+            value = input_data.get("parameter")
+            response = await self.client.call_api(value, option=self.option)
             return self._format_response(response)
         except ExternalError as e:
             raise DomainError(f"Processing failed: {e}") from e
@@ -112,37 +189,90 @@ class MyProvider(DomainProvider, ProviderPlugin):
 - Use type annotations for configuration attributes
 - Implement async initialize/cleanup methods
 - Handle errors with domain-specific exceptions
+- Define execute() method with dict input and dict output
+- Include at least one example in plugin.yaml
 
 ❌ **NEVER**:
 - Initialize resources in constructor
 - Manage initialization flag manually
-- Return None or error codes on failure
+- Return None or use custom error codes
 - Use generic exceptions
 - Implement your own from_config method
+- Hardcode config values in provider class
 
-### 2. Resource Management
+### 2. Response Format
+
+✅ **ALWAYS** use standardized response format:
+```python
+# Success response
+{
+    "status": "success",
+    "result": {...}  # Output data
+}
+
+# Error response
+{
+    "status": "error", 
+    "message": "Error description"  # Human-readable error
+}
+```
+
+### 3. Resource Management
 
 ✅ **ALWAYS**:
 - Initialize resources in async initialize()
 - Release resources in async cleanup()
 - Handle cleanup for partial initialization
 - Log initialization with self.logger.debug()
+- Check initialization status before re-initializing
 
-### 3. Error Handling
+### 4. Error Handling
 
 ✅ **ALWAYS**:
 - Convert external exceptions to domain exceptions
 - Include original exception as cause
 - Add context to error messages
 - Use specific error types from domain
+- Log errors with appropriate level
 
-### 4. Configuration
+### 5. Configuration
 
 ✅ **ALWAYS**:
 - Define schema in plugin.yaml
 - Use type annotations in class for config fields
 - Provide defaults in plugin.yaml
 - Access config via attributes (self.option)
+- Define min_framework_version for version compatibility
+
+## Plugin Validation
+
+### Configuration Schema
+
+All plugins must define a valid configuration schema following JSON Schema format:
+
+- Properties must have type and description
+- Required properties should not have defaults
+- Default values must match their defined types
+- Default config must only use properties defined in schema
+
+### Plugin Examples
+
+All plugins must include examples that:
+
+- Have unique names
+- Include description, input, and expected_output
+- Use proper response format with status field
+- Include result for success examples
+- Include message for error examples
+
+### Consistency Check
+
+The plugin validation process checks for consistency between:
+
+- Directory structure and plugin_type/category/provider_name fields
+- entry_point and actual class implementation in provider.py
+- default_config and config_schema properties
+- Version compatibility with current framework
 
 ## Direct Adapter Pattern
 
@@ -156,8 +286,12 @@ from plugins.workflow.repository_analyzer.provider import RepositoryAnalyzerAdap
 adapter = RepositoryAnalyzerAdapter()
 await adapter.initialize()
 
-# Use adapter functionality
-result = await adapter.execute({"task": "analyze_repository"})
+try:
+    # Use adapter functionality
+    result = await adapter.execute({"task": "analyze_repository"})
+    print(result)
+finally:
+    await adapter.cleanup()
 ```
 
 ### When to use Direct Adapter Pattern:
@@ -175,6 +309,8 @@ result = await adapter.execute({"task": "analyze_repository"})
 
 ## Testing Requirements
 
+Plugins should include automated tests using the standard pattern:
+
 ```python
 import pytest
 from pepperpy.domain import create_provider
@@ -189,29 +325,24 @@ async def test_provider():
     )
     
     async with provider:
-        result = await provider.process("test input")
-        assert result == "expected output"
-```
-
-## Testing Direct Adapter 
-
-When testing adapters directly, utilize this pattern:
-
-```python
-@pytest.mark.asyncio
-async def test_adapter_direct():
-    """Test adapter functionality directly."""
-    from plugins.domain.provider_type.adapter import DirectAdapter
-    
-    adapter = DirectAdapter(config_param="value")
-    await adapter.initialize()
-    
-    try:
-        result = await adapter.execute({"task": "specific_task"})
+        result = await provider.execute({"task": "process", "parameter": "test"})
         assert result["status"] == "success"
-    finally:
-        await adapter.cleanup()
+        assert "result" in result
 ```
+
+### Testing from Plugin Examples
+
+Use the `generate_plugin_tests.py` script to automatically generate tests from plugin examples:
+
+```bash
+python scripts/generate_plugin_tests.py -s plugins/domain/category/provider
+```
+
+Generated tests will:
+- Initialize the provider
+- Execute with example input
+- Verify output matches expected format
+- Check specific result properties based on example type
 
 ## Troubleshooting Plugin Issues
 
@@ -219,24 +350,26 @@ async def test_adapter_direct():
 
 If plugin doesn't register properly:
 
-1. Check plugin.yaml for correct format (plugin_type, provider_name)
-2. Verify adapter class inherits required base classes
-3. Look for import errors in plugin initialization
-4. Consider the Direct Adapter Pattern for critical functionality
+1. Use `plugin_schema_validator.py` to check for schema issues
+2. Verify plugin.yaml has correct format (plugin_type, provider_name)
+3. Check that provider class inherits required base classes
+4. Look for import errors in plugin initialization
+5. Consider the Direct Adapter Pattern for critical functionality
 
-### Type Compatibility Issues
+### Version Compatibility Issues
 
-When facing type compatibility issues between models:
+Use `plugin_version_checker.py` to identify potential version compatibility issues:
 
-```python
-# Handling type incompatibilities
-from typing import TYPE_CHECKING, cast
+```bash
+python scripts/plugin_version_checker.py
+```
 
-if TYPE_CHECKING:
-    from pepperpy.workflow.models import Workflow as ModelsWorkflow
+### Documentation
 
-# Cast to appropriate type when necessary
-workflow_id = cast(str, workflow.id)
+Generate documentation to understand plugin capabilities:
+
+```bash
+python scripts/generate_plugin_docs.py -s plugins/domain/category/provider
 ```
 
 ### CLI Access to Plugin Functionality
@@ -247,17 +380,34 @@ Create dedicated entry points for direct CLI access:
 #!/usr/bin/env python3
 
 import asyncio
+import json
 import sys
 from plugins.domain.provider_type.adapter import DirectAdapter
 
 async def main():
     """Direct CLI access to plugin functionality."""
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <task> [--input '{{...}}']")
+        return 1
+        
+    task = sys.argv[1]
+    input_data = {"task": task}
+    
+    # Parse input if provided
+    for i, arg in enumerate(sys.argv):
+        if arg == "--input" and i + 1 < len(sys.argv):
+            try:
+                input_data.update(json.loads(sys.argv[i + 1]))
+            except json.JSONDecodeError:
+                print("Error: Invalid JSON input")
+                return 1
+    
     adapter = DirectAdapter()
     await adapter.initialize()
     
     try:
-        result = await adapter.execute({"task": sys.argv[1]})
-        print(result)
+        result = await adapter.execute(input_data)
+        print(json.dumps(result, indent=2))
     finally:
         await adapter.cleanup()
 

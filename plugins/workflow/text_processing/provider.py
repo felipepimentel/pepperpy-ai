@@ -1,8 +1,9 @@
 """Text processing workflow provider implementation."""
 
-from typing import Any, cast
+from typing import dict, list, Any, cast
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.workflow import WorkflowProvider
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.rag.pipeline.processors import (
     NLTKProcessor,
     ProcessedText,
@@ -12,6 +13,9 @@ from pepperpy.rag.pipeline.processors import (
     TransformersProcessor,
 )
 from pepperpy.workflow.base import PipelineContext, PipelineStage, WorkflowProvider
+from pepperpy.workflow.base import WorkflowError
+
+logger = logger.getLogger(__name__)
 
 
 class TextProcessingStage(PipelineStage[str, ProcessedText]):
@@ -42,7 +46,11 @@ class TextProcessingStage(PipelineStage[str, ProcessedText]):
         self._processor: TextProcessor | None = None
 
     async def initialize(self) -> None:
-        """Initialize the processor."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._processor_type == "spacy":
             self._processor = SpacyProcessor(
                 model=self._model if self._model is not None else "en_core_web_sm"
@@ -64,7 +72,11 @@ class TextProcessingStage(PipelineStage[str, ProcessedText]):
             await self._processor.initialize()
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if self._processor:
             await self._processor.cleanup()
 
@@ -127,7 +139,11 @@ class BatchTextProcessingStage(PipelineStage[list[str], list[ProcessedText]]):
         self._processor: TextProcessor | None = None
 
     async def initialize(self) -> None:
-        """Initialize the processor."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._processor_type == "spacy":
             self._processor = SpacyProcessor(
                 model=self._model if self._model is not None else "en_core_web_sm",
@@ -150,7 +166,11 @@ class BatchTextProcessingStage(PipelineStage[list[str], list[ProcessedText]]):
             await self._processor.initialize()
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if self._processor:
             await self._processor.cleanup()
 
@@ -164,7 +184,7 @@ class BatchTextProcessingStage(PipelineStage[list[str], list[ProcessedText]]):
             context: Pipeline context
 
         Returns:
-            List of processed text results
+            list of processed text results
         """
         if not self._processor:
             await self.initialize()
@@ -188,7 +208,7 @@ class BatchTextProcessingStage(PipelineStage[list[str], list[ProcessedText]]):
         return results
 
 
-class TextProcessingProvider(WorkflowProvider, BasePluginProvider):
+class TextProcessingProvider(class TextProcessingProvider(WorkflowProvider, ProviderPlugin):
     """Text processing workflow provider implementation.
 
     This provider implements NLP processing functionality including:
@@ -196,13 +216,19 @@ class TextProcessingProvider(WorkflowProvider, BasePluginProvider):
     - Named entity extraction
     - Keyword extraction
     - Text summarization
+    """):
+    """
+    Workflow textprocessing provider.
+    
+    This provider implements textprocessing functionality for the PepperPy workflow framework.
     """
 
     async def initialize(self) -> None:
-        """Initialize the workflow provider.
+ """Initialize the provider.
 
-        This method is called when the provider is first used.
-        """
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         # Initialize from parent first
         await super().initialize()
 
@@ -210,10 +236,10 @@ class TextProcessingProvider(WorkflowProvider, BasePluginProvider):
             return
 
         # Initialize configuration
-        self._processor = self.config.get("processor", "spacy")
-        self._model = self.config.get("model")
-        self._device = self.config.get("device", "cpu")
-        self._batch_size = int(self.config.get("batch_size", 32))
+        self._processor = self.processor
+        self._model = self.model
+        self._device = self.device
+        self._batch_size = int(self.batch_size)
 
         # These are lazily initialized
         self._single_processor = None
@@ -225,7 +251,11 @@ class TextProcessingProvider(WorkflowProvider, BasePluginProvider):
         )
 
     async def cleanup(self) -> None:
-        """Clean up resources used by the provider."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         try:
             # Cleanup processor resources if they were initialized
             if hasattr(self, "_single_processor") and self._single_processor:
@@ -277,7 +307,7 @@ class TextProcessingProvider(WorkflowProvider, BasePluginProvider):
             **options: Additional processing options
 
         Returns:
-            List of processed text results
+            list of processed text results
         """
         if not hasattr(self, "_batch_processor") or not self._batch_processor:
             self._batch_processor = BatchTextProcessingStage(
@@ -302,8 +332,8 @@ class TextProcessingProvider(WorkflowProvider, BasePluginProvider):
             input_data: Input data with the following structure:
                 {
                     "task": str,  # Task to execute (process_text, process_batch)
-                    "text": str or List[str],  # Text to process
-                    "options": Dict[str, Any]  # Processing options
+                    "text": str or list[str],  # Text to process
+                    "options": dict[str, Any]  # Processing options
                 }
 
         Returns:
@@ -320,15 +350,13 @@ class TextProcessingProvider(WorkflowProvider, BasePluginProvider):
 
         try:
             if not text_input:
-                return {"status": "error", "message": "Input must contain 'text' field"}
+                raise WorkflowError("Input must contain 'text' field")
 
             if task_type == "process_text":
                 # Handle single text processing
                 if not isinstance(text_input, str):
-                    return {
-                        "status": "error",
-                        "message": "'text' must be a string for process_text task",
-                    }
+                    raise WorkflowError("'text' must be a string for process_text task",
+                    )
 
                 result = await self.process_text(text_input, **options)
                 return {
@@ -341,10 +369,8 @@ class TextProcessingProvider(WorkflowProvider, BasePluginProvider):
             elif task_type == "process_batch":
                 # Handle batch text processing
                 if not isinstance(text_input, list):
-                    return {
-                        "status": "error",
-                        "message": "'text' must be a list of strings for process_batch task",
-                    }
+                    raise WorkflowError("'text' must be a list of strings for process_batch task",
+                    )
 
                 results = await self.process_batch(text_input, **options)
                 return {
@@ -356,7 +382,7 @@ class TextProcessingProvider(WorkflowProvider, BasePluginProvider):
                 }
 
             else:
-                return {"status": "error", "message": f"Unknown task: {task_type}"}
+                raise WorkflowError(f"Unknown task: {task_type)"}
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task_type}': {e}")

@@ -8,7 +8,7 @@ import json
 import enum
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
+from typing import Any, dict, list, Optional, tuple, TypedDict, cast
 
 from pepperpy.a2a.simulation import SimulationEnvironment, SimulatedAgent
 from pepperpy.a2a.simulation import echo_response_handler, delayed_response_handler, stateful_response_handler
@@ -16,6 +16,10 @@ from pepperpy.a2a.types import AgentCard, AgentTask, MessageContent
 from pepperpy.core.plugin import ProviderPlugin
 from pepperpy.core.logging import get_logger
 from pepperpy.workflow import BaseWorkflowProvider
+from pepperpy.workflow.base import WorkflowError
+from pepperpy.workflow import WorkflowProvider
+
+logger = logger.getLogger(__name__)
 
 
 class DemoMode(enum.Enum):
@@ -26,16 +30,21 @@ class DemoMode(enum.Enum):
     STATEFUL = "stateful"
 
 
-class A2ADemoWorkflow(BaseWorkflowProvider, ProviderPlugin):
+class A2ADemoWorkflow(class A2ADemoWorkflow(BaseWorkflowProvider, ProviderPlugin):
     """
     A workflow provider that demonstrates A2A (Agent-to-Agent) communication capabilities.
     
     This workflow sets up a simulation environment with multiple agents and demonstrates
     various interaction patterns including basic message passing, multi-agent conversations,
     conversation chains, and stateful interactions.
+    """):
+    """
+    Workflow a2ademoworkflow provider.
+    
+    This provider implements a2ademoworkflow functionality for the PepperPy workflow framework.
     """
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """Initialize the A2A Demo Workflow provider.
 
         Args:
@@ -48,7 +57,11 @@ class A2ADemoWorkflow(BaseWorkflowProvider, ProviderPlugin):
         self._initialized = False
 
     async def initialize(self) -> None:
-        """Initialize the workflow resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._initialized:
             return
 
@@ -100,14 +113,18 @@ class A2ADemoWorkflow(BaseWorkflowProvider, ProviderPlugin):
             raise
 
     async def cleanup(self) -> None:
-        """Clean up any resources used by the provider."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if self._sim_env:
             await self._sim_env.cleanup()
         self._initialized = False
         self._agents = {}
         self._logger.info("A2A Demo Workflow resources cleaned up")
 
-    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Execute the A2A demo workflow.
 
         Args:
@@ -120,7 +137,7 @@ class A2ADemoWorkflow(BaseWorkflowProvider, ProviderPlugin):
             await self.initialize()
 
         # Get demo mode from config, defaulting to basic
-        demo_mode_str = self.config.get("demo_mode", "basic")
+        demo_mode_str = self.demo_mode
         try:
             demo_mode = DemoMode(demo_mode_str)
         except ValueError:
@@ -147,7 +164,7 @@ class A2ADemoWorkflow(BaseWorkflowProvider, ProviderPlugin):
             "results": results
         }
 
-    async def _run_basic_demo(self, message: str) -> Dict[str, Any]:
+    async def _run_basic_demo(self, message: str) -> dict[str, Any]:
         """Run a basic demo with a single agent.
 
         Args:
@@ -181,7 +198,7 @@ class A2ADemoWorkflow(BaseWorkflowProvider, ProviderPlugin):
             "response": response.to_dict() if response else None
         }
 
-    async def _run_multi_agent_demo(self, message: str) -> Dict[str, Any]:
+    async def _run_multi_agent_demo(self, message: str) -> dict[str, Any]:
         """Run a demo with multiple agents.
 
         Args:
@@ -217,7 +234,7 @@ class A2ADemoWorkflow(BaseWorkflowProvider, ProviderPlugin):
         
         return {"interactions": results}
 
-    async def _run_conversation_chain_demo(self, message: str) -> Dict[str, Any]:
+    async def _run_conversation_chain_demo(self, message: str) -> dict[str, Any]:
         """Run a demo with a chain of conversations between agents.
 
         Args:
@@ -267,7 +284,7 @@ class A2ADemoWorkflow(BaseWorkflowProvider, ProviderPlugin):
         
         return {"chain": results, "final_result": current_message}
 
-    async def _run_stateful_demo(self, message: str) -> Dict[str, Any]:
+    async def _run_stateful_demo(self, message: str) -> dict[str, Any]:
         """Run a demo that demonstrates stateful interactions.
 
         Args:

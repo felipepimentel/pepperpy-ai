@@ -1,7 +1,7 @@
 """NLTK text processor implementation."""
 
 import logging
-from typing import Any
+from typing import dict, list, Any
 
 import nltk
 from nltk.chunk import ne_chunk
@@ -9,19 +9,29 @@ from nltk.stem import WordNetLemmatizer
 from nltk.tag import pos_tag
 from nltk.tokenize import sent_tokenize, word_tokenize
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.rag import RAGProvider
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.rag.processor import (
+from pepperpy.rag.base import RagError
+from pepperpy.rag.base import RagError
+
+logger = logging.getLogger(__name__)
     ProcessedText,
     ProcessingOptions,
     TextProcessingError,
     TextProcessor,
 )
 
-logger = logging.getLogger(__name__)
+logger = logger.getLogger(__name__)
 
 
-class NLTKProcessor(TextProcessor, BasePluginProvider):
-    """Text processor using NLTK."""
+class NLTKProcessor(class NLTKProcessor(TextProcessor, ProviderPlugin):
+    """Text processor using NLTK."""):
+    """
+    Rag nltkprocessor provider.
+    
+    This provider implements nltkprocessor functionality for the PepperPy rag framework.
+    """
 
     def __init__(
         self,
@@ -34,7 +44,7 @@ class NLTKProcessor(TextProcessor, BasePluginProvider):
         Args:
             config: Configuration dictionary
             download_resources: Whether to download required NLTK resources
-            resources: List of specific resources to download
+            resources: list of specific resources to download
         """
         super().__init__()
         config = config or {}
@@ -50,7 +60,11 @@ class NLTKProcessor(TextProcessor, BasePluginProvider):
         self.initialized = False
 
     async def initialize(self) -> None:
-        """Initialize NLTK resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self.initialized:
             return
 
@@ -65,7 +79,11 @@ class NLTKProcessor(TextProcessor, BasePluginProvider):
         self.initialized = True
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         # No cleanup needed for NLTK
         self.initialized = False
 
@@ -76,7 +94,7 @@ class NLTKProcessor(TextProcessor, BasePluginProvider):
             text: Input text
 
         Returns:
-            List of named entities with their types
+            list of named entities with their types
         """
         tokens = word_tokenize(text)
         pos_tags = pos_tag(tokens)
@@ -153,7 +171,7 @@ class NLTKProcessor(TextProcessor, BasePluginProvider):
             options: Processing options
 
         Returns:
-            List of processed text results
+            list of processed text results
 
         Raises:
             TextProcessingError: If processing fails
@@ -165,12 +183,28 @@ class NLTKProcessor(TextProcessor, BasePluginProvider):
 
     @property
     def name(self) -> str:
-        """Get the processor name."""
+
+    """Get the processor name.
+
+
+    Returns:
+
+        Return description
+
+    """
         return "nltk"
 
     @property
     def capabilities(self) -> dict[str, Any]:
-        """Get the processor capabilities."""
+
+    """Get the processor capabilities.
+
+
+    Returns:
+
+        Return description
+
+    """
         return {
             "tokenization": True,
             "sentence_tokenization": True,
@@ -194,7 +228,7 @@ class NLTKProcessor(TextProcessor, BasePluginProvider):
         task_type = input_data.get("task")
 
         if not task_type:
-            return {"status": "error", "error": "No task specified"}
+            raise RagError("No task specified")
 
         try:
             if not self.initialized:
@@ -203,7 +237,7 @@ class NLTKProcessor(TextProcessor, BasePluginProvider):
             if task_type == "process":
                 text = input_data.get("text")
                 if not text:
-                    return {"status": "error", "error": "No text provided"}
+                    raise RagError("No text provided")
 
                 options_dict = input_data.get("options", {})
                 options = ProcessingOptions(
@@ -225,7 +259,7 @@ class NLTKProcessor(TextProcessor, BasePluginProvider):
             elif task_type == "process_batch":
                 texts = input_data.get("texts", [])
                 if not texts:
-                    return {"status": "error", "error": "No texts provided"}
+                    raise RagError("No texts provided")
 
                 options_dict = input_data.get("options", {})
                 options = ProcessingOptions(
@@ -250,8 +284,8 @@ class NLTKProcessor(TextProcessor, BasePluginProvider):
                 }
 
             else:
-                return {"status": "error", "error": f"Unknown task type: {task_type}"}
+                raise RagError(f"Unknown task type: {task_type)"}
 
         except Exception as e:
             logger.error(f"Error executing task '{task_type}': {e}")
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "message": str(e)}

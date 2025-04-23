@@ -16,16 +16,26 @@ import sys
 
 from pepperpy.core import PepperpyError
 from pepperpy.core.logging import setup_logging
+from pepperpy.cli.base import CliError
+from pepperpy.cli import CLIProvider
+from pepperpy.cli.base import CliError
+
+logger = logging.getLogger(__name__)
 
 
 class CLI:
     """Command-line interface for PepperPy."""
 
     def __init__(self) -> None:
-        """Initialize CLI."""
+
+
+    """Initialize CLI.
+
+
+    """
         self.parser = self._create_parser()
         setup_logging()
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger.getLogger(__name__)
 
     def _create_parser(self) -> argparse.ArgumentParser:
         """Create argument parser.
@@ -88,10 +98,10 @@ class CLI:
             help="Description of the agent",
         )
 
-        # List agents
+        # list agents
         list_agents = agent_subparsers.add_parser(
             "list",
-            help="List available agents",
+            help="list available agents",
         )
         list_agents.add_argument(
             "--filter",
@@ -138,10 +148,10 @@ class CLI:
             help="Agents to include in the workflow",
         )
 
-        # List workflows
+        # list workflows
         list_workflows = workflow_subparsers.add_parser(
             "list",
-            help="List available workflows",
+            help="list available workflows",
         )
         list_workflows.add_argument(
             "--filter",
@@ -228,12 +238,12 @@ class CLI:
             self.parser.error("Invalid workflow command")
 
     async def run_async(self) -> None:
-        """Run CLI asynchronously."""
+ """Run CLI asynchronously.
+ """
         args = self.parser.parse_args()
 
         if args.verbose:
-            logging.getLogger().setLevel(logging.DEBUG)
-
+            llogger.getLogger().setLevel(logging.DEBUG)
         try:
             if args.command == "agent":
                 await self._handle_agent_command(args)
@@ -248,9 +258,15 @@ class CLI:
             self.logger.error(str(e))
             sys.exit(1)
         except Exception as e:
+            raise CliError(f"Operation failed: {e}") from e
             self.logger.exception("Unexpected error: %s", e)
             sys.exit(1)
 
     def run(self) -> None:
-        """Run CLI synchronously."""
+
+
+    """Run CLI synchronously.
+
+
+    """
         asyncio.run(self.run_async())

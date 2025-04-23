@@ -10,18 +10,27 @@ import json
 import asyncio
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple, cast
+from typing import Any, dict, list, Optional, set, tuple, cast
 
+from pepperpy.workflow import WorkflowProvider
 from pepperpy.plugin import ProviderPlugin
 from pepperpy.workflow import BaseWorkflowProvider
 from pepperpy.logging import get_logger
 from pepperpy.llm import LLMAdapter, Message, MessageRole
+from pepperpy.workflow.base import WorkflowError
+
+logger = logger.getLogger(__name__)
 
 logger = get_logger(__name__)
 
 
-class ChangeType(str, Enum):
-    """Types of API changes."""
+class ChangeType(class ChangeType(str, Enum):
+    """Types of API changes."""):
+    """
+    Workflow changetype provider.
+    
+    This provider implements changetype functionality for the PepperPy workflow framework.
+    """
     
     ADDED = "added"
     MODIFIED = "modified"
@@ -76,7 +85,7 @@ class APIChange:
         is_breaking: bool,
         breaking_change_type: Optional[BreakingChangeType] = None,
         impact_level: ImpactLevel = ImpactLevel.LOW,
-        affected_clients: Optional[List[str]] = None,
+        affected_clients: Optional[list[str]] = None,
         mitigation_strategy: Optional[str] = None,
     ):
         """Initialize an API change.
@@ -89,7 +98,7 @@ class APIChange:
             is_breaking: Whether the change is breaking for clients
             breaking_change_type: Type of breaking change, if applicable
             impact_level: Level of impact on clients
-            affected_clients: List of client types affected by the change
+            affected_clients: list of client types affected by the change
             mitigation_strategy: Strategy to mitigate the impact of the change
         """
         self.change_id = change_id
@@ -103,7 +112,7 @@ class APIChange:
         self.mitigation_strategy = mitigation_strategy
         self.timestamp = datetime.now().isoformat()
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the change to a dictionary.
         
         Returns:
@@ -149,7 +158,7 @@ class VersioningRecommendation:
         self.rationale = rationale
         self.implementation_guide = implementation_guide
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the recommendation to a dictionary.
         
         Returns:
@@ -173,8 +182,8 @@ class MigrationPlan:
         description: str,
         sunset_date: Optional[datetime] = None,
         migration_period_days: int = 90,
-        steps: List[Dict[str, Any]] = None,
-        code_examples: Dict[str, str] = None,
+        steps: list[dict[str, Any]] = None,
+        code_examples: dict[str, str] = None,
     ):
         """Initialize a migration plan.
         
@@ -183,7 +192,7 @@ class MigrationPlan:
             description: Description of the migration plan
             sunset_date: Date when the old version will be sunset
             migration_period_days: Number of days for the migration period
-            steps: List of migration steps
+            steps: list of migration steps
             code_examples: Code examples for the migration
         """
         self.title = title
@@ -194,7 +203,7 @@ class MigrationPlan:
         self.steps = steps or []
         self.code_examples = code_examples or {}
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the migration plan to a dictionary.
         
         Returns:
@@ -247,16 +256,16 @@ class EvolutionAnalysisResult:
     def __init__(
         self,
         api_name: str,
-        changes: List[APIChange],
+        changes: list[APIChange],
         versioning_recommendation: VersioningRecommendation,
         migration_plan: MigrationPlan,
-        summary: Dict[str, Any],
+        summary: dict[str, Any],
     ):
         """Initialize an evolution analysis result.
         
         Args:
             api_name: Name of the API
-            changes: List of API changes
+            changes: list of API changes
             versioning_recommendation: Recommendation for API versioning
             migration_plan: Migration plan for API changes
             summary: Summary statistics and information
@@ -268,7 +277,7 @@ class EvolutionAnalysisResult:
         self.summary = summary
         self.timestamp = datetime.now().isoformat()
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the analysis result to a dictionary.
         
         Returns:
@@ -351,18 +360,35 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
     """Provider for the API Evolution workflow."""
     
     def __init__(self) -> None:
-        """Initialize the API Evolution provider."""
+
+    
+    """Initialize the API Evolution provider.
+
+    
+    """
         self._initialized = False
-        self._config: Dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
         self._llm_adapter: Optional[LLMAdapter] = None
     
     @property
     def initialized(self) -> bool:
-        """Return whether the provider is initialized."""
+
+    """Return whether the provider is initialized.
+
+
+    Returns:
+
+        Return description
+
+    """
         return self._initialized
     
     async def initialize(self) -> None:
-        """Initialize the provider and related resources."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         if self._initialized:
             return
         
@@ -384,7 +410,11 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
             raise
     
     async def cleanup(self) -> None:
-        """Clean up resources used by the provider."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         if not self._initialized:
             return
         
@@ -399,28 +429,59 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
             logger.error(f"Failed to clean up API Evolution provider: {e}")
             raise
     
-    async def get_config(self) -> Dict[str, Any]:
-        """Return the current configuration."""
+    async def get_config(self) -> dict[str, Any]:
+ """Return the current configuration.
+
+ Returns:
+     Return description
+ """
         return self._config
     
     def has_config(self) -> bool:
-        """Return whether the provider has a configuration."""
+
+    
+    """Return whether the provider has a configuration.
+
+
+    
+    Returns:
+
+    
+        Return description
+
+    
+    """
         return bool(self._config)
     
-    async def update_config(self, config: Dict[str, Any]) -> None:
-        """Update the configuration."""
+    async def update_config(self, config: dict[str, Any]) -> None:
+ """Update the configuration.
+
+ Args:
+     config: Parameter description
+     Any]: Parameter description
+ """
         self._config = config
     
     async def __aenter__(self) -> "APIEvolutionProvider":
-        """Initialize resources when entering a context."""
+ """Initialize resources when entering a context.
+
+ Returns:
+     Return description
+ """
         await self.initialize()
         return self
     
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Clean up resources when exiting a context."""
+ """Clean up resources when exiting a context.
+
+ Args:
+     exc_type: Parameter description
+     exc_val: Parameter description
+     exc_tb: Parameter description
+ """
         await self.cleanup()
     
-    async def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, data: dict[str, Any]) -> dict[str, Any]:
         """
         Execute the API evolution workflow.
         
@@ -518,18 +579,18 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
             }
     
     async def _identify_changes(
-        self, current_api: Dict[str, Any], proposed_api: Dict[str, Any], client_types: List[str]
-    ) -> List[Dict[str, Any]]:
+        self, current_api: dict[str, Any], proposed_api: dict[str, Any], client_types: list[str]
+    ) -> list[dict[str, Any]]:
         """
         Identify changes between current and proposed API specifications.
         
         Args:
             current_api: Current API specification
             proposed_api: Proposed API specification
-            client_types: List of client types to consider for impact analysis
+            client_types: list of client types to consider for impact analysis
             
         Returns:
-            List of changes between the specifications
+            list of changes between the specifications
         """
         if not self._llm_adapter:
             raise RuntimeError("LLM adapter not initialized")
@@ -572,20 +633,20 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
         return changes_data.get("changes", [])
     
     async def _analyze_changes(
-        self, changes: List[Dict[str, Any]], current_api: Dict[str, Any], proposed_api: Dict[str, Any]
-    ) -> List[APIChange]:
+        self, changes: list[dict[str, Any]], current_api: dict[str, Any], proposed_api: dict[str, Any]
+    ) -> list[APIChange]:
         """
         Analyze changes for breaking changes and impact.
         
         Args:
-            changes: List of changes between the specifications
+            changes: list of changes between the specifications
             current_api: Current API specification
             proposed_api: Proposed API specification
             
         Returns:
-            List of analyzed API changes
+            list of analyzed API changes
         """
-        analyzed_changes: List[APIChange] = []
+        analyzed_changes: list[APIChange] = []
         
         for i, change in enumerate(changes):
             try:
@@ -626,6 +687,7 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
                 
                 analyzed_changes.append(api_change)
             except Exception as e:
+                raise WorkflowError(f"Operation failed: {e}") from e
                 logger.error(f"Error analyzing change: {e}")
                 # Skip this change and continue with the next one
         
@@ -634,15 +696,15 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
         
         return analyzed_changes
     
-    async def _generate_mitigation_strategies(self, changes: List[APIChange]) -> List[APIChange]:
+    async def _generate_mitigation_strategies(self, changes: list[APIChange]) -> list[APIChange]:
         """
         Generate mitigation strategies for breaking changes.
         
         Args:
-            changes: List of API changes
+            changes: list of API changes
             
         Returns:
-            List of API changes with mitigation strategies for breaking changes
+            list of API changes with mitigation strategies for breaking changes
         """
         if not self._llm_adapter:
             raise RuntimeError("LLM adapter not initialized")
@@ -697,7 +759,7 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
         self, 
         versioning_strategy: str, 
         current_version: str,
-        changes: List[APIChange]
+        changes: list[APIChange]
     ) -> VersioningRecommendation:
         """
         Generate a versioning recommendation based on the changes.
@@ -705,7 +767,7 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
         Args:
             versioning_strategy: Versioning strategy to use
             current_version: Current version of the API
-            changes: List of API changes
+            changes: list of API changes
             
         Returns:
             Versioning recommendation
@@ -772,16 +834,16 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
     async def _generate_migration_plan(
         self,
         api_name: str,
-        changes: List[APIChange],
+        changes: list[APIChange],
         versioning_recommendation: VersioningRecommendation,
-        migration_config: Dict[str, Any]
+        migration_config: dict[str, Any]
     ) -> MigrationPlan:
         """
         Generate a migration plan for API changes.
         
         Args:
             api_name: Name of the API
-            changes: List of API changes
+            changes: list of API changes
             versioning_recommendation: Versioning recommendation
             migration_config: Migration configuration
             
@@ -847,13 +909,13 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
         )
     
     async def _generate_code_examples(
-        self, changes: List[APIChange], versioning_recommendation: VersioningRecommendation
-    ) -> Dict[str, str]:
+        self, changes: list[APIChange], versioning_recommendation: VersioningRecommendation
+    ) -> dict[str, str]:
         """
         Generate code examples for the migration.
         
         Args:
-            changes: List of API changes
+            changes: list of API changes
             versioning_recommendation: Versioning recommendation
             
         Returns:
@@ -903,12 +965,12 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
         
         return examples_data
     
-    def _generate_summary(self, changes: List[APIChange]) -> Dict[str, Any]:
+    def _generate_summary(self, changes: list[APIChange]) -> dict[str, Any]:
         """
         Generate summary statistics for the changes.
         
         Args:
-            changes: List of API changes
+            changes: list of API changes
             
         Returns:
             Summary statistics dictionary
@@ -939,7 +1001,7 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
             "low_impact": low_impact
         }
     
-    def _extract_json_from_response(self, response: str) -> Dict[str, Any]:
+    def _extract_json_from_response(self, response: str) -> dict[str, Any]:
         """
         Extract JSON from the LLM response.
         
@@ -961,5 +1023,6 @@ class APIEvolutionProvider(BaseWorkflowProvider, ProviderPlugin):
                 logger.warning("No JSON found in LLM response")
                 return {}
         except Exception as e:
+            raise WorkflowError(f"Operation failed: {e}") from e
             logger.error(f"Error extracting JSON from response: {e}")
             return {} 

@@ -1,23 +1,32 @@
 """Calculator tool provider implementation."""
 
-from typing import Any
+from typing import dict, Any
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.plugin import ProviderPlugin
 from pepperpy.tool.base import ToolProvider
 from plugins.workflow.ai_gateway.gateway import GatewayRequest, GatewayResponse
+from pepperpy.tool.base import ToolError
+from pepperpy.tool.base import ToolError
+
+logger = logger.getLogger(__name__)
 
 
-class CalculatorProvider(ToolProvider, BasePluginProvider):
+class CalculatorProvider(class CalculatorProvider(ToolProvider, ProviderPlugin):
     """Provider for evaluating mathematical expressions.
 
     This tool provides basic calculation capabilities for mathematical expressions.
+    """):
+    """
+    Tool calculator provider.
+    
+    This provider implements calculator functionality for the PepperPy tool framework.
     """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         # Initialize state
         self.initialized = True
 
@@ -30,15 +39,27 @@ class CalculatorProvider(ToolProvider, BasePluginProvider):
         )
 
     async def cleanup(self) -> None:
-        """Clean up provider resources.
+ """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         # No resources to clean up
         self.initialized = False
 
     def get_tool_id(self) -> str:
-        """Get the tool identifier."""
+
+
+    """Get the tool identifier.
+
+
+
+    Returns:
+
+
+        Return description
+
+
+    """
         return "calculator"
 
     async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
@@ -54,7 +75,7 @@ class CalculatorProvider(ToolProvider, BasePluginProvider):
         expression = input_data.get("expression", "")
 
         if not expression:
-            return {"status": "error", "error": "No expression provided"}
+            raise ToolError("No expression provided")
 
         try:
             # Use safer eval with limited scope
@@ -97,7 +118,7 @@ class CalculatorProvider(ToolProvider, BasePluginProvider):
 
         except Exception as e:
             self.logger.error(f"Error calculating expression '{expression}': {e}")
-            return {"status": "error", "error": f"Calculation error: {e!s}"}
+            return {"status": "error", "message": f"Calculation error: {e!s}"}
 
     async def handle_gateway_request(self, request: GatewayRequest) -> GatewayResponse:
         """Handle a gateway request.

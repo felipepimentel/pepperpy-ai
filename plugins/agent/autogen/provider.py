@@ -2,9 +2,11 @@
 
 import logging
 import re
-from typing import Any
+from typing import dict, list, Optional, Any
 
 from pepperpy.agent.base import AgentError, BaseAgentProvider, Message
+from pepperpy.agent import AgentProvider
+from pepperpy.agent.base import AgentError
 
 
 class ServiceMixin:
@@ -76,8 +78,13 @@ class ServiceMixin:
             return None
 
 
-class AutoGenAgent(BaseAgentProvider, ServiceMixin):
-    """AutoGen implementation of an agent."""
+class AutoGenAgent(class AutoGenAgent(BaseAgentProvider, ServiceMixin):
+    """AutoGen implementation of an agent."""):
+    """
+    Agent autogenagent provider.
+    
+    This provider implements autogenagent functionality for the PepperPy agent framework.
+    """
 
     def __init__(self, **kwargs: Any):
         """Initialize the agent with configuration.
@@ -89,13 +96,15 @@ class AutoGenAgent(BaseAgentProvider, ServiceMixin):
         ServiceMixin.__init__(self)
 
     async def _initialize_resources(self) -> None:
-        """Initialize resources for the agent."""
+ """Initialize resources for the agent.
+ """
         self.logger.debug(
-            f"Initialized with model={self.config.get('model', 'default')}"
+            f"Initialized with model={self.model}"
         )
 
     async def _cleanup_resources(self) -> None:
-        """Clean up resources for the agent."""
+ """Clean up resources for the agent.
+ """
         # No specific cleanup needed for basic agent
         pass
 
@@ -146,7 +155,7 @@ class AutoGenAgent(BaseAgentProvider, ServiceMixin):
             text: Text to extract tool calls from
 
         Returns:
-            List of extracted tool calls
+            list of extracted tool calls
         """
         tool_calls = []
 
@@ -185,7 +194,7 @@ class AutoGenAgent(BaseAgentProvider, ServiceMixin):
         task_type = input_data.get("task")
 
         if not task_type:
-            return {"status": "error", "error": "No task specified"}
+            raise AgentError("No task specified")
 
         try:
             # Handle different task types
@@ -213,7 +222,7 @@ class AutoGenAgent(BaseAgentProvider, ServiceMixin):
                         break
 
                 if not last_user_message:
-                    return {"status": "error", "error": "No user message found"}
+                    raise AgentError("No user message found")
 
                 # Process the message with context
                 context = {"messages": messages}
@@ -232,4 +241,26 @@ class AutoGenAgent(BaseAgentProvider, ServiceMixin):
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task_type}': {e}")
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "message": str(e)}
+
+    async def initialize(self, config: dict[str, Any]) -> bool:
+        """
+        Initialize the provider with the given configuration.
+        
+        Args:
+            config: Configuration parameters
+            
+        Returns:
+            True if initialization was successful, False otherwise
+        """
+        self.config = config
+        return True
+
+    async def cleanup(self) -> bool:
+        """
+        Clean up resources used by the provider.
+        
+        Returns:
+            True if cleanup was successful, False otherwise
+        """
+        return True

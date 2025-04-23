@@ -1,0 +1,31 @@
+name: storage/supabase
+version: 0.1.0
+description: Storage provider for supabase
+author: PepperPy Team
+
+plugin_type: storage
+category: storage
+provider_name: supabase
+entry_point: provider.SupabaseProvider
+
+config_schema:
+  type: object
+  properties:
+    option:
+      type: string
+      description: Configuration option
+      default: "default-value"
+
+default_config:
+  option: "default-value"
+
+# Examples for testing the plugin
+examples:
+  - name: "basic_example"
+    description: "Basic functionality test"
+    input:
+      task: "example_task"
+      config:
+        key: "value"
+    expected_output:
+      status: "success"

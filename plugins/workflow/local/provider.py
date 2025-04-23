@@ -5,25 +5,35 @@ allowing them to run in the same process as the application.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, dict, list, Optional
 
 from pepperpy.core.exceptions import PipelineError
 from pepperpy.plugin.plugin import PepperpyPlugin
 from pepperpy.workflow.base import (
+from pepperpy.workflow.base import WorkflowError
+from pepperpy.workflow import WorkflowProvider
+from pepperpy.plugin import ProviderPlugin
+
+logger = logging.getLogger(__name__)
     ComponentType,
     PipelineContext,
     Workflow,
     WorkflowComponent,
 )
 
-logger = logging.getLogger(__name__)
+logger = logger.getLogger(__name__)
 
 
-class LocalExecutor(PepperpyPlugin):
+class LocalExecutor(class LocalExecutor(PepperpyPlugin):
     """Local workflow executor.
 
     Executes workflows in the local process, managing component
     execution and data flow between components.
+    """):
+    """
+    Workflow localexecutor provider.
+    
+    This provider implements localexecutor functionality for the PepperPy workflow framework.
     """
 
     name = "local"
@@ -33,8 +43,8 @@ class LocalExecutor(PepperpyPlugin):
 
     def __init__(
         self,
-        config: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        config: Optional[dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Initialize local executor.
 
@@ -44,14 +54,22 @@ class LocalExecutor(PepperpyPlugin):
         """
         super().__init__(**(config or {}))
         self.metadata = metadata
-        self._workflows: Dict[str, Workflow] = {}
+        self._workflows: dict[str, Workflow] = {}
 
     async def initialize(self) -> None:
-        """Initialize the executor."""
+ """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        It sets up resources needed by the provider.
+ """
         self.initialized = True
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
+ """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        It releases any resources acquired during initialization.
+ """
         self._workflows.clear()
         self.initialized = False
 
@@ -59,8 +77,8 @@ class LocalExecutor(PepperpyPlugin):
         self,
         workflow: Workflow,
         input_data: Optional[Any] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        config: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Execute a workflow locally.
 
         Args:
@@ -157,14 +175,14 @@ class LocalExecutor(PepperpyPlugin):
     def list_workflows(
         self,
         status: Optional[ComponentType] = None,
-    ) -> List[Workflow]:
-        """List workflows with optional status filter.
+    ) -> list[Workflow]:
+        """list workflows with optional status filter.
 
         Args:
             status: Optional status filter
 
         Returns:
-            List of matching workflows
+            list of matching workflows
         """
         if status is None:
             return list(self._workflows.values())

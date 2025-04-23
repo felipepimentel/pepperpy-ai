@@ -1,12 +1,12 @@
-name: unknown/unknown
+name: rag/faiss
 version: 0.1.0
-description: Unknown plugin
+description: Rag provider for faiss
 author: PepperPy Team
 
-plugin_type: unknown
-category: provider
-provider_name: unknown
-entry_point: provider.UnknownProvider
+plugin_type: rag
+category: rag
+provider_name: faiss
+entry_point: provider.FaissProvider
 
 config_schema:
   type: object

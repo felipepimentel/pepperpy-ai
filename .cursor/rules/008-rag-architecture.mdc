@@ -1,0 +1,12 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# RAG (Retrieval Augmented Generation) Architecture
+
+The RAG system provides a framework for retrieval augmented generation, combining vector search with LLM generation to produce more accurate and contextually relevant responses.
+
+## Core Architecture
+
+### Directory Structure

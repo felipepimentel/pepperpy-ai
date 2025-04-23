@@ -6,19 +6,29 @@ This provider implements basic HTTP routing for AI requests.
 
 import asyncio
 import json
-from typing import Any
+from typing import dict, list, set, Any
 
-from pepperpy.plugin.provider import BasePluginProvider
+from pepperpy.routing import RoutingProvider
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.routing.base import RoutingError
+from pepperpy.routing.base import RoutingError
+
+logger = logger.getLogger(__name__)
 
 
-class SimpleRoutingProvider(BasePluginProvider):
-    """Simple HTTP routing provider for AI Gateway."""
+class SimpleRoutingProvider(class SimpleRoutingProvider(RoutingProvider, BasePluginProvider):
+    """Simple HTTP routing provider for AI Gateway."""):
+    """
+    Routing simplerouting provider.
+    
+    This provider implements simplerouting functionality for the PepperPy routing framework.
+    """
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+ """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        """
+ """
         # Initialize state
         self.initialized = True
 
@@ -44,7 +54,7 @@ class SimpleRoutingProvider(BasePluginProvider):
             # Create HTTP app
             self.http_app = web.Application()
 
-            # Set up routes
+            # set up routes
             self.http_app.router.add_post(
                 "/api/v1/{backend}/{operation}", self._handle_request
             )
@@ -58,10 +68,10 @@ class SimpleRoutingProvider(BasePluginProvider):
             raise ImportError(f"Required package not found: {e}") from e
 
     async def cleanup(self) -> None:
-        """Clean up provider resources.
+ """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
-        """
+ """
         if not self.initialized:
             return
 
@@ -101,7 +111,7 @@ class SimpleRoutingProvider(BasePluginProvider):
         task = input_data.get("task")
 
         if not task:
-            return {"status": "error", "message": "No task specified"}
+            raise RoutingError("No task specified")
 
         try:
             if task == "configure":
@@ -129,10 +139,8 @@ class SimpleRoutingProvider(BasePluginProvider):
                 provider = input_data.get("provider")
 
                 if not name or not provider:
-                    return {
-                        "status": "error",
-                        "message": "Name and provider are required",
-                    }
+                    raise RoutingError("Name and provider are required",
+                    )
 
                 return await self.register_backend(name, provider)
 
@@ -140,7 +148,7 @@ class SimpleRoutingProvider(BasePluginProvider):
                 name = input_data.get("name")
 
                 if not name:
-                    return {"status": "error", "message": "Name is required"}
+                    raise RoutingError("Name is required")
 
                 return await self.unregister_backend(name)
 
@@ -152,7 +160,7 @@ class SimpleRoutingProvider(BasePluginProvider):
                 auth_provider = input_data.get("auth_provider")
 
                 if not auth_provider:
-                    return {"status": "error", "message": "Auth provider is required"}
+                    raise RoutingError("Auth provider is required")
 
                 self.auth_provider = auth_provider
                 self.logger.info("Auth provider set")
@@ -170,7 +178,7 @@ class SimpleRoutingProvider(BasePluginProvider):
                 }
 
             else:
-                return {"status": "error", "message": f"Unknown task: {task}"}
+                raise RoutingError(f"Unknown task: {task)"}
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task}': {e}")
@@ -294,7 +302,8 @@ class SimpleRoutingProvider(BasePluginProvider):
         self.logger.info(f"Configured routing provider for {self.host}:{self.port}")
 
     async def start(self) -> None:
-        """Start the HTTP server."""
+ """Start the HTTP server.
+ """
         if not self.initialized:
             await self.initialize()
 
@@ -324,7 +333,8 @@ class SimpleRoutingProvider(BasePluginProvider):
             raise RuntimeError(f"Failed to start server: {e}") from e
 
     async def stop(self) -> None:
-        """Stop the HTTP server."""
+ """Stop the HTTP server.
+ """
         if not self.running or not self.server:
             self.logger.warning("Server is not running")
             return
@@ -355,7 +365,7 @@ class SimpleRoutingProvider(BasePluginProvider):
             Registration result
         """
         if name in self.backends:
-            return {"status": "error", "message": f"Backend already registered: {name}"}
+            raise RoutingError(f"Backend already registered: {name)"}
 
         # Register backend
         self.backends[name] = provider
@@ -377,7 +387,7 @@ class SimpleRoutingProvider(BasePluginProvider):
             Unregistration result
         """
         if name not in self.backends:
-            return {"status": "error", "message": f"Backend not found: {name}"}
+            raise RoutingError(f"Backend not found: {name)"}
 
         # Try to clean up backend if it has a cleanup method
         backend = self.backends[name]
@@ -385,6 +395,7 @@ class SimpleRoutingProvider(BasePluginProvider):
             if hasattr(backend, "cleanup"):
                 await backend.cleanup()
         except Exception as e:
+            raise RoutingError(f"Operation failed: {e}") from e
             self.logger.warning(f"Error cleaning up backend {name}: {e}")
 
         # Unregister backend
@@ -397,6 +408,6 @@ class SimpleRoutingProvider(BasePluginProvider):
         """Get list of registered backends.
 
         Returns:
-            List of backend names
+            list of backend names
         """
         return list(self.backends.keys())

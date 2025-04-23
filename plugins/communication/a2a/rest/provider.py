@@ -1,7 +1,7 @@
 """A2A REST protocol provider implementation."""
 
 import uuid
-from typing import Any
+from typing import dict, Any
 
 import aiohttp
 from aiohttp import ClientSession
@@ -28,15 +28,25 @@ from pepperpy.a2a.base import (
 )
 from pepperpy.core.logging import get_logger
 from pepperpy.plugin.plugin import ProviderPlugin
+from pepperpy.communication.base import CommunicationError
+from pepperpy.communication import CommunicationProvider
+from pepperpy.communication.base import CommunicationError
+
+logger = logger.getLogger(__name__)
 
 logger = get_logger(__name__)
 
 
-class A2ARestProvider(A2AProvider, ProviderPlugin):
+class A2ARestProvider(class A2ARestProvider(CommunicationProvider, ProviderPlugin):
     """A2A REST protocol provider implementation.
 
     This provider implements the Google A2A protocol over REST APIs.
     It communicates with a REST endpoint that speaks the A2A protocol.
+    """):
+    """
+    Communication a2arest provider.
+    
+    This provider implements a2arest functionality for the PepperPy communication framework.
     """
 
     def __init__(self, **config: Any) -> None:
@@ -53,7 +63,8 @@ class A2ARestProvider(A2AProvider, ProviderPlugin):
         self.session: ClientSession | None = None
 
     async def _initialize_resources(self) -> None:
-        """Initialize provider resources."""
+ """Initialize provider resources.
+ """
         headers = {"Content-Type": "application/json", **self.headers}
 
         # Add API key if provided
@@ -64,7 +75,8 @@ class A2ARestProvider(A2AProvider, ProviderPlugin):
         logger.debug(f"Initialized A2A REST provider with base URL: {self.base_url}")
 
     async def _cleanup_resources(self) -> None:
-        """Clean up provider resources."""
+ """Clean up provider resources.
+ """
         if self.session:
             await self.session.close()
             self.session = None
@@ -322,3 +334,25 @@ class A2ARestProvider(A2AProvider, ProviderPlugin):
             artifact_type=data.get("artifact_type", ""),
             parts=parts,
         )
+
+    async def initialize(self, config: dict[str, Any]) -> bool:
+        """
+        Initialize the provider with the given configuration.
+        
+        Args:
+            config: Configuration parameters
+            
+        Returns:
+            True if initialization was successful, False otherwise
+        """
+        self.config = config
+        return True
+
+    async def cleanup(self) -> bool:
+        """
+        Clean up resources used by the provider.
+        
+        Returns:
+            True if cleanup was successful, False otherwise
+        """
+        return True
