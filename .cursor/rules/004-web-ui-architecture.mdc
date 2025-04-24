@@ -7,12 +7,12 @@ globs: playground_web/**/*
 
 ## Overview
 
-This rule defines the architecture, patterns, and best practices for developing web UI components for PepperPy, specifically focusing on the Flask-based playground web application.
+This rule defines the architecture, patterns, and best practices for developing web UI components for PepperPy, specifically focusing on the Flask-based web application.
 
 ## Directory Structure
 
 ```
-playground_web/
+ui/
 ├── app.py                # Flask application entry point
 ├── mock_api_service.py   # Mock implementation of the API service
 ├── static/               # Static assets

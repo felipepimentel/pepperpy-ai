@@ -3,7 +3,6 @@ description: USE ALWAYS when working with plugins - mandatory structure and patt
 globs: plugins/**/*.py, **/plugin*.py
 alwaysApply: true
 ---
-
 # PepperPy Plugin System
 
 ## Directory Structure
@@ -21,7 +20,7 @@ plugins/
 
 ## Plugin Creation and Maintenance
 
-PepperPy provides several tools for plugin development:
+PepperPy provides several tools for plugin development, using templates from `assets/templates`:
 
 ```bash
 # Create new plugin from template

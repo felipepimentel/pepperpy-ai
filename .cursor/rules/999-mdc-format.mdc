@@ -159,3 +159,41 @@ When the user indicates changes to existing guidance with statements like "don't
 5. **Cross-Reference**:
    - When guidance changes in one rule, check for similar guidance in other rules
    - Ensure consistent application of the principle across all relevant files
+
+## File Organization Rules
+
+### 1. Directory Structure
+
+Modules MUST follow the standard structure:
+
+```
+pepperpy/module_name/
+├── __init__.py         # Public API
+├── base.py             # Core interfaces and factory functions
+├── processors/         # (if needed)
+│   └── __init__.py
+└── providers/          # Provider implementations
+    └── __init__.py
+```
+
+### 2. Module Naming
+
+- Modules MUST use **snake_case** for all files and directories
+- Names MUST be descriptive and reflect purpose
+- Consistent suffixes:
+   - `_provider.py` for providers
+   - `_processor.py` for processors
+   - `_utils.py` for utilities
+
+### 3. Template Organization
+
+All templates MUST be organized under `assets/templates`:
+
+```
+assets/
+├── templates/          # Project templates
+│   ├── plugin/        # Plugin templates
+│   ├── tests/         # Test templates
+│   └── llm/          # LLM-related templates
+└── images/            # Project images and icons
+```

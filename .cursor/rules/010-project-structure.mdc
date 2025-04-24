@@ -60,13 +60,13 @@ api/                  # API server implementation
 ## Web UI
 
 ```
-playground_web/       # Web UI implementation
-├── static/           # Static assets (CSS, JS, images)
+ui/                  # Web UI implementation
+├── static/          # Static assets (CSS, JS, images)
 │   ├── css/
 │   ├── img/
 │   ├── js/
 │   └── samples/
-└── templates/        # HTML templates
+└── templates/       # HTML templates
 ```
 
 ## Developer Tooling
@@ -75,8 +75,10 @@ playground_web/       # Web UI implementation
 docs/                 # Documentation
 scripts/              # Utility scripts
 tests/                # Test suite
-templates/            # Templates for new components
 bin/                  # Executable scripts
+assets/               # Static assets and templates
+    ├── templates/    # Project templates (plugins, tests, etc.)
+    └── images/       # Project images and icons
 ```
 
 ## Key Relationships
@@ -123,5 +125,5 @@ When adding new capabilities:
 ```
 tests/plugins/        # Plugin-specific tests
 ├── embedding/        # Tests for embedding plugins
-└── cache/            # Tests for cache plugins
+└── cache/           # Tests for cache plugins
 ```
