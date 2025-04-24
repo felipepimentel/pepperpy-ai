@@ -2,40 +2,35 @@
 Main FastAPI application for PepperPy API Server.
 """
 
+import os
 import logging
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
-from api.routes import governance, a2a, workflows
+from api.middleware import setup_middleware
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
-logger = logging.getLogger("api")
+logger = logging.getLogger('api')
 
 # Create FastAPI application
 app = FastAPI(
     title="PepperPy API Server",
     description="REST API for PepperPy workflows and services",
     version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Set up middleware
+setup_middleware(app)
 
-# Include routers
-app.include_router(governance.router)
-app.include_router(a2a.router)
-app.include_router(workflows.router)
+# Attach logger to app
+app.logger = logger
 
 @app.get("/", tags=["root"])
 async def root():
@@ -47,7 +42,8 @@ async def root():
         "endpoints": {
             "governance": "/governance",
             "a2a": "/a2a",
-            "workflows": "/workflows"
+            "workflows": "/workflows",
+            "todos": "/workflows/{workflow_id}/todos"
         }
     }
 
@@ -77,6 +73,10 @@ async def shutdown_event():
     Perform cleanup on shutdown.
     """
     logger.info("Shutting down PepperPy API Server")
+
+# Import routes after app creation to avoid circular imports
+from api.routes import register_routes
+register_routes(app)
 
 if __name__ == "__main__":
     import uvicorn

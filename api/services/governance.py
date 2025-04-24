@@ -12,6 +12,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, TypedDict, Union, Any
 
+from api.services.base import BaseService
+
 
 class Severity(Enum):
     """Severity levels for governance findings."""
@@ -583,4 +585,64 @@ async def execute_api_governance_check(spec_path: str, output_format: str = "jso
     except Exception as e:
         return json.dumps({
             "error": f"Failed to execute API governance check: {str(e)}"
-        }) 
+        })
+
+
+class GovernanceService(BaseService):
+    """Service for API governance assessments."""
+    
+    def __init__(self):
+        """Initialize the governance service."""
+        super().__init__()
+        self.report_cache = {}
+        self.version = "0.1.0"
+    
+    async def initialize(self) -> None:
+        """Initialize service resources."""
+        if self._initialized:
+            return
+        self._initialized = True
+        self.logger.info(f"{self.__class__.__name__} initialized")
+    
+    async def cleanup(self) -> None:
+        """Clean up service resources."""
+        if not self._initialized:
+            return
+        self.report_cache = {}
+        self._initialized = False
+        self.logger.info(f"{self.__class__.__name__} cleaned up")
+    
+    async def assess_api(self, spec_path: str, output_format: str = "json") -> str:
+        """
+        Assess an API based on its specification.
+        
+        Args:
+            spec_path: Path to the API specification file
+            output_format: Output format (json, markdown, html)
+            
+        Returns:
+            The formatted report
+        """
+        if not self._initialized:
+            await self.initialize()
+            
+        # Check cache first
+        cache_key = f"{spec_path}-{output_format}"
+        if cache_key in self.report_cache:
+            return self.report_cache[cache_key]
+        
+        # Execute assessment
+        report = await execute_api_governance_check(spec_path, output_format)
+        
+        # Cache result
+        self.report_cache[cache_key] = report
+        
+        return report
+    
+    def clear_cache(self) -> None:
+        """Clear the report cache."""
+        self.report_cache = {}
+
+
+# Create a singleton instance
+governance_service = GovernanceService() 

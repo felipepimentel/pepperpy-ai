@@ -14,7 +14,6 @@ from pydantic import BaseModel
 from datetime import datetime
 
 from api.services.governance import execute_api_governance_check
-from playground.workflows.api_governance_workflow import execute_api_governance_workflow
 
 
 # Models
@@ -151,9 +150,9 @@ async def check_api_specification(
         with open(file_path, "wb") as f:
             f.write(contents)
             
-        # Execute the governance workflow
-        result = execute_api_governance_workflow(
-            api_spec_path=file_path,
+        # Execute the governance check using the existing function
+        result = await execute_api_governance_check(
+            spec_path=file_path,
             output_format=output_format
         )
         
@@ -162,7 +161,7 @@ async def check_api_specification(
         
         return JSONResponse(
             status_code=200,
-            content=result
+            content=result if output_format.lower() == "json" else {"result": result}
         )
     
     except Exception as e:

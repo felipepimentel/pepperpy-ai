@@ -1,6 +1,6 @@
 name: mcp
 version: 0.1.0
-description: Model Communication Protocol adapter for PepperPy communication
+description: Model Context Protocol adapter for PepperPy communication using the official MCP library
 author: PepperPy Team
 
 # Categorization
@@ -16,7 +16,7 @@ config_schema:
     base_url:
       type: string
       description: Base URL for the MCP API
-      default: "http://localhost:8000/api"
+      default: "http://localhost:8000"
     api_key:
       type: string
       description: API key for authentication with the MCP service
@@ -31,5 +31,5 @@ config_schema:
 
 # Default configuration
 default_config:
-  base_url: "http://localhost:8000/api"
+  base_url: "http://localhost:8000"
   timeout: 30 

@@ -1,0 +1,128 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Integration Testing Guidelines
+
+## Avoid Mocks In Favor of Real Integration
+
+❌ **NEVER USE MOCKS FOR INTEGRATION TESTING**
+
+Mocks can lead to misleading test results and hide real integration issues.
+
+```javascript
+// WRONG: Creating a mock API server
+const mockServer = {
+  '/api/workflows': () => {
+    return {
+      status: 'success',
+      data: [/* mock data */]
+    };
+  }
+};
+```
+
+✅ **ALWAYS TEST WITH REAL API ENDPOINTS**
+
+```javascript
+// CORRECT: Test with actual API endpoints
+async function testEndpoint() {
+  try {
+    const response = await fetch('http://localhost:8000/api/workflows');
+    if (!response.ok) {
+      console.error(`API error: ${response.status}`);
+      // Diagnose and fix the actual issue
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Connection error:', error);
+    // Diagnose actual network/connectivity issues
+  }
+}
+```
+
+## Debugging Integration Issues
+
+When encountering integration issues:
+
+1. **Check both services are running**
+   ```bash
+   lsof -i :3000  # Check frontend
+   lsof -i :8000  # Check API
+   ```
+
+2. **Verify direct API connectivity**
+   ```bash
+   curl -v http://localhost:8000/api/health
+   ```
+
+3. **Check proxy configuration**
+   ```javascript
+   // Proper proxy setup
+   app.use('/api', createProxyMiddleware({
+     target: API_URL,
+     changeOrigin: true,
+     timeout: 60000,  // Add proper timeouts
+     proxyTimeout: 60000
+   }));
+   ```
+
+4. **Implement proper error handling and timeouts in fetch requests**
+   ```javascript
+   // Add timeout to fetch requests
+   const controller = new AbortController();
+   const timeout = setTimeout(() => controller.abort(), 10000);
+   try {
+     const response = await fetch(url, { 
+       signal: controller.signal
+     });
+     clearTimeout(timeout);
+     // Process response
+   } catch (error) {
+     clearTimeout(timeout);
+     if (error.name === 'AbortError') {
+       console.error('Request timed out');
+     }
+   }
+   ```
+
+5. **Add detailed logging**
+   ```javascript
+   console.log(`Requesting ${url}...`);
+   const response = await fetch(url);
+   console.log(`Response status: ${response.status}`);
+   ```
+
+## API Endpoint Testing
+
+When building a frontend that relies on API endpoints:
+
+1. **Test endpoints directly before integrating**
+   ```bash
+   curl -v http://localhost:8000/api/workflows
+   ```
+
+2. **Validate API responses match frontend expectations**
+   - Check response format
+   - Verify all required fields are present
+   - Test error responses
+
+3. **Implement graceful degradation**
+   ```javascript
+   try {
+     // API call
+   } catch (error) {
+     // Show useful error message to user
+     displayErrorMessage('Serviço temporariamente indisponível. Por favor, tente novamente mais tarde.');
+   }
+   ```
+
+## Service Startup Sequence
+
+Always follow this sequence when starting services:
+
+1. Start API/backend services first
+2. Verify backend is responsive with health checks
+3. Then start frontend/client applications
+4. Test end-to-end connectivity

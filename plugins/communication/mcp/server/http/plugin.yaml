@@ -1,36 +1,37 @@
-name: mcp_server_http
+name: mcp_http_server
 version: 0.1.0
-description: HTTP server implementation for MCP (Model Context Protocol)
+description: HTTP server implementation for Model Context Protocol using the official MCP library
 author: PepperPy Team
 
+# Categorization
 plugin_type: mcp
 category: server
 provider_name: http
-entry_point: provider.HTTPServerProvider
+entry_point: provider.HTTPServerAdapter
 
+# Configuration schema
 config_schema:
   type: object
   properties:
-    host:
+    server_name:
       type: string
-      description: Host to bind the server to
-      default: "0.0.0.0"
+      description: Name of the MCP server
+      default: "PepperPy MCP Server"
     port:
       type: integer
-      description: Port to bind the server to
+      description: Port to listen on
       default: 8000
-    cors_origins:
-      type: array
-      items:
-        type: string
-      description: CORS origins to allow
-      default: ["*"]
-    auth_token:
+    host:
       type: string
-      description: Optional authentication token
-      default: ""
+      description: Host address to bind to
+      default: "127.0.0.1"
 
+# Default configuration
 default_config:
-  host: "0.0.0.0"
+  server_name: "PepperPy MCP Server"
   port: 8000
-  cors_origins: ["*"] 
+  host: "127.0.0.1"
+
+# Dependencies
+dependencies:
+  - mcp>=1.6.0 

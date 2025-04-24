@@ -1,5 +1,7 @@
 """
-PepperPy Model Context Protocol (MCP) Plugin.
+MCP plugin for PepperPy.
 
-This module provides implementations of the MCP protocol.
+This plugin provides Model Context Protocol (MCP) integration using the official MCP library.
 """
+
+__version__ = "0.1.0"

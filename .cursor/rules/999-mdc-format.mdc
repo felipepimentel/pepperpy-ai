@@ -24,7 +24,7 @@ The frontmatter must be the first thing in the file and must be enclosed between
 
 description: Brief description of what the rule does
 globs: **/*.js, **/*.ts  # Optional: Comma-separated list, not an array
-alwaysApply: false       # Set to true for global rules
+alwaysApply: true       # Set to true for global rules
 ---
 ```
 

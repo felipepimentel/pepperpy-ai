@@ -1,7 +1,11 @@
 """
-Provider for http.
+HTTP server implementation for MCP.
+
+This module provides an HTTP server implementation using the official MCP library.
 """
 
-from .provider import HTTPServerProvider
+__version__ = "0.1.0"
 
-__all__ = ["HTTPServerProvider"]
+from .provider import HTTPServerAdapter
+
+__all__ = ["HTTPServerAdapter"]
