@@ -1,6 +1,114 @@
 # PepperPy
 
-An agentic AI framework with a focus on composable, modular architecture for building advanced AI applications.
+A Pythonic Framework for AI Agents and LLM Capabilities
+
+## Requirements
+
+- Python 3.10 or higher
+- [uv](https://github.com/astral-sh/uv) - Ultra-fast Python package installer and resolver
+
+## Installation
+
+### Automated Installation (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/pepperpy.git
+cd pepperpy
+
+# Run the installation script
+./scripts/install.sh
+```
+
+The installation script will:
+- Check if uv is installed and install it if necessary
+- Set up the virtual environment
+- Install project dependencies
+
+### Manual Installation
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone the repository
+git clone https://github.com/yourusername/pepperpy.git
+cd pepperpy
+
+# Create virtual environment and install dependencies
+uv venv
+uv sync
+
+# Optional: Install development dependencies
+uv add --dev pytest pytest-asyncio mypy ruff black
+uv sync
+```
+
+## Basic Usage
+
+PepperPy provides a unified CLI for accessing its features:
+
+```bash
+# General help
+uv run python -m pepperpy --help
+
+# RAG text processing
+uv run python -m pepperpy rag --text "Example text" --summary
+```
+
+## Development
+
+The project uses helpful development scripts:
+
+```bash
+# Activate the virtual environment (optional)
+source scripts/activate
+
+# Development helper script
+./scripts/dev.sh help     # Show all commands
+./scripts/dev.sh test     # Run tests
+./scripts/dev.sh lint     # Run linters
+./scripts/dev.sh format   # Format code
+./scripts/dev.sh clean    # Clean build artifacts
+./scripts/dev.sh tree     # Show dependency tree
+```
+
+Working with dependencies:
+
+```bash
+# Add a new dependency
+uv add package_name
+
+# Add a development dependency
+uv add --dev package_name
+
+# Remove a dependency
+uv remove package_name
+
+# Update lockfile
+uv lock
+
+# Sync dependencies
+uv sync
+
+# Upgrade dependencies
+uv lock --upgrade
+
+# View dependency tree
+uv tree
+```
+
+## Architecture
+
+PepperPy is organized into vertical domains, each responsible for a specific capability:
+
+- **LLM**: Interaction with language models
+- **RAG**: Retrieval Augmented Generation 
+- **Embedding**: Text embedding generation
+- **Content**: Content processing
+- **Agent**: Autonomous agents and assistants
+- **Tool**: Tools and integrations
+- **Workflow**: Pipeline orchestration
 
 ## Project Structure
 
@@ -33,14 +141,14 @@ api/               # API server implementation
 ├── routes/        # API route definitions
 └── services/      # Service implementations for API
 
-pepperpy-ui/       # React UI implementation
+ui/                # Web UI implementation
 ```
 
 ## Development Environment Setup
 
 ### Prerequisites
 
-- Python 3.12+
+- Python 3.10+
 - Node.js 18+
 - npm or yarn
 
@@ -49,15 +157,14 @@ pepperpy-ui/       # React UI implementation
 1. Create a virtual environment:
 
 ```bash
-python -m venv .venv
+uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
 2. Install backend dependencies:
 
 ```bash
-pip install -e .
-pip install -r api/requirements.txt
+uv sync
 ```
 
 3. Set up environment variables (create a `.env` file in the project root):
@@ -72,7 +179,7 @@ WEB_PORT=3000
 1. Install frontend dependencies:
 
 ```bash
-cd pepperpy-ui
+cd ui
 npm install
 ```
 
@@ -84,10 +191,10 @@ The easiest way to run the application is with the provided script:
 
 ```bash
 # Make the script executable
-chmod +x run_react_servers.sh
+chmod +x scripts/run_servers.sh
 
 # Run the application
-./run_react_servers.sh
+./scripts/run_servers.sh
 ```
 
 This will start both the API server and the React frontend. The application will be available at:
@@ -97,7 +204,7 @@ This will start both the API server and the React frontend. The application will
 To stop the servers:
 
 ```bash
-./stop_react_servers.sh
+./scripts/stop_servers.sh
 ```
 
 ### Running Manually
@@ -106,13 +213,13 @@ To stop the servers:
 
 ```bash
 cd api
-uvicorn main:app --reload --port 8000
+uv run python -m uvicorn main:app --reload --port 8000
 ```
 
-#### React Frontend
+#### Web Frontend
 
 ```bash
-cd pepperpy-ui
+cd ui
 npm run dev
 ```
 

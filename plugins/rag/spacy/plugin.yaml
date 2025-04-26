@@ -1,0 +1,65 @@
+name: spacy_processor
+version: 0.1.0
+description: SpaCy-based text processor for RAG
+author: PepperPy Team
+
+plugin_type: rag
+category: processor
+provider_name: spacy
+entry_point: provider.SpacyProcessor
+
+min_framework_version: 0.1.0
+
+config_schema:
+  type: object
+  properties:
+    model:
+      type: string
+      description: SpaCy model to use (e.g., 'en_core_web_sm', 'en_core_web_md', 'en_core_web_lg')
+      default: en_core_web_sm
+    chunk_size:
+      type: integer
+      description: Maximum size of each text chunk in characters
+      default: 1000
+    chunk_overlap:
+      type: integer
+      description: Number of characters to overlap between chunks
+      default: 200
+  required:
+    - model
+
+default_config:
+  model: en_core_web_sm
+  chunk_size: 1000
+  chunk_overlap: 200
+
+examples:
+  - name: chunk_text
+    description: Splits text into semantic chunks for RAG
+    input:
+      task: chunk_text
+      text: "This is a sample text that needs to be processed. It contains multiple sentences that should be chunked properly. The SpaCy processor will handle this text and create appropriate chunks based on the configuration. It uses natural language processing to identify sentence boundaries and create semantically meaningful chunks."
+    expected_output:
+      status: success
+      result:
+        chunks:
+          - "This is a sample text that needs to be processed. It contains multiple sentences that should be chunked properly."
+          - "The SpaCy processor will handle this text and create appropriate chunks based on the configuration. It uses natural language processing to identify sentence boundaries and create semantically meaningful chunks."
+  
+  - name: process_text
+    description: Processes text to extract entities and tokens
+    input:
+      task: process_text
+      text: "Apple Inc. is planning to open a new office in New York City next year. CEO Tim Cook mentioned the expansion during a recent interview."
+    expected_output:
+      status: success
+      result:
+        text: "Apple Inc. is planning to open a new office in New York City next year. CEO Tim Cook mentioned the expansion during a recent interview."
+        tokens: ["Apple", "Inc.", "is", "planning", "to", "open", "a", "new", "office", "in", "New", "York", "City", "next", "year", ".", "CEO", "Tim", "Cook", "mentioned", "the", "expansion", "during", "a", "recent", "interview", "."]
+        entities:
+          - {"text": "Apple Inc.", "label": "ORG", "start": 0, "end": 10}
+          - {"text": "New York City", "label": "GPE", "start": 39, "end": 52}
+          - {"text": "Tim Cook", "label": "PERSON", "start": 68, "end": 76}
+        metadata:
+          model: "en_core_web_sm"
+          provider: "spacy" 

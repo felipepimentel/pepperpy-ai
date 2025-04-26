@@ -83,6 +83,6 @@ documentation:
 requirements:
 - pydantic>=2.0.0
 - jsonschema>=4.0.0
-plugin_type: plugins
+plugin_type: workflow
 provider_name: llm_completion
-entry_point: provider.Llm_completionProvider
+entry_point: workflow.LLMCompletionWorkflow

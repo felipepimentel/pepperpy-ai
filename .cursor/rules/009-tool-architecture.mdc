@@ -5,8 +5,281 @@ alwaysApply: true
 ---
 # Tool System Architecture
 
+## Overview
+
 The Tool system provides a framework for creating and using tools that extend agent capabilities with external integrations and specialized functions.
 
-## Core Architecture
+## Core Components
 
-### Directory Structure
+```
+pepperpy/tool/
+├── __init__.py         # Public API
+├── base.py            # Core interfaces and base classes
+├── categories/        # Tool categories
+│   ├── __init__.py
+│   ├── base.py       # Base category interface
+│   ├── io.py         # I/O tools
+│   ├── math.py       # Mathematical tools
+│   └── web.py        # Web-related tools
+├── repository/        # Tool repository
+│   ├── __init__.py
+│   ├── base.py       # Base repository interface
+│   ├── local.py      # Local tool repository
+│   └── remote.py     # Remote tool repository
+└── utils/            # Tool utilities
+    ├── __init__.py
+    └── validation.py # Tool validation utilities
+```
+
+## Core Interfaces
+
+### 1. Tool Interface
+
+```python
+class Tool(Protocol):
+    """Core tool interface."""
+    
+    name: str           # Tool name
+    description: str    # Tool description
+    category: str       # Tool category
+    version: str        # Tool version
+    
+    async def initialize(self) -> None:
+        """Initialize tool resources."""
+        
+    async def cleanup(self) -> None:
+        """Clean up tool resources."""
+        
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute tool functionality."""
+```
+
+### 2. Tool Repository Interface
+
+```python
+class ToolRepository(Protocol):
+    """Interface for tool repositories."""
+    
+    async def get_tool(self, name: str) -> Tool:
+        """Get tool by name."""
+        
+    async def list_tools(self) -> List[Tool]:
+        """List available tools."""
+        
+    async def register_tool(self, tool: Tool) -> None:
+        """Register a new tool."""
+```
+
+### 3. Tool Category Interface
+
+```python
+class ToolCategory(Protocol):
+    """Interface for tool categories."""
+    
+    name: str          # Category name
+    description: str   # Category description
+    
+    def validate_tool(self, tool: Tool) -> bool:
+        """Validate tool for this category."""
+```
+
+## Implementation Requirements
+
+### 1. Tool Implementation
+
+✅ **ALWAYS**:
+- Implement proper resource management
+- Validate input parameters
+- Handle errors appropriately
+- Follow response format standards
+- Document tool capabilities
+
+❌ **NEVER**:
+- Mix concerns between tools
+- Hardcode external dependencies
+- Skip input validation
+- Ignore resource cleanup
+
+### 2. Repository Implementation
+
+✅ **ALWAYS**:
+- Handle tool versioning
+- Validate tool metadata
+- Implement proper caching
+- Handle concurrent access
+- Log repository operations
+
+### 3. Category Implementation
+
+✅ **ALWAYS**:
+- Define clear category boundaries
+- Implement validation rules
+- Document category requirements
+- Handle tool compatibility
+
+## Tool Definition Format
+
+Tools must be defined using this format:
+
+```python
+@tool(
+    name="calculator",
+    description="Performs mathematical calculations",
+    category="math",
+    version="1.0.0"
+)
+class CalculatorTool(BaseTool):
+    """Calculator tool implementation."""
+    
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute calculation."""
+        try:
+            expression = input_data.get("expression")
+            result = await self._evaluate(expression)
+            return {
+                "status": "success",
+                "result": result
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+```
+
+## Usage Patterns
+
+### 1. Basic Tool Usage
+
+```python
+# Get tool from repository
+calculator = await tool_repository.get_tool("calculator")
+
+# Initialize tool
+await calculator.initialize()
+
+try:
+    # Execute tool
+    result = await calculator.execute({
+        "expression": "2 + 2"
+    })
+    print(f"Result: {result['result']}")
+finally:
+    await calculator.cleanup()
+```
+
+### 2. Tool Registration
+
+```python
+# Register new tool
+new_tool = MyCustomTool()
+await tool_repository.register_tool(new_tool)
+```
+
+### 3. Tool Discovery
+
+```python
+# List available tools
+tools = await tool_repository.list_tools()
+for tool in tools:
+    print(f"{tool.name}: {tool.description}")
+```
+
+## Error Handling
+
+```python
+class ToolError(Exception):
+    """Base exception for tool errors."""
+
+class ToolNotFoundError(ToolError):
+    """Tool not found in repository."""
+
+class ToolExecutionError(ToolError):
+    """Error during tool execution."""
+
+class ToolValidationError(ToolError):
+    """Tool validation error."""
+```
+
+## Testing Strategy
+
+1. **Unit Tests**:
+   - Test individual tools
+   - Validate input handling
+   - Check error cases
+
+2. **Integration Tests**:
+   - Test tool repository
+   - Verify tool registration
+   - Check tool discovery
+
+3. **System Tests**:
+   - Test tool orchestration
+   - Verify resource management
+   - Check concurrent usage
+
+## Best Practices
+
+1. **Tool Design**:
+   - Keep tools focused and single-purpose
+   - Use clear naming conventions
+   - Document all parameters
+   - Include usage examples
+
+2. **Resource Management**:
+   - Initialize resources lazily
+   - Clean up properly
+   - Handle timeouts
+   - Monitor resource usage
+
+3. **Error Handling**:
+   - Use specific error types
+   - Provide helpful error messages
+   - Log errors appropriately
+   - Handle edge cases
+
+4. **Security**:
+   - Validate all inputs
+   - Handle sensitive data properly
+   - Implement access controls
+   - Follow security best practices
+
+## Tool Categories
+
+1. **I/O Tools**:
+   - File operations
+   - Network I/O
+   - Database access
+   - Stream processing
+
+2. **Math Tools**:
+   - Basic calculations
+   - Statistical analysis
+   - Scientific computing
+   - Data processing
+
+3. **Web Tools**:
+   - HTTP requests
+   - Web scraping
+   - API integration
+   - Content fetching
+
+## Performance Considerations
+
+1. **Resource Usage**:
+   - Monitor memory usage
+   - Handle CPU-intensive tasks
+   - Implement timeouts
+   - Use resource pools
+
+2. **Concurrency**:
+   - Handle parallel execution
+   - Implement rate limiting
+   - Use connection pooling
+   - Manage shared resources
+
+3. **Caching**:
+   - Cache tool instances
+   - Cache tool results
+   - Implement cache invalidation
+   - Use appropriate cache strategies

@@ -413,28 +413,58 @@ class TimeoutError(NetworkError):
 
 
 class ServiceError(PepperpyError):
-    """Error raised when a service operation fails."""
+    """Base class for external service-related errors.
+
+    This error is raised when an external service encounters an issue,
+    such as API errors, service unavailability, or unexpected responses.
+    """
 
     def __init__(
         self,
         message: str,
-        service_name: str | None = None,
-        operation: str | None = None,
         *args,
+        service: str | None = None,
+        response: Any = None,
         **kwargs,
     ):
-        """Initialize service error.
+        """Initialize a service error.
 
         Args:
             message: Error message
-            service_name: Optional service name
-            operation: Optional operation that failed
             *args: Additional positional arguments
+            service: Service name that produced the error
+            response: Original response from the service
             **kwargs: Additional named context values
         """
         super().__init__(message, *args, **kwargs)
-        self.service_name = service_name
-        self.operation = operation
+        self.service = service
+        self.response = response
+
+
+class DomainError(ServiceError):
+    """Base class for domain-specific errors.
+    
+    This error is used as a base class for errors in specific domains
+    like LLM, Embedding, RAG, etc.
+    """
+    
+    def __init__(
+        self,
+        message: str,
+        *args,
+        domain: str | None = None,
+        **kwargs,
+    ):
+        """Initialize a domain error.
+        
+        Args:
+            message: Error message
+            *args: Additional positional arguments
+            domain: Specific domain name where the error occurred
+            **kwargs: Additional named context values
+        """
+        super().__init__(message, *args, **kwargs)
+        self.domain = domain
 
 
 class LLMError(ServiceError):

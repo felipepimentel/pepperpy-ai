@@ -11,8 +11,8 @@ import os
 from pathlib import Path
 from typing import Any
 
-from pepperpy.utils.logging import get_logger
-from pepperpy.workflow.provider import WorkflowProvider
+from pepperpy.core.logging import get_logger
+from pepperpy.workflow.base import WorkflowProvider
 
 
 class LLMCompletionWorkflow(WorkflowProvider):
@@ -45,9 +45,7 @@ class LLMCompletionWorkflow(WorkflowProvider):
         # Logging
         self.log_level = self.config.get("log_level", "INFO")
         self.log_to_console = self.config.get("log_to_console", True)
-        self.logger = get_logger(
-            __name__, level=self.log_level, console=self.log_to_console
-        )
+        self.logger = get_logger(__name__)
 
         # State
         self.pepperpy = None
@@ -59,50 +57,43 @@ class LLMCompletionWorkflow(WorkflowProvider):
             return
 
         try:
-            # Import pepperpy facade
-            from pepperpy.facade import PepperPyFacade
+            # Import PepperPy main class
+            from pepperpy.pepperpy import PepperPy
 
             # Create output directory if needed
             os.makedirs(self.output_dir, exist_ok=True)
 
-            # Initialize PepperPy facade with LLM provider
-            self.pepperpy = PepperPyFacade()
+            # Initialize PepperPy with default LLM provider from config
+            self.pepperpy = PepperPy()
+            
+            # Set up the LLM provider using OpenRouter (definido como padrão no config.yaml)
+            self.pepperpy.with_llm("openrouter")
 
-            # Configure the LLM provider
-            llm_config = {
-                "api_key": self.api_key,
-                "model": self.model,
-                "temperature": self.temperature,
-                "max_tokens": self.max_tokens,
-            }
-
-            # Set up the LLM provider
-            self.pepperpy.with_llm(self.provider, **llm_config)
-
-            # Initialize the facade
+            # Initialize the instance
             await self.pepperpy.initialize()
-
+            
             self.initialized = True
-            self.logger.info(
-                f"Initialized LLM completion workflow with {self.provider} provider"
-            )
+            self.logger.info("Initialized LLM completion workflow with OpenRouter")
+            
         except Exception as e:
             self.logger.error(f"Failed to initialize LLM workflow: {e}")
             raise
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        if not self.initialized or self.pepperpy is None:
+        if not self.initialized:
             return
 
         try:
-            if hasattr(self.pepperpy, "cleanup"):
+            if self.pepperpy:
                 await self.pepperpy.cleanup()
-            self.pepperpy = None
+                self.pepperpy = None
+                
             self.initialized = False
             self.logger.info("Cleaned up LLM completion workflow resources")
         except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
+            raise
 
     async def _complete(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Generate a completion.
@@ -113,9 +104,9 @@ class LLMCompletionWorkflow(WorkflowProvider):
         Returns:
             Dict containing the generated text
         """
-        if not self.initialized or self.pepperpy is None:
+        if not self.initialized or not self.pepperpy:
             await self.initialize()
-            if not self.initialized or self.pepperpy is None:
+            if not self.initialized or not self.pepperpy:
                 return {"error": "Failed to initialize LLM provider", "success": False}
 
         # Extract parameters from input

@@ -7,26 +7,20 @@ This provider implements a llm plugin for the PepperPy framework.
 import sys
 from collections.abc import AsyncIterator
 import collections.abc
-from typing import dict, list, Any
+from typing import Dict, List, Any
 
 from pepperpy.core.errors import PepperpyError
 from pepperpy.llm.base import LLMProvider
 from pepperpy.plugin import ProviderPlugin
 from pepperpy.llm.base import LlmError
-from pepperpy.llm.base import LlmError
 
-logger = logger.getLogger(__name__)
+import logging
+logger = logging.getLogger(__name__)
 
 
 # Use LLMError from core errors
-class LLMError(class LLMError(PepperpyError):
-    """Error raised by LLM providers."""):
-    """
-    Llm llmerror provider.
-    
-    This provider implements llmerror functionality for the PepperPy llm framework.
-    """
-
+class LLMError(PepperpyError):
+    """Error raised by LLM providers."""
     pass
 
 
@@ -44,19 +38,11 @@ class GenerationResult:
         self.metadata = kwargs
 
     def __str__(self) -> str:
+        """Return the content as string.
 
-
-    """Return the content as string.
-
-
-
-    Returns:
-
-
-        Return description
-
-
-    """
+        Returns:
+            Content as string
+        """
         return self.content
 
 
@@ -74,19 +60,11 @@ class GenerationChunk:
         self.metadata = kwargs
 
     def __str__(self) -> str:
+        """Return the content as string.
 
-
-    """Return the content as string.
-
-
-
-    Returns:
-
-
-        Return description
-
-
-    """
+        Returns:
+            Content as string
+        """
         return self.content
 
 
@@ -98,10 +76,10 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
     """
 
     async def initialize(self) -> None:
- """Initialize the provider.
+        """Initialize the provider.
 
         This method is called automatically when the provider is first used.
- """
+        """
         # Skip if already initialized
         if self.initialized:
             return
@@ -148,10 +126,10 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
             raise LLMError(f"Failed to initialize OpenAI client: {e}") from e
 
     async def cleanup(self) -> None:
- """Clean up provider resources.
+        """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
- """
+        """
         # Clean up client if it exists
         if hasattr(self, "client") and self.client:
             # Close the client if it has a close method
@@ -198,7 +176,7 @@ class OpenAIProvider(LLMProvider, BasePluginProvider):
                 )
                 return {"status": "success", "result": response.content}
             else:
-                raise LlmError(f"Unknown task type: {task_type)"}
+                raise LlmError(f"Unknown task type: {task_type}")
 
         except Exception as e:
             self.logger.error(f"Error executing task '{task_type}': {e}")

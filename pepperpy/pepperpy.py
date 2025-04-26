@@ -5,7 +5,15 @@ This module provides the main entry point for the PepperPy framework,
 coordinating and orchestrating all domain providers.
 """
 
-from typing import Any, Protocol, cast, runtime_checkable
+import sys
+import logging
+from typing import Any, Protocol, cast, runtime_checkable, Dict, List, Optional, Self, Union
+import asyncio
+import importlib
+
+# Verificação de versão do Python
+if sys.version_info < (3, 12):
+    raise RuntimeError("PepperPy requer Python 3.12 ou superior")
 
 # Import domain providers
 from pepperpy.agent.base import AgentProvider, BaseAgentProvider
@@ -17,12 +25,15 @@ from pepperpy.communication import (
 from pepperpy.cache.base import BaseCacheProvider, CacheProvider
 from pepperpy.llm.base import BaseLLMProvider, LLMProvider
 from pepperpy.plugin.discovery import PluginDiscoveryProvider
-from pepperpy.plugin.registry import plugin_registry
+from pepperpy.plugin.registry import get_registry, discover_plugins
 from pepperpy.storage.provider import StorageProvider
 from pepperpy.tool.base import BaseToolProvider, ToolProvider
 from pepperpy.tts.base import BaseTTSProvider, TTSProvider
 from pepperpy.workflow.base import WorkflowProvider
+from pepperpy.core.config import ConfigManager
+from pepperpy.rag.processor import create_processor, TextProcessor
 
+logger = logging.getLogger(__name__)
 
 # Extended protocol definitions with initialize method
 @runtime_checkable
@@ -56,11 +67,12 @@ class PepperPy:
         # Task configuration
         self._task_config: dict[str, Any] = {}
 
-        # Discover available plugins
-        plugin_registry.discover_plugins()
-
         # Add topology provider
         self._communication_provider = None
+
+        self.components = {}
+        self.rag_processor = None
+        self._workflow_task = None
 
     # Task configuration methods
     def with_task_context(self, **context: Any) -> "PepperPy":
@@ -144,7 +156,7 @@ class PepperPy:
         """
         if isinstance(provider, str):
             # Get provider from registry
-            provider_class = plugin_registry.get_plugin("agent", provider.lower())
+            provider_class = get_registry().get_plugin("agent", provider.lower())
             if not provider_class:
                 raise ValueError(
                     f"Unknown agent provider: {provider}. Make sure the plugin is installed."
@@ -186,7 +198,7 @@ class PepperPy:
         """
         if isinstance(provider, str):
             # Get provider from registry
-            provider_class = plugin_registry.get_plugin("cache", provider.lower())
+            provider_class = get_registry().get_plugin("cache", provider.lower())
             if not provider_class:
                 raise ValueError(
                     f"Unknown cache provider: {provider}. Make sure the plugin is installed."
@@ -224,7 +236,7 @@ class PepperPy:
         """
         if isinstance(provider, str):
             # Get provider from registry
-            provider_class = plugin_registry.get_plugin("discovery", provider.lower())
+            provider_class = get_registry().get_plugin("discovery", provider.lower())
             if not provider_class:
                 raise ValueError(
                     f"Unknown discovery provider: {provider}. Make sure the plugin is installed."
@@ -262,7 +274,7 @@ class PepperPy:
         """
         if isinstance(provider, str):
             # Get provider from registry
-            provider_class = plugin_registry.get_plugin("storage", provider.lower())
+            provider_class = get_registry().get_plugin("storage", provider.lower())
             if not provider_class:
                 raise ValueError(
                     f"Unknown storage provider: {provider}. Make sure the plugin is installed."
@@ -296,7 +308,7 @@ class PepperPy:
         """
         if isinstance(provider, str):
             # Get provider from registry
-            provider_class = plugin_registry.get_plugin("tts", provider.lower())
+            provider_class = get_registry().get_plugin("tts", provider.lower())
             if not provider_class:
                 raise ValueError(
                     f"Unknown TTS provider: {provider}. Make sure the plugin is installed."
@@ -332,7 +344,7 @@ class PepperPy:
         """
         if isinstance(provider, str):
             # Get provider from registry
-            provider_class = plugin_registry.get_plugin("tool", provider.lower())
+            provider_class = get_registry().get_plugin("tool", provider.lower())
             if not provider_class:
                 raise ValueError(
                     f"Unknown tool provider: {provider}. Make sure the plugin is installed."
@@ -366,7 +378,7 @@ class PepperPy:
         """
         if isinstance(provider, str):
             # Get provider from registry
-            provider_class = plugin_registry.get_plugin("llm", provider.lower())
+            provider_class = get_registry().get_plugin("llm", provider.lower())
             if not provider_class:
                 raise ValueError(
                     f"Unknown LLM provider: {provider}. Make sure the plugin is installed."
@@ -402,7 +414,7 @@ class PepperPy:
         """
         if isinstance(provider, str):
             # Get provider from registry
-            provider_class = plugin_registry.get_plugin("workflow", provider.lower())
+            provider_class = get_registry().get_plugin("workflow", provider.lower())
             if not provider_class:
                 raise ValueError(
                     f"Unknown workflow provider: {provider}. Make sure the plugin is installed."
@@ -580,47 +592,51 @@ class PepperPy:
 
     # Global initialization
     async def initialize(self) -> "PepperPy":
-        """Initialize all configured providers.
+        """Initialize all providers and components.
 
         Returns:
             Self for method chaining
         """
-        # Initialize each provider if configured
-        if self._agent_provider and isinstance(
-            self._agent_provider, InitializableProvider
-        ):
-            await self._agent_provider.initialize()
+        # Discover plugins first
+        await discover_plugins()
+        
+        # Initialize all providers
+        providers: list[InitializableProvider] = []
 
-        if self._cache_provider and isinstance(
-            self._cache_provider, InitializableProvider
-        ):
-            await self._cache_provider.initialize()
+        if self._agent_provider:
+            providers.append(cast(InitializableProvider, self._agent_provider))
 
-        if self._discovery_provider and isinstance(
-            self._discovery_provider, InitializableProvider
-        ):
-            await self._discovery_provider.initialize()
+        if self._cache_provider:
+            providers.append(cast(InitializableProvider, self._cache_provider))
 
-        if self._llm_provider and isinstance(self._llm_provider, InitializableProvider):
-            await self._llm_provider.initialize()
+        if self._discovery_provider:
+            providers.append(cast(InitializableProvider, self._discovery_provider))
 
-        if self._storage_provider and isinstance(
-            self._storage_provider, InitializableProvider
-        ):
-            await self._storage_provider.initialize()
+        if self._llm_provider:
+            providers.append(cast(InitializableProvider, self._llm_provider))
 
-        if self._tts_provider and isinstance(self._tts_provider, InitializableProvider):
-            await self._tts_provider.initialize()
+        if self._storage_provider:
+            providers.append(cast(InitializableProvider, self._storage_provider))
 
-        if self._tool_provider and isinstance(
-            self._tool_provider, InitializableProvider
-        ):
-            await self._tool_provider.initialize()
+        if self._tts_provider:
+            providers.append(cast(InitializableProvider, self._tts_provider))
 
-        if self._workflow_provider and isinstance(
-            self._workflow_provider, InitializableProvider
-        ):
-            await self._workflow_provider.initialize()
+        if self._tool_provider:
+            providers.append(cast(InitializableProvider, self._tool_provider))
+
+        if self._workflow_provider:
+            providers.append(cast(InitializableProvider, self._workflow_provider))
+
+        if self._communication_provider:
+            providers.append(cast(InitializableProvider, self._communication_provider))
+            
+        # Initialize RAG processor if configured
+        if self.rag_processor:
+            await self.rag_processor.initialize()
+
+        # Initialize all providers
+        for provider in providers:
+            await provider.initialize()
 
         return self
 
@@ -707,3 +723,205 @@ class PepperPy:
         # Clean up communication provider if configured
         if self._communication_provider:
             await self._communication_provider.cleanup()
+
+    @classmethod
+    def create(cls) -> "PepperPy":
+        """Create a new PepperPy instance."""
+        return cls()
+    
+    def with_rag_processor(
+        self, 
+        processor_type: Optional[str] = None, 
+        **kwargs: Any
+    ) -> "PepperPy":
+        """Configure RAG text processor.
+        
+        Args:
+            processor_type: Type of processor to use (spacy, nltk, transformers)
+            **kwargs: Additional processor configuration
+            
+        Returns:
+            Self for method chaining
+        """
+        self._rag_processor_type = processor_type
+        self._rag_processor_config = kwargs
+        return self
+    
+    def build(self) -> "PepperPy":
+        """Build the PepperPy instance.
+        
+        Returns:
+            Fully configured PepperPy instance
+        """
+        return self
+
+    @property
+    def rag(self) -> 'RAGTask':
+        """Get RAG task interface.
+        
+        Returns:
+            RAG task interface
+        """
+        if not hasattr(self, "_rag_task") or not self._rag_task:
+            self._rag_task = RAGTask(self)
+        return self._rag_task
+
+
+class RAGTask:
+    """RAG task interface."""
+    
+    def __init__(self, pepper: PepperPy) -> None:
+        """Initialize RAG task.
+        
+        Args:
+            pepper: PepperPy instance
+        """
+        self.pepper = pepper
+        
+        # Get processor configuration
+        if hasattr(pepper, "_rag_processor_type"):
+            self._processor_type = getattr(pepper, "_rag_processor_type")
+            self._processor_config = getattr(pepper, "_rag_processor_config", {})
+        else:
+            self._processor_type = None
+            self._processor_config = {}
+        
+        self._processor = None
+
+    async def _ensure_processor(self) -> None:
+        """Ensure processor is initialized."""
+        if not self._processor:
+            self._processor = await create_processor(
+                processor_type=self._processor_type,
+                **self._processor_config
+            )
+            await self._processor.initialize()
+
+    async def process_text(self, text: str, **options: Any) -> Dict[str, Any]:
+        """Process text using the configured processor.
+        
+        Args:
+            text: Text to process
+            **options: Additional processing options
+            
+        Returns:
+            Processed text result
+        """
+        try:
+            await self._ensure_processor()
+            result = await self._processor.execute({
+                "task": "process_text",
+                "text": text,
+                "options": options
+            })
+            
+            return result["result"] if result["status"] == "success" else {"error": result["message"]}
+        except Exception as e:
+            logger.error(f"Error processing text: {e}")
+            return {"error": str(e)}
+    
+    async def chunk_text(self, text: str) -> Dict[str, Any]:
+        """Chunk text using the configured processor.
+        
+        Args:
+            text: Text to chunk
+            
+        Returns:
+            Chunked text result
+        """
+        try:
+            await self._ensure_processor()
+            result = await self._processor.execute({
+                "task": "chunk_text",
+                "text": text
+            })
+            
+            return result["result"] if result["status"] == "success" else {"error": result["message"]}
+        except Exception as e:
+            logger.error(f"Error chunking text: {e}")
+            return {"error": str(e)}
+
+
+class WorkflowTask:
+    """Workflow task."""
+
+    def __init__(self, pepper: PepperPy) -> None:
+        """Initialize workflow task.
+        
+        Args:
+            pepper: PepperPy instance
+        """
+        self._pepper = pepper
+        self._workflow_config = getattr(pepper, "_workflow_config", {})
+        self._initialized_providers = {}
+        
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        # Clean up any initialized workflow providers
+        for provider in self._initialized_providers.values():
+            try:
+                await provider.cleanup()
+            except Exception as e:
+                logger.error(f"Error cleaning up workflow provider: {e}")
+                
+        self._initialized_providers = {}
+                
+    async def execute(self, workflow_name: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a workflow.
+        
+        Args:
+            workflow_name: Name of the workflow to execute
+            input_data: Input data for the workflow
+            
+        Returns:
+            Workflow result
+        """
+        try:
+            # Check if workflow provider is already initialized
+            if workflow_name in self._initialized_providers:
+                provider = self._initialized_providers[workflow_name]
+            else:
+                # Import the workflow provider dynamically
+                # Expected format: workflow/name -> plugins.workflow.name.provider
+                parts = workflow_name.split('/')
+                if len(parts) != 2 or parts[0] != "workflow":
+                    raise ValueError(f"Invalid workflow name: {workflow_name}. Expected format: workflow/name")
+                
+                module_name = parts[1]
+                module_path = f"plugins.workflow.{module_name}.provider"
+                
+                try:
+                    module = importlib.import_module(module_path)
+                    
+                    # Find the provider class
+                    provider_class = None
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        if isinstance(attr, type) and attr_name.endswith("Provider"):
+                            provider_class = attr
+                            break
+                            
+                    if not provider_class:
+                        raise ValueError(f"Could not find provider class in {module_path}")
+                    
+                    # Create provider instance
+                    provider = provider_class()
+                    await provider.initialize()
+                    
+                    # Cache the initialized provider
+                    self._initialized_providers[workflow_name] = provider
+                    
+                except ImportError as e:
+                    raise ValueError(f"Could not import workflow {workflow_name}: {e}")
+                except Exception as e:
+                    raise ValueError(f"Error initializing workflow {workflow_name}: {e}")
+            
+            # Execute workflow
+            return await provider.execute(input_data)
+            
+        except Exception as e:
+            logger.error(f"Error executing workflow {workflow_name}: {e}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }

@@ -1,0 +1,105 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Diretrizes para Diagnóstico e Solução de Problemas
+
+## Princípios Fundamentais
+
+1. **Respeite a Arquitetura**: NUNCA contorne a arquitetura do framework com soluções do tipo monkey patching, stubs, ou mocks.
+
+2. **Config First**: SEMPRE verifique o `config.yaml` e `.env` ANTES de propor soluções de código.
+
+3. **Minimal**: Faça a menor alteração possível que resolva o problema.
+
+4. **Dentro do Framework**: Resolva problemas dentro das abstrações existentes.
+
+## Ordem de Abordagem para Problemas
+
+### 1. Verificação de Configuração
+✅ **SEMPRE COMECE AQUI**
+- Verifique se todas as configurações necessárias estão presentes em `config.yaml`
+- Verifique se variáveis de ambiente necessárias estão configuradas em `.env`
+
+### 2. Verificação de Implementação de Plugins
+- Verifique se o plugin necessário está implementado
+- Verifique se todas as interfaces requeridas estão implementadas corretamente
+
+### 3. Verificação de Compatibilidade
+- Verifique compatibilidade de versões entre o framework e plugins
+- Verifique se as dependências estão instaladas corretamente
+
+### 4. Correção Apropriada
+❌ **NUNCA FAÇA**:
+- Monkey patching do código do framework
+- Duplicação de código existente
+- Substituição de componentes por stubs ou mocks sem necessidade
+- Ignorar arquivos de configuração existentes
+
+✅ **SEMPRE FAÇA**:
+- Implementação correta das interfaces
+- Extensão de classes base conforme documentado
+- Uso das configurações existentes
+- Alterações mínimas e dentro do design do sistema
+
+## Exemplos de Abordagens
+
+### Problema com Provider:
+
+❌ **ERRADO**: 
+```python
+# Monkey patching para resolver problema de provider
+original_method = SomeClass.some_method
+def patched_method(*args, **kwargs):
+    # Lógica alternativa
+    pass
+SomeClass.some_method = patched_method
+```
+
+✅ **CORRETO**:
+```python
+# Usar a configuração para especificar o provider correto
+pepperpy = (
+    PepperPy.create()
+    .with_llm("openrouter")  # Usar provider configurado no config.yaml
+    .build()
+)
+```
+
+### Problema com método não implementado:
+
+❌ **ERRADO**:
+```python
+# Adicionar método faltante via monkey patching
+if not hasattr(SomeClass, 'missing_method'):
+    def missing_method(self, *args, **kwargs):
+        # Implementação alternativa
+        pass
+    SomeClass.missing_method = missing_method
+```
+
+✅ **CORRETO**:
+```python
+# Implementar a interface corretamente em uma subclasse
+class ProperImplementation(BaseClass):
+    def missing_method(self, *args, **kwargs):
+        # Implementação correta
+        pass
+```
+
+## Solução de Erros Específicos
+
+### Erro de Plugin não encontrado
+1. Verificar se o plugin está listado no config.yaml
+2. Verificar se o plugin está instalado corretamente
+3. Verificar se as variáveis de ambiente necessárias estão configuradas
+
+### Erro de método não encontrado
+1. Verificar a interface correta do componente
+2. Implementar a interface completamente na classe apropriada
+3. Verificar se está usando a versão correta do componente
+
+## Conclusão
+
+Ao enfrentar problemas no PepperPy, SEMPRE trabalhe dentro da arquitetura e padrões do framework. Respeite o design do sistema e use as abstrações fornecidas. Evite soluções temporárias ou gambiarras que comprometeriam a manutenibilidade e integridade do código.

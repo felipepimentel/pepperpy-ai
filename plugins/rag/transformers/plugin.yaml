@@ -1,0 +1,72 @@
+name: transformers_processor
+version: 0.1.0
+description: Transformers-based text processor for RAG
+author: PepperPy Team
+
+plugin_type: rag
+category: processor
+provider_name: transformers
+entry_point: provider.TransformersProcessor
+
+min_framework_version: 0.1.0
+
+config_schema:
+  type: object
+  properties:
+    model:
+      type: string
+      description: Transformers model to use (e.g., 'bert-base-uncased', 'distilbert-base-uncased', 'gpt2')
+      default: distilbert-base-uncased
+    chunk_size:
+      type: integer
+      description: Maximum size of each text chunk in characters
+      default: 1000
+    chunk_overlap:
+      type: integer
+      description: Number of characters to overlap between chunks
+      default: 200
+    max_length:
+      type: integer
+      description: Maximum sequence length for the model
+      default: 512
+    device:
+      type: string
+      description: Device to run inference on ('cpu', 'cuda', 'mps')
+      default: cpu
+  required:
+    - model
+
+default_config:
+  model: distilbert-base-uncased
+  chunk_size: 1000
+  chunk_overlap: 200
+  max_length: 512
+  device: cpu
+
+examples:
+  - name: chunk_text
+    description: Splits text into semantic chunks for RAG
+    input:
+      task: chunk_text
+      text: "Transformers provide a unified API for using many different pre-trained models for Natural Language Processing tasks. These pre-trained models can be fine-tuned on a specific task and achieve state-of-the-art performance. The models support tasks like text classification, named entity recognition, question answering, and more."
+    expected_output:
+      status: success
+      result:
+        chunks:
+          - "Transformers provide a unified API for using many different pre-trained models for Natural Language Processing tasks. These pre-trained models can be fine-tuned on a specific task and achieve state-of-the-art performance."
+          - "The models support tasks like text classification, named entity recognition, question answering, and more."
+  
+  - name: process_text
+    description: Processes text to extract embeddings and tokens
+    input:
+      task: process_text
+      text: "Hugging Face Transformers provides thousands of pre-trained models for various tasks."
+    expected_output:
+      status: success
+      result:
+        text: "Hugging Face Transformers provides thousands of pre-trained models for various tasks."
+        tokens: ["hugging", "face", "transformers", "provides", "thousands", "of", "pre", "-", "trained", "models", "for", "various", "tasks", "."]
+        embeddings_shape: [1, 768]
+        metadata:
+          model: "distilbert-base-uncased"
+          provider: "transformers" 

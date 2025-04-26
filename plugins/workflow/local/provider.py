@@ -7,33 +7,27 @@ allowing them to run in the same process as the application.
 import logging
 from typing import Any, dict, list, Optional
 
-from pepperpy.core.exceptions import PipelineError
-from pepperpy.plugin.plugin import PepperpyPlugin
-from pepperpy.workflow.base import (
-from pepperpy.workflow.base import WorkflowError
-from pepperpy.workflow import WorkflowProvider
+from pepperpy.core.errors import ExecutionError as PipelineError
 from pepperpy.plugin import ProviderPlugin
-
-logger = logging.getLogger(__name__)
+from pepperpy.workflow.base import (
+    WorkflowProvider,
+    WorkflowStep,
+    WorkflowStepResult,
+    WorkflowStepStatus,
     ComponentType,
     PipelineContext,
     Workflow,
     WorkflowComponent,
 )
 
-logger = logger.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
-class LocalExecutor(class LocalExecutor(PepperpyPlugin):
+class LocalExecutor(WorkflowProvider, ProviderPlugin):
     """Local workflow executor.
 
     Executes workflows in the local process, managing component
     execution and data flow between components.
-    """):
-    """
-    Workflow localexecutor provider.
-    
-    This provider implements localexecutor functionality for the PepperPy workflow framework.
     """
 
     name = "local"
@@ -57,19 +51,19 @@ class LocalExecutor(class LocalExecutor(PepperpyPlugin):
         self._workflows: dict[str, Workflow] = {}
 
     async def initialize(self) -> None:
- """Initialize the provider.
+        """Initialize the provider.
 
         This method is called automatically when the provider is first used.
         It sets up resources needed by the provider.
- """
+        """
         self.initialized = True
 
     async def cleanup(self) -> None:
- """Clean up provider resources.
+        """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
         It releases any resources acquired during initialization.
- """
+        """
         self._workflows.clear()
         self.initialized = False
 
@@ -176,13 +170,13 @@ class LocalExecutor(class LocalExecutor(PepperpyPlugin):
         self,
         status: Optional[ComponentType] = None,
     ) -> list[Workflow]:
-        """list workflows with optional status filter.
+        """List workflows with optional status filter.
 
         Args:
             status: Optional status filter
 
         Returns:
-            list of matching workflows
+            List of matching workflows
         """
         if status is None:
             return list(self._workflows.values())

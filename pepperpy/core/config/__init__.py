@@ -16,12 +16,14 @@ from pepperpy.core.config.loader import (
 
 # Public exports from manager
 from pepperpy.core.config.manager import (
+    ConfigManager,
     diagnose_config,
     get_component_config,
     get_config,
     get_default_provider,
     get_environment,
     get_plugin_configuration,
+    get_plugin_config,
     get_provider_api_key,
     get_provider_config,
     initialize_config,
@@ -50,12 +52,14 @@ __all__ = [
     "get_default_provider",
     "get_provider_api_key",
     "get_plugin_configuration",
+    "get_plugin_config",
     "get_environment",
     "is_development",
     "is_production",
     "initialize_config",
     "diagnose_config",
     "validate_config_security",
+    "ConfigManager",
     # Schema classes
     "PepperPyConfig",
     "SecurityConfig",

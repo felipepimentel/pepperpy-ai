@@ -5,8 +5,246 @@ alwaysApply: true
 ---
 # RAG (Retrieval Augmented Generation) Architecture
 
+## Overview
+
 The RAG system provides a framework for retrieval augmented generation, combining vector search with LLM generation to produce more accurate and contextually relevant responses.
 
-## Core Architecture
+## Core Components
 
-### Directory Structure
+```
+pepperpy/rag/
+├── __init__.py         # Public API
+├── base.py            # Core interfaces and base classes
+├── chunking/          # Text chunking strategies
+│   ├── __init__.py
+│   ├── base.py       # Base chunking interface
+│   ├── fixed.py      # Fixed-size chunking
+│   └── semantic.py   # Semantic-based chunking
+├── pipeline/          # RAG pipeline components
+│   ├── __init__.py
+│   ├── base.py       # Base pipeline interface
+│   ├── retriever.py  # Document retrieval
+│   └── reranker.py   # Result reranking
+└── utils/            # RAG utilities
+    ├── __init__.py
+    └── metrics.py    # RAG performance metrics
+```
+
+## Core Interfaces
+
+### 1. RAG Provider Interface
+
+```python
+class RAGProvider(Protocol):
+    """Core RAG provider interface."""
+    
+    async def initialize(self) -> None:
+        """Initialize RAG resources."""
+        
+    async def cleanup(self) -> None:
+        """Clean up RAG resources."""
+        
+    async def query(self, query: str, **kwargs) -> RAGResponse:
+        """Execute RAG query."""
+        
+    async def add_documents(self, documents: List[Document]) -> None:
+        """Add documents to RAG system."""
+```
+
+### 2. Chunking Strategy Interface
+
+```python
+class ChunkingStrategy(Protocol):
+    """Interface for text chunking strategies."""
+    
+    def chunk_text(self, text: str) -> List[TextChunk]:
+        """Chunk text into segments."""
+        
+    def chunk_document(self, document: Document) -> List[DocumentChunk]:
+        """Chunk document into segments."""
+```
+
+### 3. Pipeline Component Interface
+
+```python
+class PipelineComponent(Protocol):
+    """Interface for RAG pipeline components."""
+    
+    async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process data in the pipeline."""
+```
+
+## Implementation Requirements
+
+### 1. Provider Implementation
+
+✅ **ALWAYS**:
+- Implement proper resource management
+- Handle initialization and cleanup
+- Use chunking strategies appropriately
+- Implement proper error handling
+- Follow response format standards
+
+❌ **NEVER**:
+- Mix chunking logic with retrieval
+- Hardcode chunking parameters
+- Skip document validation
+- Ignore resource cleanup
+
+### 2. Chunking Implementation
+
+✅ **ALWAYS**:
+- Validate input text/documents
+- Maintain document metadata
+- Handle edge cases (short texts, etc.)
+- Preserve context when chunking
+- Consider overlap between chunks
+
+### 3. Pipeline Implementation
+
+✅ **ALWAYS**:
+- Make components composable
+- Handle component errors gracefully
+- Maintain state consistency
+- Log pipeline operations
+- Allow component configuration
+
+## Response Format
+
+All RAG operations must follow this response format:
+
+```python
+class RAGResponse(BaseModel):
+    """Standard RAG response format."""
+    
+    query: str                 # Original query
+    chunks: List[DocumentChunk] # Retrieved chunks
+    answer: str               # Generated answer
+    sources: List[Source]     # Source references
+    metadata: Dict[str, Any]  # Additional metadata
+```
+
+## Usage Patterns
+
+### 1. Basic RAG Query
+
+```python
+# Initialize RAG provider
+rag = create_rag_provider("chroma")
+await rag.initialize()
+
+try:
+    # Execute query
+    response = await rag.query(
+        "What is the capital of France?",
+        top_k=3,
+        threshold=0.7
+    )
+    
+    # Process response
+    print(f"Answer: {response.answer}")
+    print("Sources:")
+    for source in response.sources:
+        print(f"- {source.reference}")
+finally:
+    await rag.cleanup()
+```
+
+### 2. Document Ingestion
+
+```python
+# Add documents to RAG system
+documents = [
+    Document(content="...", metadata={"source": "wiki"}),
+    Document(content="...", metadata={"source": "book"})
+]
+
+await rag.add_documents(documents)
+```
+
+### 3. Custom Pipeline
+
+```python
+# Create custom pipeline
+pipeline = (
+    RAGPipeline()
+    .add_component(Retriever(top_k=3))
+    .add_component(Reranker(threshold=0.7))
+    .add_component(AnswerGenerator())
+)
+
+# Execute pipeline
+result = await pipeline.execute(query="What is RAG?")
+```
+
+## Performance Considerations
+
+1. **Chunking Strategy Selection**:
+   - Consider document type and structure
+   - Balance chunk size with context preservation
+   - Use semantic chunking for complex documents
+
+2. **Vector Store Optimization**:
+   - Use appropriate vector store for scale
+   - Consider indexing strategies
+   - Implement caching where appropriate
+
+3. **Pipeline Efficiency**:
+   - Optimize component order
+   - Use batching when possible
+   - Implement parallel processing
+
+## Error Handling
+
+```python
+class RAGError(Exception):
+    """Base exception for RAG errors."""
+
+class ChunkingError(RAGError):
+    """Error during text chunking."""
+
+class RetrievalError(RAGError):
+    """Error during document retrieval."""
+
+class GenerationError(RAGError):
+    """Error during answer generation."""
+```
+
+## Testing Strategy
+
+1. **Unit Tests**:
+   - Test individual components
+   - Validate chunking strategies
+   - Check error handling
+
+2. **Integration Tests**:
+   - Test full RAG pipeline
+   - Verify document ingestion
+   - Check query responses
+
+3. **Performance Tests**:
+   - Measure retrieval latency
+   - Test with large document sets
+   - Verify resource usage
+
+## Best Practices
+
+1. **Document Processing**:
+   - Clean and normalize text
+   - Extract metadata properly
+   - Validate document format
+
+2. **Query Optimization**:
+   - Implement query preprocessing
+   - Use query expansion when needed
+   - Consider semantic similarity
+
+3. **Resource Management**:
+   - Implement proper cleanup
+   - Monitor memory usage
+   - Handle concurrent access
+
+4. **Response Quality**:
+   - Validate generated answers
+   - Include source citations
+   - Track confidence scores

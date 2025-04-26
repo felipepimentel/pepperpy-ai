@@ -1,6 +1,48 @@
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61.0.0", "wheel>=0.37.0"]
+build-backend = "setuptools.build_meta"
+
+# Definições para uv
+[project]
+name = "pepperpy"
+version = "0.1.0"
+description = "A Pythonic Framework for AI Agents and LLM Capabilities"
+authors = [{ name = "Felipe Pimentel", email = "fpimentel88@gmail.com" }]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp>=3.11.16",
+    "diskcache>=5.6.3",
+    "httpx>=0.28.1",
+    "importlib-metadata>=8.6.1",
+    "jsonschema>=4.23.0",
+    "loguru>=0.7.3",
+    "pydantic>=2.11.1",
+    "python-dotenv>=1.1.0",
+    "pyyaml>=6.0.2",
+    "tenacity>=9.1.2",
+    "xxhash>=3.5.0",
+    "rich>=14.0.0",
+    "mcp>=1.6.0",
+]
+
+[project.scripts]
+pepperpy = "pepperpy.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.1.0",
+    "black>=25.1.0",
+    "isort>=6.0.1",
+    "mypy>=1.15.0",
+    "ruff>=0.11.5",
+]
+
+[tool.setuptools]
+packages = ["pepperpy"]
 
 [tool.black]
 line-length = 88
@@ -60,42 +102,6 @@ python_files = "test_*.py"
 asyncio_mode = "auto"
 addopts = "--cov=pepperpy --cov-report=term-missing"
 
-[tool.poetry]
-name = "pepperpy"
-version = "0.1.0"
-description = "A Pythonic Framework for AI Agents and LLM Capabilities"
-authors = ["Felipe Pimentel <fpimentel88@gmail.com>"]
-readme = "README.md"
-packages = [{ include = "pepperpy" }]
-license = "MIT"
-
-[tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-aiohttp = "^3.11.16"
-diskcache = "^5.6.3"
-httpx = "^0.28.1"
-importlib-metadata = "^8.6.1"
-jsonschema = "^4.23.0"
-loguru = "^0.7.3"
-pydantic = "^2.11.1"
-python-dotenv = "^1.1.0"
-pyyaml = "^6.0.2"
-tenacity = "^9.1.2"
-uv = "^0.6.12"
-xxhash = "^3.5.0"
-rich = "^14.0.0"
-mcp = "^1.6.0"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.5"
-pytest-asyncio = "^0.26.0"
-pytest-cov = "^6.1.0"
-black = "^25.1.0"
-isort = "^6.0.1"
-mypy = "^1.15.0"
-ruff = "^0.11.5"
-
-
 [tool.coverage.run]
 source = ["pepperpy"]
 omit = ["tests/*", "**/__init__.py"]
@@ -118,3 +124,8 @@ select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]

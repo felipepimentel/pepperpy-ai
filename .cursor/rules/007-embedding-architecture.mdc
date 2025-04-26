@@ -3,3 +3,283 @@ description: Overview of embedding system architecture, provider implementation,
 globs: **/embedding/**
 ---
 # Embedding System Architecture
+# Embedding System Architecture
+
+## Overview
+
+The Embedding system provides a framework for text embedding generation and management, supporting various embedding providers and models.
+
+## Core Components
+
+```
+pepperpy/embedding/
+├── __init__.py         # Public API
+├── base.py            # Core interfaces and base classes
+├── models/            # Embedding models
+│   ├── __init__.py
+│   ├── base.py       # Base model interface
+│   ├── local.py      # Local model implementations
+│   └── remote.py     # Remote model interfaces
+├── cache/            # Embedding cache
+│   ├── __init__.py
+│   ├── base.py       # Base cache interface
+│   ├── memory.py     # In-memory cache
+│   └── persistent.py # Persistent cache
+└── utils/            # Embedding utilities
+    ├── __init__.py
+    ├── metrics.py    # Similarity metrics
+    └── processing.py # Text preprocessing
+```
+
+## Core Interfaces
+
+### 1. Embedding Provider Interface
+
+```python
+class EmbeddingProvider(Protocol):
+    """Core embedding provider interface."""
+    
+    async def initialize(self) -> None:
+        """Initialize embedding resources."""
+        
+    async def cleanup(self) -> None:
+        """Clean up embedding resources."""
+        
+    async def embed_text(self, text: str) -> np.ndarray:
+        """Generate embedding for text."""
+        
+    async def embed_texts(self, texts: List[str]) -> List[np.ndarray]:
+        """Generate embeddings for multiple texts."""
+```
+
+### 2. Model Interface
+
+```python
+class EmbeddingModel(Protocol):
+    """Interface for embedding models."""
+    
+    name: str          # Model name
+    dimensions: int    # Embedding dimensions
+    
+    async def encode(self, text: str) -> np.ndarray:
+        """Encode text to embedding."""
+        
+    async def encode_batch(self, texts: List[str]) -> List[np.ndarray]:
+        """Encode multiple texts to embeddings."""
+```
+
+### 3. Cache Interface
+
+```python
+class EmbeddingCache(Protocol):
+    """Interface for embedding cache."""
+    
+    async def get(self, key: str) -> Optional[np.ndarray]:
+        """Get embedding from cache."""
+        
+    async def set(self, key: str, embedding: np.ndarray) -> None:
+        """Store embedding in cache."""
+        
+    async def delete(self, key: str) -> None:
+        """Remove embedding from cache."""
+```
+
+## Implementation Requirements
+
+### 1. Provider Implementation
+
+✅ **ALWAYS**:
+- Handle model initialization
+- Implement proper caching
+- Validate input text
+- Handle batch processing
+- Follow response format
+
+❌ **NEVER**:
+- Mix model implementations
+- Skip text preprocessing
+- Ignore resource cleanup
+- Cache sensitive data
+
+### 2. Model Implementation
+
+✅ **ALWAYS**:
+- Document model properties
+- Handle resource limits
+- Implement batch processing
+- Validate model outputs
+- Monitor performance
+
+### 3. Cache Implementation
+
+✅ **ALWAYS**:
+- Use appropriate cache keys
+- Implement TTL if needed
+- Handle cache misses
+- Monitor cache size
+- Implement cleanup
+
+## Usage Patterns
+
+### 1. Basic Embedding Generation
+
+```python
+# Initialize provider
+provider = create_embedding_provider("openai")
+await provider.initialize()
+
+try:
+    # Generate embedding
+    text = "Hello, world!"
+    embedding = await provider.embed_text(text)
+    
+    # Use embedding
+    print(f"Embedding shape: {embedding.shape}")
+finally:
+    await provider.cleanup()
+```
+
+### 2. Batch Processing
+
+```python
+# Process multiple texts
+texts = [
+    "First document",
+    "Second document",
+    "Third document"
+]
+
+embeddings = await provider.embed_texts(texts)
+```
+
+### 3. Cached Embedding
+
+```python
+# Get or create embedding
+cache_key = hash_text(text)
+embedding = await cache.get(cache_key)
+
+if embedding is None:
+    embedding = await provider.embed_text(text)
+    await cache.set(cache_key, embedding)
+```
+
+## Error Handling
+
+```python
+class EmbeddingError(Exception):
+    """Base exception for embedding errors."""
+
+class ModelError(EmbeddingError):
+    """Model-related error."""
+
+class CacheError(EmbeddingError):
+    """Cache-related error."""
+
+class ValidationError(EmbeddingError):
+    """Input validation error."""
+```
+
+## Testing Strategy
+
+1. **Unit Tests**:
+   - Test model encoding
+   - Validate cache operations
+   - Check error handling
+
+2. **Integration Tests**:
+   - Test provider workflow
+   - Verify batch processing
+   - Check caching behavior
+
+3. **Performance Tests**:
+   - Measure encoding speed
+   - Test batch efficiency
+   - Verify memory usage
+
+## Best Practices
+
+1. **Text Processing**:
+   - Clean input text
+   - Handle special characters
+   - Implement length limits
+   - Consider language
+
+2. **Model Management**:
+   - Select appropriate models
+   - Monitor model performance
+   - Handle model updates
+   - Track usage metrics
+
+3. **Resource Management**:
+   - Initialize lazily
+   - Clean up properly
+   - Pool connections
+   - Monitor memory
+
+4. **Security**:
+   - Validate inputs
+   - Sanitize text
+   - Protect sensitive data
+   - Monitor usage
+
+## Performance Optimization
+
+1. **Batch Processing**:
+   - Use optimal batch sizes
+   - Implement parallel processing
+   - Monitor throughput
+   - Handle failures
+
+2. **Caching Strategy**:
+   - Use appropriate cache type
+   - Set proper TTL values
+   - Implement cache warming
+   - Monitor hit rates
+
+3. **Resource Usage**:
+   - Profile memory usage
+   - Monitor CPU utilization
+   - Track API usage
+   - Optimize bottlenecks
+
+## Model Support
+
+1. **Local Models**:
+   - Sentence transformers
+   - FastAI embeddings
+   - Custom models
+   - Quantized models
+
+2. **Remote Models**:
+   - OpenAI embeddings
+   - Cohere embeddings
+   - Azure embeddings
+   - HuggingFace endpoints
+
+3. **Custom Models**:
+   - Fine-tuned models
+   - Domain-specific models
+   - Multilingual models
+   - Specialized embeddings
+
+## Metrics and Monitoring
+
+1. **Performance Metrics**:
+   - Encoding latency
+   - Batch throughput
+   - Cache hit rate
+   - Error rate
+
+2. **Resource Metrics**:
+   - Memory usage
+   - CPU utilization
+   - API quota usage
+   - Cache size
+
+3. **Quality Metrics**:
+   - Embedding quality
+   - Similarity accuracy
+   - Model performance
+   - Cache effectiveness
+

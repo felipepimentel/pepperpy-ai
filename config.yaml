@@ -103,6 +103,36 @@ plugins:
   chroma:
     persist_directory: ./data/rag/chroma
     embedding_function: openai
+    
+  transformers:  # Add Transformers plugin to main RAG plugins section
+    model: distilbert-base-uncased
+    chunk_size: 1000
+    chunk_overlap: 200
+    max_length: 512
+    device: cpu
+    # Set as default if you want to use it as the default RAG processor
+    # default: false
+    
+  # RAG text processors
+  rag.processor.spacy:
+    model: en_core_web_sm
+    chunk_size: 1000
+    chunk_overlap: 200
+    default_processor: true  # Define SpaCy como processador padrão
+    
+  rag.processor.nltk:
+    language: english
+    chunk_size: 1000
+    chunk_overlap: 200
+    stemming: false
+    lemmatization: true
+    
+  rag.processor.transformers:
+    model: distilbert-base-uncased
+    chunk_size: 1000
+    chunk_overlap: 200
+    max_length: 512
+    device: cpu
   
   # Content plugins
   pymupdf:

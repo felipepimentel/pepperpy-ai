@@ -28,6 +28,12 @@ env/
 venv/
 ENV/
 
+# Package Management
+poetry.lock
+uv.lock
+requirements.txt
+.uv/
+
 # IDE
 .idea/
 .vscode/
@@ -41,6 +47,8 @@ coverage.xml
 htmlcov/
 .pytest_cache/
 .tox/
+.ruff_cache/
+.mypy_cache/
 
 # Distribution
 *.tar.gz
@@ -74,22 +82,13 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
+# Server process files
+.api_pid
+.ui_pid
+
 backups
 # Output files
 outputs/
-*.txt
-*.csv
-*.json
-*.xml
-*.html
-*.pdf
-*.mp3
-*.wav
-*.mp4
-*.png
-*.jpg
-*.jpeg
-*.gif
 examples/outputs/
 
 .specstory

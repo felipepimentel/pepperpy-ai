@@ -351,6 +351,21 @@ def get_plugin_configuration(
     return {}
 
 
+def get_plugin_config(
+    plugin_identifier: str, provider_type: str | None = None
+) -> dict[str, Any]:
+    """Alias for get_plugin_configuration.
+    
+    Args:
+        plugin_identifier: Plugin identifier - can be a type (e.g., "rag") or a namespaced name (e.g., "org.plugin")
+        provider_type: Optional provider type for typed plugins (e.g., "sqlite", "faiss")
+        
+    Returns:
+        Plugin configuration dictionary, empty if not found
+    """
+    return get_plugin_configuration(plugin_identifier, provider_type)
+
+
 def apply_environment_overrides(
     plugin_type: str, provider_type: str | None, config: dict[str, Any]
 ) -> dict[str, Any]:
@@ -674,3 +689,91 @@ def diagnose_config() -> dict[str, list[str]]:
                         )
 
     return issues
+
+
+class ConfigManager:
+    """Configuration manager for PepperPy.
+    
+    This class provides a unified interface to access configuration settings
+    throughout the PepperPy framework.
+    """
+    
+    @staticmethod
+    def initialize(config_path: str | Path | None = None) -> PepperPyConfig:
+        """Initialize the configuration system.
+        
+        Args:
+            config_path: Optional path to configuration file
+                If not provided, will search in standard locations
+                
+        Returns:
+            Loaded and validated configuration
+        """
+        return initialize_config(config_path)
+    
+    @staticmethod
+    def get_config() -> PepperPyConfig:
+        """Get the current configuration.
+        
+        Returns:
+            Current configuration
+        """
+        return get_config()
+    
+    @staticmethod
+    def get_provider_config(
+        provider_type: str, provider_name: str | None = None
+    ) -> Provider | None:
+        """Get configuration for a specific provider.
+        
+        Args:
+            provider_type: Type of provider (e.g., "llm", "tts")
+            provider_name: Optional provider name
+                If not provided, will return the default provider for the given type
+                
+        Returns:
+            Provider configuration or None if not found
+        """
+        return get_provider_config(provider_type, provider_name)
+    
+    @staticmethod
+    def get_component_config(component: str) -> dict[str, Any]:
+        """Get configuration for a specific component.
+        
+        Args:
+            component: Component name (e.g., "llm", "tts", "rag")
+            
+        Returns:
+            Component configuration as dictionary
+        """
+        return get_component_config(component)
+    
+    @staticmethod
+    def get_plugin_configuration(
+        plugin_identifier: str, provider_type: str | None = None
+    ) -> dict[str, Any]:
+        """Get configuration for a specific plugin.
+        
+        Args:
+            plugin_identifier: Plugin identifier (e.g., "openai", "nltk")
+            provider_type: Optional provider type to narrow down search
+                
+        Returns:
+            Plugin configuration as dictionary
+        """
+        return get_plugin_configuration(plugin_identifier, provider_type)
+    
+    @staticmethod
+    def get_plugin_config(
+        plugin_identifier: str, provider_type: str | None = None
+    ) -> dict[str, Any]:
+        """Alias for get_plugin_configuration.
+        
+        Args:
+            plugin_identifier: Plugin identifier (e.g., "openai", "nltk")
+            provider_type: Optional provider type to narrow down search
+                
+        Returns:
+            Plugin configuration as dictionary
+        """
+        return get_plugin_configuration(plugin_identifier, provider_type)
