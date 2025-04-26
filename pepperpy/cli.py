@@ -505,6 +505,48 @@ async def plugin_command(args: argparse.Namespace) -> int:
         return 1
 
 
+async def list_providers(domain: str, verbose: bool = False) -> int:
+    """List available providers for a given domain.
+    
+    Args:
+        domain: Domain to list providers for (llm, rag, etc.)
+        verbose: Whether to print detailed information
+        
+    Returns:
+        Exit code (0 for success, non-zero for error)
+    """
+    try:
+        # Create PepperPy instance
+        pepper = PepperPy.create().build()
+        
+        # Get available providers
+        providers = await pepper.get_providers(domain)
+        
+        if not providers:
+            print(f"No providers found for domain: {domain}")
+            return 0
+            
+        print(f"\nAvailable {domain.upper()} Providers:")
+        print("-" * 40)
+        
+        for provider in providers:
+            if verbose:
+                print(f"\nProvider: {provider.name}")
+                print(f"Description: {provider.description}")
+                print(f"Version: {provider.version}")
+                print("-" * 20)
+            else:
+                print(provider.name)
+                
+        return 0
+    except Exception as e:
+        print(f"Error listing providers: {e}")
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+
 def main() -> int:
     """Main entry point for the CLI.
     
@@ -520,65 +562,135 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
     
     #
-    # RAG processor command
+    # LLM command
+    #
+    llm_parser = subparsers.add_parser(
+        "llm",
+        help="LLM operations",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    llm_subparsers = llm_parser.add_subparsers(dest="subcommand", help="LLM subcommand")
+    
+    # LLM list command
+    llm_list_parser = llm_subparsers.add_parser("list", help="List available LLM providers")
+    llm_list_parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed information")
+    
+    #
+    # RAG command
     #
     rag_parser = subparsers.add_parser(
         "rag", 
-        help="RAG text processor operations",
+        help="RAG operations",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    rag_subparsers = rag_parser.add_subparsers(dest="subcommand", help="RAG subcommand")
+    
+    # RAG list command
+    rag_list_parser = rag_subparsers.add_parser("list", help="List available RAG providers")
+    rag_list_parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed information")
+    
+    # RAG process command (existing functionality)
+    rag_process_parser = rag_subparsers.add_parser("process", help="Process text using RAG")
     
     # Processor options
-    rag_parser.add_argument("--processor", 
+    rag_process_parser.add_argument("--processor", 
                         choices=["spacy", "nltk", "transformers"], 
                         help="Processor type (default: from config.yaml or spacy)")
-    rag_parser.add_argument("--model", type=str,
+    rag_process_parser.add_argument("--model", type=str,
                         help="Model name (for model-based processors)")
-    rag_parser.add_argument("--device", choices=["cpu", "cuda"],
+    rag_process_parser.add_argument("--device", choices=["cpu", "cuda"],
                         help="Device to use (default: from config or cpu)")
-    rag_parser.add_argument("--chunk-size", type=int, default=1000,
+    rag_process_parser.add_argument("--chunk-size", type=int, default=1000,
                         help="Size of chunks in characters")
-    rag_parser.add_argument("--chunk-overlap", type=int, default=200,
+    rag_process_parser.add_argument("--chunk-overlap", type=int, default=200,
                         help="Overlap between chunks in characters")
     
     # Input options
-    input_group = rag_parser.add_mutually_exclusive_group(required=True)
+    input_group = rag_process_parser.add_mutually_exclusive_group(required=True)
     input_group.add_argument("--text", type=str, help="Text to process")
     input_group.add_argument("--file", type=str, help="File containing text to process")
     
     # Output options
-    rag_parser.add_argument("--output", "-o", type=str, 
+    rag_process_parser.add_argument("--output", "-o", type=str, 
                         help="Output file path for results (JSON format)")
-    rag_parser.add_argument("--verbose", "-v", action="store_true", 
+    rag_process_parser.add_argument("--verbose", "-v", action="store_true", 
                         help="Print detailed processing information")
-    rag_parser.add_argument("--summary", "-s", action="store_true",
+    rag_process_parser.add_argument("--summary", "-s", action="store_true",
                         help="Print summary of results")
+    
+    #
+    # Agent command
+    #
+    agent_parser = subparsers.add_parser(
+        "agent",
+        help="Agent operations",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    agent_subparsers = agent_parser.add_subparsers(dest="subcommand", help="Agent subcommand")
+    
+    # Agent list command
+    agent_list_parser = agent_subparsers.add_parser("list", help="List available agents")
+    agent_list_parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed information")
+    
+    #
+    # TTS command
+    #
+    tts_parser = subparsers.add_parser(
+        "tts",
+        help="Text-to-Speech operations",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    tts_subparsers = tts_parser.add_subparsers(dest="subcommand", help="TTS subcommand")
+    
+    # TTS list command
+    tts_list_parser = tts_subparsers.add_parser("list", help="List available TTS providers")
+    tts_list_parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed information")
+    
+    #
+    # Tool command
+    #
+    tool_parser = subparsers.add_parser(
+        "tool",
+        help="Tool operations",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    tool_subparsers = tool_parser.add_subparsers(dest="subcommand", help="Tool subcommand")
+    
+    # Tool list command
+    tool_list_parser = tool_subparsers.add_parser("list", help="List available tools")
+    tool_list_parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed information")
     
     #
     # Workflow command
     #
     workflow_parser = subparsers.add_parser(
         "workflow",
-        help="Execute workflows",
+        help="Workflow operations",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    workflow_subparsers = workflow_parser.add_subparsers(dest="subcommand", help="Workflow subcommand")
     
-    # Workflow options
-    workflow_parser.add_argument("workflow", help="Name of the workflow to run (e.g., workflow/text_processing)")
+    # Workflow list command
+    workflow_list_parser = workflow_subparsers.add_parser("list", help="List available workflows")
+    workflow_list_parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed information")
+    
+    # Workflow run command (existing functionality)
+    workflow_run_parser = workflow_subparsers.add_parser("run", help="Execute a workflow")
+    workflow_run_parser.add_argument("workflow", help="Name of the workflow to run (e.g., workflow/text_processing)")
     
     # Input options for workflow
-    input_group = workflow_parser.add_mutually_exclusive_group()
+    input_group = workflow_run_parser.add_mutually_exclusive_group()
     input_group.add_argument("--input", "-i", help="JSON input data or path to JSON file")
     
     # If no input file is provided, these options can be used instead
-    workflow_parser.add_argument("--task", help="Task to execute in the workflow")
-    workflow_parser.add_argument("--text", help="Text to process")
-    workflow_parser.add_argument("--options", nargs="+", help="Additional options as key=value pairs")
+    workflow_run_parser.add_argument("--task", help="Task to execute in the workflow")
+    workflow_run_parser.add_argument("--text", help="Text to process")
+    workflow_run_parser.add_argument("--options", nargs="+", help="Additional options as key=value pairs")
     
     # Output options for workflow
-    workflow_parser.add_argument("--output", "-o", help="Output file path for results (JSON format)")
-    workflow_parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed execution information")
-    workflow_parser.add_argument("--summary", "-s", action="store_true", help="Print summary of results")
+    workflow_run_parser.add_argument("--output", "-o", help="Output file path for results (JSON format)")
+    workflow_run_parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed execution information")
+    workflow_run_parser.add_argument("--summary", "-s", action="store_true", help="Print summary of results")
     
     #
     # Plugin command (direct execution)
@@ -610,17 +722,40 @@ def main() -> int:
     # Parse arguments
     args = parser.parse_args()
     
-    if args.command == "rag":
+    if not args.command:
+        parser.print_help()
+        return 0
+        
+    # Handle list commands
+    if args.command in ["llm", "rag", "agent", "tts", "tool", "workflow"]:
+        if getattr(args, "subcommand", None) == "list":
+            return asyncio.run(list_providers(args.command, args.verbose))
+            
+    # Handle existing commands
+    if args.command == "rag" and args.subcommand == "process":
         return asyncio.run(rag_processor_command(args))
-    elif args.command == "workflow":
+    elif args.command == "workflow" and args.subcommand == "run":
         return asyncio.run(workflow_command(args))
     elif args.command == "plugin":
         return asyncio.run(plugin_command(args))
-    elif not args.command:
-        parser.print_help()
+    elif not args.subcommand:
+        if hasattr(args, "subcommand"):
+            # Show help for the domain command if no subcommand specified
+            if args.command == "llm":
+                llm_parser.print_help()
+            elif args.command == "rag":
+                rag_parser.print_help()
+            elif args.command == "agent":
+                agent_parser.print_help()
+            elif args.command == "tts":
+                tts_parser.print_help()
+            elif args.command == "tool":
+                tool_parser.print_help()
+            elif args.command == "workflow":
+                workflow_parser.print_help()
         return 0
     else:
-        print(f"Unknown command: {args.command}")
+        print(f"Unknown command or subcommand: {args.command} {args.subcommand}")
         return 1
 
 

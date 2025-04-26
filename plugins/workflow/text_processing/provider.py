@@ -22,6 +22,20 @@ from pepperpy.workflow.base import WorkflowError
 logger = logging.getLogger(__name__)
 
 
+class TextProcessingError(WorkflowError):
+    """Error during text processing workflow."""
+    
+    def __init__(self, message: str, cause: Exception | None = None) -> None:
+        """Initialize error with message and optional cause.
+        
+        Args:
+            message: Error description
+            cause: Original exception that caused this error
+        """
+        super().__init__(message)
+        self.__cause__ = cause
+
+
 class TextProcessingStage(PipelineStage[str, ProcessedText]):
     """Pipeline stage for text processing."""
 
@@ -54,26 +68,43 @@ class TextProcessingStage(PipelineStage[str, ProcessedText]):
 
         This method is called automatically when the provider is first used.
         It sets up resources needed by the provider.
+        
+        Raises:
+            TextProcessingError: If initialization fails
         """
-        if self._processor_type == "spacy":
-            self._processor = SpacyProcessor(
-                model=self._model if self._model is not None else "en_core_web_sm"
-            )
-        elif self._processor_type == "nltk":
-            self._processor = NLTKProcessor()
-        elif self._processor_type == "transformers":
-            self._processor = TransformersProcessor(
-                model_name=self._model
-                if self._model is not None
-                else "dbmdz/bert-large-cased-finetuned-conll03-english",
-                device=self._device,
-                batch_size=self._batch_size,
-            )
-        else:
-            raise ValueError(f"Unknown processor type: {self._processor_type}")
+        try:
+            if self._processor_type == "spacy":
+                self._processor = SpacyProcessor(
+                    model=self._model if self._model is not None else "en_core_web_sm"
+                )
+            elif self._processor_type == "nltk":
+                self._processor = NLTKProcessor()
+            elif self._processor_type == "transformers":
+                self._processor = TransformersProcessor(
+                    model_name=self._model
+                    if self._model is not None
+                    else "dbmdz/bert-large-cased-finetuned-conll03-english",
+                    device=self._device,
+                    batch_size=self._batch_size,
+                )
+            else:
+                raise TextProcessingError(f"Unknown processor type: {self._processor_type}")
 
-        if self._processor:
-            await self._processor.initialize()
+            if self._processor:
+                try:
+                    await self._processor.initialize()
+                    logger.debug(
+                        f"Initialized {self._processor_type} processor with model={self._model}"
+                    )
+                except Exception as e:
+                    raise TextProcessingError(
+                        f"Failed to initialize {self._processor_type} processor: {e}",
+                        cause=e
+                    )
+        except Exception as e:
+            if not isinstance(e, TextProcessingError):
+                raise TextProcessingError(f"Initialization failed: {e}", cause=e) from e
+            raise
 
     async def cleanup(self) -> None:
         """Clean up provider resources.
@@ -82,7 +113,13 @@ class TextProcessingStage(PipelineStage[str, ProcessedText]):
         It releases any resources acquired during initialization.
         """
         if self._processor:
-            await self._processor.cleanup()
+            try:
+                await self._processor.cleanup()
+                logger.debug(f"Cleaned up {self._processor_type} processor")
+            except Exception as e:
+                logger.error(f"Error during cleanup: {e}")
+            finally:
+                self._processor = None
 
     async def process(self, text: str, context: PipelineContext) -> ProcessedText:
         """Process text using the selected processor.
@@ -93,6 +130,9 @@ class TextProcessingStage(PipelineStage[str, ProcessedText]):
 
         Returns:
             Processed text result
+            
+        Raises:
+            TextProcessingError: If processing fails
         """
         if not self._processor:
             await self.initialize()
@@ -100,22 +140,38 @@ class TextProcessingStage(PipelineStage[str, ProcessedText]):
         # After initialize(), self._processor is guaranteed to be set
         processor = cast(TextProcessor, self._processor)
 
-        options = ProcessingOptions(
-            model=self._model if self._model is not None else "default",
-            additional_options=context.get("processing_options", {}),
-        )
+        try:
+            options = ProcessingOptions(
+                model=self._model if self._model is not None else "default",
+                additional_options=context.get("processing_options", {}),
+            )
 
-        result = await processor.process(text, options)
+            result = await processor.process(text, options)
 
-        # Store processor info in context
-        context.set_metadata("processor_type", self._processor_type)
-        context.set_metadata("processor_model", self._model)
+            # Store processor info in context
+            context.set_metadata("processor_type", self._processor_type)
+            context.set_metadata("processor_model", self._model)
+            context.set_metadata("text_length", len(text))
 
-        return result
+            logger.debug(
+                f"Processed text with {self._processor_type} "
+                f"(length={len(text)}, model={self._model})"
+            )
+
+            return result
+        except Exception as e:
+            raise TextProcessingError(
+                f"Text processing failed with {self._processor_type}: {e}",
+                cause=e
+            ) from e
 
 
 class BatchTextProcessingStage(PipelineStage[List[str], List[ProcessedText]]):
-    """Pipeline stage for batch text processing."""
+    """Pipeline stage for batch text processing.
+    
+    This stage processes multiple texts in batches using the specified NLP processor.
+    It includes comprehensive error handling and logging of processing operations.
+    """
 
     def __init__(
         self,
@@ -131,43 +187,76 @@ class BatchTextProcessingStage(PipelineStage[List[str], List[ProcessedText]]):
             model: Model to use (processor-specific)
             device: Device to run on ("cpu" or "cuda")
             batch_size: Batch size for processing
+            
+        Raises:
+            ValueError: If batch_size is less than 1
         """
+        if batch_size < 1:
+            raise ValueError("batch_size must be at least 1")
+            
         super().__init__(
             name="batch_text_processing",
-            description="Process multiple texts using NLP tools",
+            description="Process multiple texts using NLP tools"
         )
         self._processor_type = processor
         self._model = model
         self._device = device
         self._batch_size = batch_size
         self._processor: TextProcessor | None = None
+        
+        logger.debug(
+            f"Created BatchTextProcessingStage with processor={processor}, "
+            f"model={model}, device={device}, batch_size={batch_size}"
+        )
 
     async def initialize(self) -> None:
         """Initialize the provider.
 
         This method is called automatically when the provider is first used.
-        It sets up resources needed by the provider.
+        It sets up the text processor based on the specified type and configuration.
+        
+        Raises:
+            TextProcessingError: If initialization fails or processor type is unknown
         """
-        if self._processor_type == "spacy":
-            self._processor = SpacyProcessor(
-                model=self._model if self._model is not None else "en_core_web_sm",
-                batch_size=self._batch_size,
+        try:
+            logger.info(
+                f"Initializing {self._processor_type} processor "
+                f"(model={self._model}, device={self._device})"
             )
-        elif self._processor_type == "nltk":
-            self._processor = NLTKProcessor()
-        elif self._processor_type == "transformers":
-            self._processor = TransformersProcessor(
-                model_name=self._model
-                if self._model is not None
-                else "dbmdz/bert-large-cased-finetuned-conll03-english",
-                device=self._device,
-                batch_size=self._batch_size,
-            )
-        else:
-            raise ValueError(f"Unknown processor type: {self._processor_type}")
+            
+            if self._processor_type == "spacy":
+                self._processor = SpacyProcessor(
+                    model=self._model if self._model is not None else "en_core_web_sm"
+                )
+            elif self._processor_type == "nltk":
+                self._processor = NLTKProcessor()
+            elif self._processor_type == "transformers":
+                self._processor = TransformersProcessor(
+                    model_name=self._model
+                    if self._model is not None
+                    else "dbmdz/bert-large-cased-finetuned-conll03-english",
+                    device=self._device,
+                    batch_size=self._batch_size,
+                )
+            else:
+                raise TextProcessingError(f"Unknown processor type: {self._processor_type}")
 
-        if self._processor:
-            await self._processor.initialize()
+            if self._processor:
+                try:
+                    await self._processor.initialize()
+                    logger.info(
+                        f"Successfully initialized {self._processor_type} processor "
+                        f"with model={self._model}"
+                    )
+                except Exception as e:
+                    raise TextProcessingError(
+                        f"Failed to initialize {self._processor_type} processor: {e}",
+                        cause=e
+                    )
+        except Exception as e:
+            if not isinstance(e, TextProcessingError):
+                raise TextProcessingError(f"Initialization failed: {e}", cause=e) from e
+            raise
 
     async def cleanup(self) -> None:
         """Clean up provider resources.
@@ -176,7 +265,13 @@ class BatchTextProcessingStage(PipelineStage[List[str], List[ProcessedText]]):
         It releases any resources acquired during initialization.
         """
         if self._processor:
-            await self._processor.cleanup()
+            try:
+                await self._processor.cleanup()
+                logger.info(f"Successfully cleaned up {self._processor_type} processor")
+            except Exception as e:
+                logger.error(f"Error during cleanup: {e}")
+            finally:
+                self._processor = None
 
     async def process(
         self, texts: List[str], context: PipelineContext
@@ -184,32 +279,77 @@ class BatchTextProcessingStage(PipelineStage[List[str], List[ProcessedText]]):
         """Process multiple texts using the selected processor.
 
         Args:
-            texts: Texts to process
+            texts: List of texts to process
             context: Pipeline context
 
         Returns:
-            list of processed text results
+            List of processed text results
+            
+        Raises:
+            TextProcessingError: If processing fails
+            ValueError: If texts list is empty
         """
+        if not texts:
+            raise ValueError("texts list cannot be empty")
+            
         if not self._processor:
             await self.initialize()
 
         # After initialize(), self._processor is guaranteed to be set
         processor = cast(TextProcessor, self._processor)
 
-        options = ProcessingOptions(
-            model=self._model if self._model is not None else "default",
-            additional_options=context.get("processing_options", {}),
-        )
+        try:
+            logger.info(
+                f"Processing {len(texts)} texts with {self._processor_type} "
+                f"(batch_size={self._batch_size})"
+            )
+            
+            options = ProcessingOptions(
+                model=self._model if self._model is not None else "default",
+                additional_options=context.get("processing_options", {}),
+            )
 
-        results = await processor.process_batch(texts, options)
+            # Process texts in batches
+            results: List[ProcessedText] = []
+            total_chars = sum(len(text) for text in texts)
+            
+            for i in range(0, len(texts), self._batch_size):
+                batch = texts[i:i + self._batch_size]
+                try:
+                    batch_results = await processor.process_batch(batch, options)
+                    results.extend(batch_results)
+                    
+                    logger.debug(
+                        f"Processed batch {i//self._batch_size + 1} "
+                        f"({len(batch)} texts)"
+                    )
+                except Exception as e:
+                    raise TextProcessingError(
+                        f"Failed to process batch {i//self._batch_size + 1}: {e}",
+                        cause=e
+                    ) from e
 
-        # Store processor info and stats in context
-        context.set_metadata("processor_type", self._processor_type)
-        context.set_metadata("processor_model", self._model)
-        context.set_metadata("batch_size", self._batch_size)
-        context.set_metadata("num_processed", len(texts))
+            # Store processing metadata in context
+            context.set_metadata("processor_type", self._processor_type)
+            context.set_metadata("processor_model", self._model)
+            context.set_metadata("total_texts", len(texts))
+            context.set_metadata("total_chars", total_chars)
+            context.set_metadata("avg_text_length", total_chars / len(texts))
+            context.set_metadata("num_batches", (len(texts) + self._batch_size - 1) // self._batch_size)
 
-        return results
+            logger.info(
+                f"Successfully processed {len(texts)} texts "
+                f"(total_chars={total_chars}, avg_length={total_chars/len(texts):.1f})"
+            )
+
+            return results
+        except Exception as e:
+            if not isinstance(e, (TextProcessingError, ValueError)):
+                raise TextProcessingError(
+                    f"Batch processing failed with {self._processor_type}: {e}",
+                    cause=e
+                ) from e
+            raise
 
 
 class TextProcessingProvider(WorkflowProvider, ProviderPlugin):

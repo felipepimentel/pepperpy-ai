@@ -2,10 +2,10 @@ name: API Ready
 version: 0.1.0
 description: Evaluates APIs for production readiness against industry best practices
 author: PepperPy Team
-type: workflow
+plugin_type: workflow
 category: API
 provider_name: APIReadyProvider
-provider_entry_point: plugins.workflow.api_ready.provider:APIReadyProvider
+entry_point: provider.APIReadyProvider
 
 # Configuration schema
 config_schema:

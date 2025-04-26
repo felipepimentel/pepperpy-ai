@@ -3,9 +3,6 @@ description: USE ALWAYS when modifying core framework components or creating new
 globs: 
   - "pepperpy/**/*.py"
   - "scripts/**/*.py"
-alwaysApply: true
----
-
 # PepperPy Core Architecture
 
 ## Overview
@@ -237,24 +234,170 @@ llm_config = get_component_config("llm")
 
 ### 5. Error Hierarchy
 
-Modules MUST define a consistent error hierarchy:
+PepperPy implements a consolidated error system with a clear hierarchy:
 
 ```python
-# In core/base.py
+# In core/errors.py
 class PepperpyError(Exception):
-    """Base exception for all PepperPy errors."""
+    """Base exception for all PepperPy errors.
+    
+    Args:
+        message: Error description
+        cause: Original exception that caused this error
+        **kwargs: Additional error context
+        
+    Attributes:
+        message: Error description
+        cause: Original exception
+        context: Dictionary of additional error context
+    """
+    
+    def __init__(
+        self,
+        message: str,
+        *args,
+        cause: Optional[Exception] = None,
+        **kwargs
+    ):
+        super().__init__(message, *args)
+        self.message = message
+        self.cause = cause
+        self.context = kwargs
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert error to dictionary format.
+        
+        Returns:
+            Dictionary containing error details
+        """
+        return {
+            "type": self.__class__.__name__,
+            "message": self.message,
+            "cause": str(self.cause) if self.cause else None,
+            **self.context
+        }
 
 class ValidationError(PepperpyError):
     """Validation error."""
 
-# In module/base.py
-from pepperpy.core.base import PepperpyError
+class ConfigurationError(PepperpyError):
+    """Configuration error."""
 
-class ModuleError(PepperpyError):
+class ResourceError(PepperpyError):
+    """Resource management error."""
+
+class DomainError(PepperpyError):
+    """Base class for domain-specific errors.
+    
+    Args:
+        message: Error description
+        domain: Domain where error occurred
+        **kwargs: Additional error context
+        
+    Attributes:
+        domain: Domain where error occurred
+    """
+    
+    def __init__(
+        self,
+        message: str,
+        domain: str,
+        *args,
+        **kwargs
+    ):
+        super().__init__(message, *args, **kwargs)
+        self.domain = domain
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert error to dictionary format."""
+        base_dict = super().to_dict()
+        base_dict["domain"] = self.domain
+        return base_dict
+
+# In module/base.py
+from pepperpy.core.errors import DomainError
+
+class ModuleError(DomainError):
     """Base exception for module errors."""
+    
+    def __init__(self, message: str, *args, **kwargs):
+        super().__init__(message, domain="module_name", *args, **kwargs)
 
 class ProviderError(ModuleError):
     """Provider-specific error."""
+```
+
+#### Error Response Format
+
+All error responses must follow this format:
+
+```python
+# Success response
+{
+    "status": "success",
+    "result": {
+        # Operation result
+    }
+}
+
+# Error response
+{
+    "status": "error",
+    "message": str(error),  # Human-readable error message
+    "details": {
+        "type": "ErrorClassName",
+        "message": "Detailed error description",
+        "cause": "Original error if any",
+        "domain": "Domain name for domain errors",
+        # Additional context from error
+    }
+}
+```
+
+#### Error Handling Pattern
+
+```python
+from pepperpy.core.errors import PepperpyError, DomainError
+
+async def operation() -> Dict[str, Any]:
+    """Execute operation with proper error handling."""
+    try:
+        # Attempt operation
+        result = await perform_operation()
+        
+        # Return success response
+        return {
+            "status": "success",
+            "result": result
+        }
+    except ExternalError as e:
+        # Convert external errors to domain errors
+        raise DomainError(
+            "Operation failed",
+            domain="my_domain",
+            cause=e,
+            operation="operation_name"
+        ) from e
+    except Exception as e:
+        # Convert unexpected errors
+        if not isinstance(e, PepperpyError):
+            raise PepperpyError(
+                f"Unexpected error: {e}",
+                cause=e
+            ) from e
+        raise
+
+async def handle_request() -> Dict[str, Any]:
+    """Handle request with error response formatting."""
+    try:
+        return await operation()
+    except PepperpyError as e:
+        # Format error response
+        return {
+            "status": "error",
+            "message": str(e),
+            "details": e.to_dict()
+        }
 ```
 
 ## File Validation Requirements
@@ -747,5 +890,7 @@ async def main() -> None:
         # Clean up resources
         await adapter.cleanup()
 
+if __name__ == "__main__":
+    asyncio.run(main()) 
 if __name__ == "__main__":
     asyncio.run(main()) 

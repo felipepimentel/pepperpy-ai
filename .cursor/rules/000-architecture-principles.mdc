@@ -3,7 +3,6 @@ description: USE ALWAYS when designing or implementing any component - core desi
 globs: "**/*"
 alwaysApply: true
 ---
-
 # PepperPy Architectural Principles
 
 ## Framework Vision
@@ -178,3 +177,69 @@ class MyAgent:
 3. **Provider-agnostic**: Implement without depending on specific providers
 4. **Config-aware**: Use the configuration system for all parameters
 5. **Test with alternatives**: Test with multiple providers to ensure abstraction 
+
+## Error Handling
+
+### Consolidated Error System
+
+All errors in PepperPy must inherit from `PepperpyError` in `pepperpy.core.errors`:
+
+```python
+from pepperpy.core.errors import PepperpyError, DomainError
+
+class MyCustomError(PepperpyError):
+    """Custom error with additional context."""
+    
+    def __init__(
+        self,
+        message: str,
+        custom_field: str,
+        *args,
+        **kwargs
+    ):
+        super().__init__(message, *args, **kwargs)
+        self.custom_field = custom_field
+```
+
+❌ **NEVER create isolated error classes**
+```python
+# WRONG: Creating standalone error
+class CustomError(Exception):  # VIOLATION!
+    pass
+```
+
+✅ **ALWAYS extend from core errors**
+```python
+# CORRECT: Extend from core
+from pepperpy.core.errors import PepperpyError
+
+class CustomError(PepperpyError):
+    pass
+```
+
+### Error Handling Pattern
+
+Always convert external errors to PepperPy errors:
+
+```python
+try:
+    result = await external_api.call()
+except ExternalError as e:
+    raise DomainError(
+        "API call failed",
+        domain="my_domain",
+        cause=e
+    ) from e
+```
+
+### Error Response Format
+
+All error responses must follow this format:
+
+```python
+{
+    "status": "error",
+    "message": str(error),
+    "details": error.to_dict()  # If using PepperpyError
+}
+``` 

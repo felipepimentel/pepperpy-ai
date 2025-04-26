@@ -25,13 +25,14 @@ from pepperpy.communication import (
 from pepperpy.cache.base import BaseCacheProvider, CacheProvider
 from pepperpy.llm.base import BaseLLMProvider, LLMProvider
 from pepperpy.plugin.discovery import PluginDiscoveryProvider
-from pepperpy.plugin.registry import get_registry, discover_plugins
+from pepperpy.plugin.registry import get_registry, discover_plugins, list_plugins
 from pepperpy.storage.provider import StorageProvider
 from pepperpy.tool.base import BaseToolProvider, ToolProvider
 from pepperpy.tts.base import BaseTTSProvider, TTSProvider
 from pepperpy.workflow.base import WorkflowProvider
 from pepperpy.core.config import ConfigManager
 from pepperpy.rag.processor import create_processor, TextProcessor
+from pepperpy.plugin.base import PluginInfo
 
 logger = logging.getLogger(__name__)
 
@@ -765,6 +766,27 @@ class PepperPy:
         if not hasattr(self, "_rag_task") or not self._rag_task:
             self._rag_task = RAGTask(self)
         return self._rag_task
+
+    async def get_providers(self, domain: str) -> List[PluginInfo]:
+        """Get available providers for a domain.
+        
+        Args:
+            domain: Domain to get providers for (llm, rag, etc.)
+            
+        Returns:
+            List of available providers with their metadata from plugin.yaml
+        """
+        # Ensure plugins are discovered
+        await discover_plugins()
+        
+        # Get providers from registry
+        plugins = list_plugins(domain)
+        if not plugins or domain not in plugins:
+            return []
+            
+        # Return list of plugin info objects which contain metadata from plugin.yaml
+        # including entry_point, description, etc.
+        return list(plugins[domain].values())
 
 
 class RAGTask:

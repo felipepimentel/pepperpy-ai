@@ -3,10 +3,6 @@ description: USE ALWAYS when writing any Python code - enforces mandatory style,
 globs: 
   - "pepperpy/**/*.py"
   - "plugins/**/*.py"
-  - "examples/**/*.py"
-alwaysApply: true
----
-
 # PepperPy Coding Standards
 
 ## Core Principles
@@ -72,11 +68,145 @@ def method(self, param: str) -> bool:
 
 ## Error Handling
 
+### Error Class Hierarchy
+
+1. **Base Error Classes**
+   ```python
+   from pepperpy.core.errors import PepperpyError
+   
+   class DomainError(PepperpyError):
+       """Base error for domain-specific errors."""
+       
+       def __init__(
+           self,
+           message: str,
+           domain: str,
+           *args,
+           **kwargs
+       ):
+           super().__init__(message, *args, **kwargs)
+           self.domain = domain
+   ```
+
+2. **Domain-Specific Errors**
+   ```python
+   class ContentError(DomainError):
+       """Content processing error."""
+       
+       def __init__(self, message: str, *args, **kwargs):
+           super().__init__(message, domain="content", *args, **kwargs)
+   ```
+
+### Error Handling Patterns
+
+1. **External Error Conversion**
+   ```python
+   try:
+       result = await external_api.call()
+   except ExternalError as e:
+       raise DomainError(
+           "Operation failed",
+           domain="my_domain",
+           cause=e
+       ) from e
+   ```
+
+2. **Error Context**
+   ```python
+   try:
+       result = process_data(data)
+   except ValidationError as e:
+       raise DomainError(
+           f"Validation failed: {e}",
+           domain="validation",
+           data=data,
+           cause=e
+       ) from e
+   ```
+
+3. **Error Response**
+   ```python
+   try:
+       result = await operation()
+       return {
+           "status": "success",
+           "result": result
+       }
+   except PepperpyError as e:
+       return {
+           "status": "error",
+           "message": str(e),
+           "details": e.to_dict()
+       }
+   ```
+
+### Error Documentation
+
+All error classes must be documented:
+
 ```python
-try:
-    result = await api.call()
-except ExternalError as e:
-    raise DomainError("Failed to call API", cause=e)
+class ProcessingError(DomainError):
+    """Error during content processing.
+    
+    Args:
+        message: Error description
+        content_type: Type of content being processed
+        stage: Processing stage where error occurred
+        
+    Attributes:
+        content_type: Type of content being processed
+        stage: Processing stage where error occurred
+    """
+    
+    def __init__(
+        self,
+        message: str,
+        content_type: str,
+        stage: str,
+        *args,
+        **kwargs
+    ):
+        super().__init__(
+            message,
+            domain="processing",
+            *args,
+            **kwargs
+        )
+        self.content_type = content_type
+        self.stage = stage
+```
+
+### Error Testing
+
+Errors must be tested:
+
+```python
+def test_processing_error():
+    """Test processing error creation and attributes."""
+    error = ProcessingError(
+        "Failed to process",
+        content_type="text",
+        stage="extraction"
+    )
+    
+    assert str(error) == "Failed to process"
+    assert error.content_type == "text"
+    assert error.stage == "extraction"
+    assert error.domain == "processing"
+    
+    # Test error conversion
+    try:
+        raise ValueError("Invalid value")
+    except ValueError as e:
+        with pytest.raises(ProcessingError) as exc_info:
+            raise ProcessingError(
+                "Processing failed",
+                content_type="text",
+                stage="validation",
+                cause=e
+            ) from e
+        
+        assert exc_info.value.cause == e
 ```
 
 ## Async Pattern
@@ -307,6 +437,9 @@ def process_workflow(workflow: 'BaseWorkflow') -> str:
 
 Key principles for resolving type conflicts:
 1. Use type aliases to clarify different imports of similar types
+2. Apply type parameters with TypeVar for flexible containers
+3. Use cast() carefully when conversion is safe but type checker complains
+4. Consider creating conversion functions for complex type translations
 2. Apply type parameters with TypeVar for flexible containers
 3. Use cast() carefully when conversion is safe but type checker complains
 4. Consider creating conversion functions for complex type translations
