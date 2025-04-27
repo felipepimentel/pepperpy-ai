@@ -10,26 +10,19 @@ import json
 import asyncio
 import tempfile
 from pathlib import Path
-from typing import tuple, dict, list, Any, Optional, TypedDict, Union, Literal
+from typing import Any, Optional, TypedDict, Union, Literal
 from enum import Enum
+from datetime import datetime
 
 from pepperpy.core.logging import get_logger
-from pepperpy.workflow import WorkflowProvider
+from pepperpy.workflow.base import WorkflowProvider
 from pepperpy.plugin import ProviderPlugin
-from pepperpy.workflow import BaseWorkflowProvider
 from pepperpy.workflow.base import WorkflowError
-
-logger = logger.getLogger(__name__)
 
 logger = get_logger(__name__)
 
-class APIScaffoldConfig(class APIScaffoldConfig(TypedDict):
-    """Configuration for API scaffolding."""):
-    """
-    Workflow apiscaffoldconfig provider.
-    
-    This provider implements apiscaffoldconfig functionality for the PepperPy workflow framework.
-    """
+class APIScaffoldConfig(TypedDict):
+    """Configuration for API scaffolding."""
     agent_discovery: bool
     auth_mechanism: Literal["api_key", "oauth", "jwt", "none"]
     observability: bool
@@ -85,19 +78,11 @@ class ReadinessFinding:
         self.recommendation = recommendation
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert finding to dictionary.
 
-
-    """Convert finding to dictionary.
-
-
-
-    Returns:
-
-
-        Return description
-
-
-    """
+        Returns:
+            Return description
+        """
         return {
             "title": self.title,
             "description": self.description,
@@ -125,19 +110,11 @@ class APIReadinessReport:
         self.summary = self._generate_summary()
 
     def _generate_summary(self) -> dict[str, Any]:
+        """Generate a summary of findings by level and category.
 
-
-    """Generate a summary of findings by level and category.
-
-
-
-    Returns:
-
-
-        Return description
-
-
-    """
+        Returns:
+            Return description
+        """
         total_findings = len(self.findings)
         findings_by_level = {level.value: 0 for level in ReadinessLevel}
         findings_by_category = {category.value: 0 for category in ReadinessCategory}
@@ -156,19 +133,11 @@ class APIReadinessReport:
         }
 
     def _calculate_readiness_score(self) -> int:
+        """Calculate an overall readiness score (0-100).
 
-
-    """Calculate an overall readiness score (0-100).
-
-
-
-    Returns:
-
-
-        Return description
-
-
-    """
+        Returns:
+            Return description
+        """
         if not self.findings:
             return 100
 
@@ -193,19 +162,11 @@ class APIReadinessReport:
         return score
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert report to dictionary.
 
-
-    """Convert report to dictionary.
-
-
-
-    Returns:
-
-
-        Return description
-
-
-    """
+        Returns:
+            Return description
+        """
         return {
             "api_name": self.api_name,
             "api_version": self.api_version,
@@ -214,19 +175,11 @@ class APIReadinessReport:
         }
 
     def to_markdown(self) -> str:
+        """Convert report to markdown format.
 
-
-    """Convert report to markdown format.
-
-
-
-    Returns:
-
-
-        Return description
-
-
-    """
+        Returns:
+            Return description
+        """
         md = [
             f"# API Readiness Report: {self.api_name} v{self.api_version}",
             "",
@@ -283,13 +236,7 @@ class APIReadinessReport:
         return "\n".join(md)
 
 
-class APIReadyProvider(...):
-    output_format: str
-    min_readiness_score: int
-    checks: Any
-    default_scaffold_config: Any
-    initialized: bool
-    initialized: bool
+class APIReadyProvider(WorkflowProvider, ProviderPlugin):
     """Provider for evaluating APIs for production readiness.
     
     This workflow evaluates an existing API specification against industry best practices
@@ -297,12 +244,27 @@ class APIReadyProvider(...):
     security, performance, reliability, documentation, standards compliance, and observability.
     """
     
+    # Type-annotated config attributes
+    output_format: str
+    min_readiness_score: int
+    checks: dict[str, bool]
+    default_scaffold_config: APIScaffoldConfig
+    _initialized: bool = False
+
+    @property
+    def initialized(self) -> bool:
+        return self._initialized
+
+    @initialized.setter
+    def initialized(self, value: bool) -> None:
+        self._initialized = value
+    
     async def initialize(self) -> None:
- """Initialize the provider.
+        """Initialize the provider.
 
         This method is called automatically when the provider is first used.
         It sets up resources needed by the provider.
- """
+        """
         if self.initialized:
             return
         
@@ -329,20 +291,20 @@ class APIReadyProvider(...):
             documentation=True
         )
         
-        self.initialized = True
+        self._initialized = True
         logger.info("API Ready workflow provider initialized")
     
     async def cleanup(self) -> None:
- """Clean up provider resources.
+        """Clean up provider resources.
 
         This method is called automatically when the context manager exits.
         It releases any resources acquired during initialization.
- """
+        """
         if not self.initialized:
             return
         
         logger.info("Cleaning up API Ready workflow provider")
-        self.initialized = False
+        self._initialized = False
     
     async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Execute the API Ready workflow.

@@ -15,6 +15,11 @@ from typing import Any, Dict, List, Optional, Union
 
 from pepperpy import PepperPy
 from pepperpy.rag.processor import create_processor, ProcessingOptions
+from pepperpy.core.logging import get_logger
+from pepperpy.plugin import discover_plugins
+from pepperpy.plugin.registry import list_plugins
+
+logger = get_logger(__name__)
 
 
 async def process_text(
@@ -146,6 +151,14 @@ async def run_workflow(
     
     start_time = time.time()
     
+    # Discover plugins first
+    if verbose:
+        print("Discovering plugins...")
+    await discover_plugins()
+    
+    # DEBUG: Print available workflow plugins after discovery
+    print("[DEBUG] Available workflow plugins after discovery:", list_plugins("workflow"))
+    
     # Extract the provider type from the workflow name
     # Workflow names are typically in the format "workflow/provider_name"
     # or just "provider_name"
@@ -196,6 +209,8 @@ async def run_workflow(
                 
             return response
         except Exception as e:
+            # DEBUG: Print available workflow plugins on error
+            print("[DEBUG] Available workflow plugins at error:", list_plugins("workflow"))
             print(f"Error executing workflow: {e}")
             import traceback
             traceback.print_exc()

@@ -16,6 +16,7 @@ from types import ModuleType
 from pepperpy.core.errors import PluginNotFoundError
 from pepperpy.core.logging import get_logger
 from pepperpy.plugin.base import PluginInfo
+from pepperpy.plugin.utils import get_plugin_id, parse_plugin_id
 
 T = TypeVar("T", bound=PluginInfo)
 
@@ -47,48 +48,81 @@ class PluginRegistry:
         }
         self.logger = logger
 
-    def register_plugin(
-        self,
-        domain: str,
-        name: str,
-        plugin_class: Type[PluginInfo],
-        meta: dict[str, Any] | None = None,
-    ) -> None:
-        """Register a plugin class.
+    def register_plugin(self, domain: str, plugin_id: str, plugin: Any) -> None:
+        """Register a plugin.
 
         Args:
-            domain: Domain of the plugin.
-            name: Name of the plugin.
-            plugin_class: Plugin class.
-            meta: Metadata for the plugin.
+            domain: Plugin domain
+            plugin_id: Plugin ID
+            plugin: Plugin instance or class
         """
-        self.logger.debug(f"Registering plugin {domain}/{name}")
-        if domain not in self._loaded_plugins:
-            self._loaded_plugins[domain] = {}
-        self._loaded_plugins[domain][name] = plugin_class
+        if domain not in self._plugins:
+            self._plugins[domain] = {}
+        self._plugins[domain][plugin_id] = plugin
 
-        # Store metadata if provided
-        if meta and domain in self._plugins:
-            if name not in self._plugins[domain]:
-                self._plugins[domain][name] = {}
-            self._plugins[domain][name].update(meta)
-
-    def register_plugin_info(
-        self, domain: str, name: str, plugin_info: PluginInfo
-    ) -> None:
-        """Register plugin info.
+    def get_plugin(self, domain: str, plugin_id: str) -> Optional[Any]:
+        """Get a plugin by domain and ID.
 
         Args:
-            domain: Domain of the plugin.
-            name: Name of the plugin.
-            plugin_info: Plugin info.
+            domain: Plugin domain
+            plugin_id: Plugin ID
+
+        Returns:
+            Plugin instance or None if not found
         """
-        self.logger.debug(f"Registering plugin info {domain}/{name}")
+        if domain not in self._plugins:
+            return None
+        return self._plugins[domain].get(plugin_id)
+
+    def register_plugin_info(self, domain: str, name: str, plugin_info: PluginInfo) -> None:
+        """Register plugin information for lazy loading.
+
+        Args:
+            domain: Plugin domain
+            name: Plugin name
+            plugin_info: Plugin information
+        """
         if domain not in self._plugin_info:
             self._plugin_info[domain] = {}
+        
+        # Use raw plugin name for storage
         self._plugin_info[domain][name] = plugin_info
 
-    def load_plugin_if_needed(self, domain: str, name: str) -> Type[PluginInfo]:
+    def get_plugin_info(self, domain: str, plugin_name: str) -> Optional[PluginInfo]:
+        """Get plugin information.
+
+        Args:
+            domain: Plugin domain
+            plugin_name: Plugin name (without type prefix)
+
+        Returns:
+            Plugin information or None if not found
+        """
+        print(f"[DEBUG] get_plugin_info: domain={domain}, plugin_name={plugin_name}")
+        if domain in self._plugin_info:
+            print(f"[DEBUG] Available plugins in domain '{domain}': {list(self._plugin_info[domain].keys())}")
+        else:
+            print(f"[DEBUG] Domain '{domain}' not found in _plugin_info")
+        result = self._plugin_info.get(domain, {}).get(plugin_name)
+        print(f"[DEBUG] get_plugin_info result: {result}")
+        return result
+
+    def list_plugins(self, domain: Optional[str] = None) -> Dict[str, Dict[str, PluginInfo]]:
+        """List plugins.
+
+        Args:
+            domain: Optional domain to filter by
+
+        Returns:
+            Dict of plugins by domain
+        """
+        if domain:
+            if domain not in self._plugin_info:
+                return {}
+            return {domain: self._plugin_info[domain]}
+        return self._plugin_info
+
+    def register_plugin_if_needed(self, domain: str, name: str) -> Type[PluginInfo]:
         """Load a plugin if needed.
 
         Args:
@@ -101,6 +135,15 @@ class PluginRegistry:
         Raises:
             PluginNotFoundError: If the plugin is not found.
         """
+        print(f"[DEBUG] register_plugin_if_needed: domain={domain}, name={name}")
+        if domain in self._plugins:
+            print(f"[DEBUG] _plugins[{domain}] keys: {list(self._plugins[domain].keys())}")
+        else:
+            print(f"[DEBUG] Domain '{domain}' not found in _plugins")
+        if domain in self._plugin_info:
+            print(f"[DEBUG] _plugin_info[{domain}] keys: {list(self._plugin_info[domain].keys())}")
+        else:
+            print(f"[DEBUG] Domain '{domain}' not found in _plugin_info")
         # Check if the plugin is already loaded.
         if domain in self._loaded_plugins and name in self._loaded_plugins[domain]:
             return self._loaded_plugins[domain][name]
@@ -145,110 +188,56 @@ class PluginRegistry:
         raise PluginNotFoundError(f"Plugin {domain}/{name} not loadable")
 
     def _find_plugin_class(self, module: Any, plugin_info: PluginInfo) -> Optional[Type[PluginInfo]]:
-        """Find the plugin class in the given module.
-        
-        Args:
-            module: Module to search
-            plugin_info: Plugin information
-            
-        Returns:
-            Plugin class or None
-        """
-        # If class name is specified, look for it
+        """Find the plugin class in the module."""
+        # Try explicit class name from plugin_info
         if plugin_info.class_name:
-            if hasattr(module, plugin_info.class_name):
-                return getattr(module, plugin_info.class_name)
-        
-        # Otherwise look for any class that matches the naming convention
-        for name, obj in inspect.getmembers(module):
-            if not inspect.isclass(obj):
-                continue
-                
-            # Skip abstract classes
-            if inspect.isabstract(obj):
-                continue
-                
-            # Check for naming pattern based on plugin type
-            if plugin_info.plugin_type:
-                type_suffix = plugin_info.plugin_type.capitalize() + "Provider"
-                if name.endswith(type_suffix):
-                    return obj
-            
-            # Check for "Provider" suffix
+            print(f"[DEBUG] Looking for explicit class: {plugin_info.class_name}")
+            cls = getattr(module, plugin_info.class_name, None)
+            if cls:
+                print(f"[DEBUG] Found class {plugin_info.class_name} in module")
+                return cls
+            else:
+                print(f"[DEBUG] Class {plugin_info.class_name} not found in module")
+        # Try default naming conventions
+        candidates = []
+        for name, obj in module.__dict__.items():
+            if isinstance(obj, type):
+                candidates.append(name)
+        print(f"[DEBUG] Candidate classes in module: {candidates}")
+        # Heuristic: look for class ending with 'Provider' and matching provider_name
+        expected = plugin_info.provider_name.replace("_", "").lower() + "provider"
+        for name in candidates:
+            if name.lower() == expected:
+                print(f"[DEBUG] Matched class by name: {name}")
+                return getattr(module, name)
+        # Fallback: first class ending with 'Provider'
+        for name in candidates:
             if name.endswith("Provider"):
-                return obj
-                
+                print(f"[DEBUG] Fallback to class: {name}")
+                return getattr(module, name)
+        print(f"[DEBUG] No provider class found in module {module}")
         return None
 
     def load_plugin_module(self, domain: str, name: str) -> ModuleType:
-        """Load a plugin module.
-
-        Args:
-            domain: Domain of the plugin.
-            name: Name of the plugin.
-
-        Returns:
-            Plugin module.
-        """
-        plugin_info = self.get_plugin_metadata(domain, name)
+        """Load the plugin module for a given domain and name."""
+        plugin_info = self.get_plugin_info(domain, name)
         if not plugin_info:
             raise PluginNotFoundError(f"Plugin {domain}/{name} not found")
-
-        if not plugin_info.module_path:
-            raise PluginNotFoundError(f"Plugin {domain}/{name} module not found")
-
-        module_path = plugin_info.module_path
+        print(f"[DEBUG] Loading plugin module: {plugin_info.module_path} (module_name={plugin_info.module_name})")
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(plugin_info.module_name, plugin_info.module_path)
+        if not spec or not spec.loader:
+            raise ImportError(f"Could not load spec for {plugin_info.module_path}")
+        module = importlib.util.module_from_spec(spec)
         try:
-            return importlib.import_module(module_path)
-        except ImportError as e:
-            self.logger.error(f"Error loading module {module_path}: {e}")
-            raise PluginNotFoundError(f"Plugin {domain}/{name} module not found")
+            spec.loader.exec_module(module)  # type: ignore
+        except Exception as e:
+            print(f"[DEBUG] Error executing module {plugin_info.module_path}: {e}")
+            raise
+        print(f"[DEBUG] Module loaded: {module}")
+        print(f"[DEBUG] Module dict: {list(module.__dict__.keys())}")
+        return module
 
-    def get_plugin(self, domain: str, name: str) -> Type[PluginInfo]:
-        """Get a plugin.
-
-        Args:
-            domain: Domain of the plugin.
-            name: Name of the plugin.
-
-        Returns:
-            Plugin class.
-
-        Raises:
-            PluginNotFoundError: If the plugin is not found.
-        """
-        return self.load_plugin_if_needed(domain, name)
-
-    def get_plugin_metadata(self, domain: str, name: str) -> Optional[PluginInfo]:
-        """Get plugin metadata.
-
-        Args:
-            domain: Domain of the plugin.
-            name: Name of the plugin.
-
-        Returns:
-            Plugin metadata or None if not found.
-        """
-        if domain not in self._plugin_info or name not in self._plugin_info[domain]:
-            return None
-        return self._plugin_info[domain][name]
-
-    def list_plugins(self, domain: Optional[str] = None) -> Dict[str, Dict[str, PluginInfo]]:
-        """List plugins.
-
-        Args:
-            domain: Domain to list plugins for. If None, list all plugins.
-
-        Returns:
-            Dictionary of plugins by domain and name.
-        """
-        if domain:
-            if domain not in self._plugin_info:
-                return {}
-            return {domain: self._plugin_info[domain].copy()}
-        
-        return self._plugin_info.copy()
-        
     async def discover_plugins(self) -> Dict[str, Dict[str, PluginInfo]]:
         """Discover plugins from the filesystem.
         
@@ -293,12 +282,16 @@ class PluginRegistry:
                             # Register plugin info
                             provider_name = plugin_info.provider_name or plugin_dir
                             self.register_plugin_info(domain_dir, provider_name, plugin_info)
-                            
-                            # Add to discovered plugins
+                            # FIX: ensure discovered_plugins is nested by domain
+                            if domain_dir not in discovered_plugins:
+                                discovered_plugins[domain_dir] = {}
                             discovered_plugins[domain_dir][provider_name] = plugin_info
             except Exception as e:
                 self.logger.error(f"Error scanning for plugins in {base_dir}: {e}")
                 
+        # DEBUG: Print all registered workflow plugins
+        if "workflow" in self._plugin_info:
+            print("[DEBUG] Registered workflow plugins:", list(self._plugin_info["workflow"].keys()))
         return discovered_plugins
         
     def _load_plugin_info(self, yaml_file: str, plugin_dir: str) -> Optional[PluginInfo]:
@@ -386,7 +379,7 @@ def register_plugin(
         plugin_class: Plugin class.
         meta: Metadata for the plugin.
     """
-    _registry.register_plugin(domain, name, plugin_class, meta)
+    _registry.register_plugin(domain, name, plugin_class)
 
 
 def register_plugin_info(
@@ -415,7 +408,7 @@ def get_plugin(domain: str, name: str) -> Type[PluginInfo]:
     Raises:
         PluginNotFoundError: If the plugin is not found.
     """
-    return _registry.get_plugin(domain, name)
+    return _registry.register_plugin_if_needed(domain, name)
 
 
 def get_plugin_metadata(domain: str, name: str) -> Optional[PluginInfo]:
@@ -428,7 +421,7 @@ def get_plugin_metadata(domain: str, name: str) -> Optional[PluginInfo]:
     Returns:
         Plugin metadata or None if not found.
     """
-    return _registry.get_plugin_metadata(domain, name)
+    return _registry.get_plugin_info(domain, name)
 
 
 def list_plugins(domain: Optional[str] = None) -> Dict[str, Dict[str, PluginInfo]]:

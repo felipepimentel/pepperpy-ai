@@ -1,6 +1,6 @@
 name: routing/basic
 version: 0.1.0
-description: Basic routing provider for AI Gateway
+description: Basic message routing provider
 author: PepperPy Team
 
 plugin_type: routing
@@ -8,59 +8,68 @@ category: provider
 provider_name: basic
 entry_point: provider.BasicRoutingProvider
 
+min_framework_version: 0.1.0
+
 config_schema:
   type: object
   properties:
-    host:
+    default_route:
       type: string
-      description: Host to bind the server to
-      default: "0.0.0.0"
-    port:
-      type: integer
-      description: Port to listen on
-      default: 8080
-    cors_origins:
-      type: array
-      description: List of allowed CORS origins
-      items:
-        type: string
-      default: ["*"]
-    log_requests:
-      type: boolean
-      description: Whether to log all requests
-      default: true
+      description: Default route when no match is found
+      default: default
+    routes:
+      type: object
+      description: Route definitions
+      additionalProperties:
+        type: object
+        properties:
+          pattern:
+            type: string
+            description: Pattern to match for routing
+          destination:
+            type: string
+            description: Destination for matched messages
+          priority:
+            type: integer
+            description: Route priority (higher numbers take precedence)
+            default: 0
+  required:
+    - routes
 
 default_config:
-  host: "0.0.0.0"
-  port: 8080
-  cors_origins: ["*"]
-  log_requests: true
+  default_route: default
+  routes:
+    error:
+      pattern: "error|exception|failed"
+      destination: error_handler
+      priority: 100
+    info:
+      pattern: "info|status|health"
+      destination: info_handler
+      priority: 50
 
-# Examples for testing the plugin
 examples:
-  - name: "configure_server"
-    description: "Configure the routing server"
+  - name: basic_routing
+    description: Basic message routing
     input:
-      task: "configure"
-      host: "127.0.0.1"
-      port: 8000
+      task: route
+      message: "Error: Connection failed"
     expected_output:
-      status: "success"
-      
-  - name: "start_server"
-    description: "Start the routing server"
+      status: success
+      result:
+        destination: error_handler
+        priority: 100
+
+  - name: default_routing
+    description: Routing with no pattern match
     input:
-      task: "start"
+      task: route
+      message: "Hello, world!"
     expected_output:
-      status: "success"
-      
-  - name: "check_status"
-    description: "Check server status"
-    input:
-      task: "status"
-    expected_output:
-      status: "success"
-      running: true
+      status: success
+      result:
+        destination: default
+        priority: 0
 
 documentation:
   summary: |

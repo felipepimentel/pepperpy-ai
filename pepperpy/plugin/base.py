@@ -250,39 +250,17 @@ async def create_provider_instance(
     """
     from pepperpy.plugin.registry import get_plugin, get_registry
 
-    # For debug purposes
+    print(f"[DEBUG] create_provider_instance: domain={domain}, provider_type={provider_type}")
     registry = get_registry()
-    logger.info(f"Creating provider instance for {domain}/{provider_type}")
-    logger.info(f"Registry ID: {id(registry)}")
-    logger.info(f"Available domains: {list(registry._plugins.keys())}")
+    print(f"[DEBUG] Registry ID: {id(registry)}")
+    print(f"[DEBUG] Available domains: {list(registry._plugins.keys())}")
     if domain in registry._plugins:
-        logger.info(
-            f"Available providers in {domain}: {list(registry._plugins[domain].keys())}"
-        )
-
-        # Special handling for workflow domain which might be registered differently
-        if domain == "workflow" and provider_type not in registry._plugins[domain]:
-            # Try direct provider retrieval from _plugins for workflow domain
-            if "workflow/repository_analyzer" in registry._plugins[domain]:
-                logger.info(
-                    "Found provider with direct lookup: workflow/repository_analyzer"
-                )
-                plugin_class = registry._plugins[domain][
-                    "workflow/repository_analyzer"
-                ]["class"]
-                return plugin_class(**config)
-
-            if "repository_analyzer" in registry._plugins[domain]:
-                logger.info("Found provider with direct lookup: repository_analyzer")
-                plugin_class = registry._plugins[domain]["repository_analyzer"]["class"]
-                return plugin_class(**config)
-
-    # Get the plugin class
+        print(f"[DEBUG] Providers in domain '{domain}': {list(registry._plugins[domain].keys())}")
+    print(f"[DEBUG] Calling get_plugin({domain}, {provider_type})")
     plugin_class = await get_plugin(domain, provider_type)
+    print(f"[DEBUG] get_plugin result: {plugin_class}")
     if not plugin_class:
         raise PluginNotFoundError(f"Provider not found: {domain}/{provider_type}")
-
-    # Create an instance
     instance = plugin_class(**config)
-
+    print(f"[DEBUG] Created instance: {instance}")
     return instance

@@ -414,14 +414,16 @@ class PepperPy:
             Self for method chaining
         """
         if isinstance(provider, str):
-            # Get provider from registry
-            provider_class = get_registry().get_plugin("workflow", provider.lower())
+            print(f"[DEBUG] with_workflow: provider string={provider}")
+            print(f"[DEBUG] Registry workflow plugins: {list(get_registry()._plugins['workflow'].keys())}")
+            print(f"[DEBUG] Registry workflow plugin_info: {list(get_registry()._plugin_info['workflow'].keys())}")
+            # Use register_plugin_if_needed to ensure class is loaded from plugin_info
+            provider_class = get_registry().register_plugin_if_needed("workflow", provider.lower())
+            print(f"[DEBUG] provider_class for '{provider}': {provider_class}")
             if not provider_class:
                 raise ValueError(
                     f"Unknown workflow provider: {provider}. Make sure the plugin is installed."
                 )
-
-            # Create instance with merged config
             merged_config = {
                 **self.config.get("workflow", {}),
                 **config,
@@ -429,7 +431,6 @@ class PepperPy:
             }
             self._workflow_provider = provider_class(config=merged_config)  # type: ignore
         elif isinstance(provider, type) and issubclass(provider, WorkflowProvider):
-            # Create an instance of the provider class
             merged_config = {
                 **self.config.get("workflow", {}),
                 **config,
@@ -437,9 +438,7 @@ class PepperPy:
             }
             self._workflow_provider = provider(config=merged_config)
         else:
-            # Use the provided instance
             self._workflow_provider = cast(WorkflowProvider, provider)
-
         return self
 
     def with_workflow_input(self, **inputs: Any) -> "PepperPy":

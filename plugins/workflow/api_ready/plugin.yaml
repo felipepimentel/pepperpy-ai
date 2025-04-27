@@ -1,64 +1,66 @@
-name: API Ready
+name: api_ready
 version: 0.1.0
-description: Evaluates APIs for production readiness against industry best practices
+description: Workflow for validating API readiness
 author: PepperPy Team
+
 plugin_type: workflow
-category: API
-provider_name: APIReadyProvider
+provider_name: api_ready
 entry_point: provider.APIReadyProvider
 
-# Configuration schema
+min_framework_version: 0.1.0
+
 config_schema:
   type: object
   properties:
-    output_format:
+    api_spec_path:
       type: string
-      enum: [json, markdown]
-      default: json
-      description: Format for the readiness report output
-    min_readiness_score:
-      type: integer
-      minimum: 0
-      maximum: 100
-      default: 80
-      description: Minimum acceptable readiness score
-    checks:
-      type: object
-      properties:
-        security:
-          type: boolean
-          default: true
-        performance:
-          type: boolean
-          default: true
-        reliability:
-          type: boolean
-          default: true
-        documentation:
-          type: boolean
-          default: true
-        standards:
-          type: boolean
-          default: true
-        observability:
-          type: boolean
-          default: true
-      default:
-        security: true
-        performance: true
-        reliability: true
-        documentation: true
-        standards: true
-        observability: true
+      description: Path to the OpenAPI specification file
+    validation_level:
+      type: string
+      description: Level of validation to perform
+      enum: [basic, strict]
+      default: strict
+    security_checks:
+      type: boolean
+      description: Whether to perform security checks
+      default: true
+    doc_quality_checks:
+      type: boolean
+      description: Whether to perform documentation quality checks
+      default: true
+  required:
+    - api_spec_path
 
-# Default configuration
 default_config:
-  output_format: json
-  min_readiness_score: 80
-  checks:
-    security: true
-    performance: true
-    reliability: true
-    documentation: true
-    standards: true
-    observability: true 
+  validation_level: strict
+  security_checks: true
+  doc_quality_checks: true
+
+examples:
+  - name: basic_validation
+    description: Basic API validation example
+    input:
+      task: validate
+      api_spec_path: api/openapi.yaml
+      validation_level: basic
+    expected_output:
+      status: success
+      result:
+        valid: true
+        issues: []
+  
+  - name: strict_validation
+    description: Strict API validation with all checks
+    input:
+      task: validate
+      api_spec_path: api/openapi.yaml
+      validation_level: strict
+      security_checks: true
+      doc_quality_checks: true
+    expected_output:
+      status: success
+      result:
+        valid: true
+        issues: []
+        security_score: 100
+        doc_quality_score: 95 

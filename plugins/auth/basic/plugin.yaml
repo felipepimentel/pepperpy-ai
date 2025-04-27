@@ -1,6 +1,6 @@
 name: auth/basic
 version: 0.1.0
-description: Basic authentication provider for AI Gateway
+description: Basic authentication provider
 author: PepperPy Team
 
 plugin_type: auth
@@ -8,27 +8,66 @@ category: provider
 provider_name: basic
 entry_point: provider.BasicAuthProvider
 
+min_framework_version: 0.1.0
+
 config_schema:
   type: object
   properties:
-    api_key_header:
-      type: string
-      description: HTTP header to use for API key authentication
-      default: "X-API-Key"
-    api_keys:
+    users:
       type: object
-      description: Map of API keys to user IDs
+      description: User credentials mapping
       additionalProperties:
-        type: string
-    require_auth:
-      type: boolean
-      description: Whether to require authentication for all requests
-      default: true
+        type: object
+        properties:
+          password_hash:
+            type: string
+            description: Bcrypt hash of user password
+          roles:
+            type: array
+            description: List of roles assigned to user
+            items:
+              type: string
+            default: ["user"]
+    token_expiry:
+      type: integer
+      description: Token expiry time in seconds
+      default: 3600
+    token_secret:
+      type: string
+      description: Secret key for token signing
+  required:
+    - users
+    - token_secret
 
 default_config:
-  api_key_header: "X-API-Key"
-  api_keys: {}
-  require_auth: true
+  token_expiry: 3600
+  users:
+    admin:
+      password_hash: "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewYpwBAHHKQM.Vf."  # "admin"
+      roles: ["admin", "user"]
+
+examples:
+  - name: basic_login
+    description: Basic user authentication
+    input:
+      task: authenticate
+      username: admin
+      password: admin
+    expected_output:
+      status: success
+      result:
+        token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expires_in: 3600
+
+  - name: invalid_login
+    description: Failed authentication attempt
+    input:
+      task: authenticate
+      username: admin
+      password: wrong
+    expected_output:
+      status: error
+      message: Invalid credentials
 
 # Examples for testing the plugin
 examples:

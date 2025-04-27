@@ -1,0 +1,61 @@
+name: content_processing_archive_zip
+version: 0.1.0
+description: Plugin for processing ZIP archive files
+author: PepperPy Team
+
+plugin_type: content
+category: processing
+provider_name: archive_zip
+entry_point: provider.ZipArchiveProcessor
+
+min_framework_version: 0.1.0
+
+config_schema:
+  type: object
+  properties:
+    extract_path:
+      type: string
+      description: Path where archives should be extracted
+      default: "/tmp/pepperpy/archives"
+    max_size_mb:
+      type: integer
+      description: Maximum allowed size of ZIP file in megabytes
+      default: 100
+    allowed_extensions:
+      type: array
+      description: List of allowed file extensions to extract
+      items:
+        type: string
+      default: ["txt", "pdf", "doc", "docx", "md"]
+    password_protected:
+      type: boolean
+      description: Whether to attempt processing password-protected archives
+      default: false
+  required: []
+
+default_config:
+  extract_path: "/tmp/pepperpy/archives"
+  max_size_mb: 100
+  allowed_extensions: ["txt", "pdf", "doc", "docx", "md"]
+  password_protected: false
+
+examples:
+  - name: basic_extraction
+    description: Extract contents of a simple ZIP file
+    input:
+      task: process
+      file_path: "example.zip"
+    expected_output:
+      status: success
+      result:
+        extracted_files: ["doc1.txt", "doc2.pdf"]
+        extract_path: "/tmp/pepperpy/archives/example"
+  
+  - name: large_file_error
+    description: Attempt to process a ZIP file exceeding size limit
+    input:
+      task: process
+      file_path: "large.zip"
+    expected_output:
+      status: error
+      message: "ZIP file exceeds maximum allowed size of 100MB" 

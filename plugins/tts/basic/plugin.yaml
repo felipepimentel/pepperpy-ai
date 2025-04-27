@@ -1,51 +1,45 @@
-name: plugins/basic
+name: tts/basic
 version: 0.1.0
-description: Basic text-to-speech provider using system voices
+description: Basic text-to-speech provider using system TTS
 author: PepperPy Team
 
-plugin_type: plugins
-category: provider
+plugin_type: tts
+category: basic
 provider_name: basic
-entry_point: provider.BasicProvider
+entry_point: provider.BasicTTSProvider
+
+min_framework_version: 0.1.0
 
 config_schema:
   type: object
   properties:
     voice:
       type: string
-      description: System voice to use (platform dependent)
-      default: "default"
+      description: Voice to use for TTS
+      default: default
     rate:
-      type: number
-      description: Speaking rate (1.0 is normal speed)
-      default: 1.0
+      type: integer
+      description: Speech rate (words per minute)
+      default: 150
     volume:
       type: number
       description: Volume level (0.0 to 1.0)
       default: 1.0
-    pitch:
-      type: number
-      description: Voice pitch (0.5 to 2.0)
-      default: 1.0
-    format:
-      type: string
-      description: Output audio format
-      default: "wav"
+  required: []
 
 default_config:
-  voice: "default"
-  rate: 1.0
+  voice: default
+  rate: 150
   volume: 1.0
-  pitch: 1.0
-  format: "wav"
 
 # Examples for testing the plugin
 examples:
-  - name: "basic_example"
-    description: "Basic functionality test"
+  - name: basic_tts
+    description: Basic text-to-speech conversion
     input:
-      task: "example_task"
-      config:
-        key: "value"
+      task: speak
+      text: Hello, world!
     expected_output:
-      status: "success"
+      status: success
+      result:
+        audio_file: output.wav

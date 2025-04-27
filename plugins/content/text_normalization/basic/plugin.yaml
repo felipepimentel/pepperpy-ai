@@ -54,6 +54,8 @@ examples:
       text: "Text with  multiple   spaces and Unicode characters: "quoted" text"
     expected_output:
       status: "success"
+      result:
+        text: "Text with multiple spaces and Unicode characters: \"quoted\" text"
       
   - name: "custom_transformations"
     description: "Custom transformation sequence"
@@ -65,43 +67,46 @@ examples:
         - remove_numbers
     expected_output:
       status: "success"
+      result:
+        text: "text with uppercase and numbers"
 
 # Documentation
-usage: |
-  # Basic Text Normalization Plugin
+documentation:
+  usage: |
+    # Basic Text Normalization Plugin
 
-  This plugin provides basic text normalization capabilities without external dependencies.
-  It implements the TextNormalizer interface defined in the PepperPy content processing module.
+    This plugin provides basic text normalization capabilities without external dependencies.
+    It implements the TextNormalizer interface defined in the PepperPy content processing module.
 
-  ## Usage
+    ## Usage
 
-  ```python
-  from pepperpy import plugin_manager
+    ```python
+    from pepperpy import plugin_manager
 
-  # Create a text normalizer with default configuration
-  normalizer = plugin_manager.create_provider("text_normalization", "basic")
+    # Create a text normalizer with default configuration
+    normalizer = plugin_manager.create_provider("text_normalization", "basic")
 
-  # Apply normalization to text
-  normalized = normalizer.normalize("Text with  multiple   spaces and Unicode characters: "quoted" text")
-  ```
+    # Apply normalization to text
+    normalized = normalizer.normalize("Text with  multiple   spaces and Unicode characters: "quoted" text")
+    ```
 
-  ## Configuration
+    ## Configuration
 
-  - `language`: Language code for language-specific processing (default: 'en')
-  - `transformations`: List of transformation methods to apply (optional)
-  - `custom_patterns`: Custom regex patterns for text cleaning (optional)
-  - `custom_replacements`: Custom character replacements (optional)
+    - `language`: Language code for language-specific processing (default: 'en')
+    - `transformations`: List of transformation methods to apply (optional)
+    - `custom_patterns`: Custom regex patterns for text cleaning (optional)
+    - `custom_replacements`: Custom character replacements (optional)
 
-  ## Transformations
+    ## Transformations
 
-  Available transformations:
+    Available transformations:
 
-  - `strip_whitespace`: Remove leading and trailing whitespace
-  - `normalize_unicode`: Normalize Unicode characters
-  - `normalize_whitespace`: Replace multiple whitespace with single space
-  - `remove_control_chars`: Remove control characters
-  - `replace_chars`: Replace special characters with standard ones
-  - `lowercase`: Convert text to lowercase
-  - `remove_punctuation`: Remove punctuation
-  - `remove_numbers`: Remove numbers
-  - `fix_encoding`: Fix common encoding issues
+    - `strip_whitespace`: Remove leading and trailing whitespace
+    - `normalize_unicode`: Normalize Unicode characters
+    - `normalize_whitespace`: Replace multiple whitespace with single space
+    - `remove_control_chars`: Remove control characters
+    - `replace_chars`: Replace special characters with standard ones
+    - `lowercase`: Convert text to lowercase
+    - `remove_punctuation`: Remove punctuation
+    - `remove_numbers`: Remove numbers
+    - `fix_encoding`: Fix common encoding issues

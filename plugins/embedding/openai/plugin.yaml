@@ -1,12 +1,14 @@
-name: embedding/provider/openai
+name: embedding/openai
 version: 0.1.0
-description: OpenAI Embeddings provider for PepperPy
+description: OpenAI text embedding provider
 author: PepperPy Team
 
 plugin_type: embedding
 category: provider
 provider_name: openai
-entry_point: provider.OpenAIEmbeddingsProvider
+entry_point: provider.OpenAIEmbeddingProvider
+
+min_framework_version: 0.1.0
 
 config_schema:
   type: object
@@ -17,38 +19,46 @@ config_schema:
     model:
       type: string
       description: Model to use for embeddings
-      default: "text-embedding-3-small"
-    dimensions:
-      type: integer
-      description: Output embedding dimensions
-      default: 256
+      default: text-embedding-3-small
     batch_size:
       type: integer
       description: Maximum number of texts to embed in a single batch
       default: 100
+    max_retries:
+      type: integer
+      description: Maximum number of retries for failed requests
+      default: 3
+  required:
+    - api_key
 
 default_config:
-  model: "text-embedding-3-small"
-  dimensions: 256
+  model: text-embedding-3-small
   batch_size: 100
+  max_retries: 3
 
-# Examples for testing the plugin
 examples:
-  - name: "basic_example"
-    description: "Basic functionality test"
+  - name: single_text
+    description: Generate embedding for a single text
     input:
-      task: "example_task"
-      config:
-        key: "value"
+      task: embed
+      text: Hello, world!
     expected_output:
-      status: "success"
-      result: "Task executed successfully"
-  
-  - name: "embedding_example"
-    description: "Text embedding test"
+      status: success
+      result:
+        embedding: [0.1, 0.2, 0.3]
+        dimensions: 1536
+
+  - name: batch_texts
+    description: Generate embeddings for multiple texts
     input:
-      task: "embed_text"
-      text: "This is a test sentence for embedding."
+      task: embed_batch
+      texts: 
+        - Hello, world!
+        - How are you?
     expected_output:
-      status: "success"
-      result: "VECTOR_DATA"  # Actual vector data will vary
+      status: success
+      result:
+        embeddings:
+          - [0.1, 0.2, 0.3]
+          - [0.4, 0.5, 0.6]
+        dimensions: 1536
