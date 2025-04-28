@@ -1,0 +1,75 @@
+# Basic metadata
+name: llm_stackspot
+version: 0.1.0
+description: StackSpot AI LLM provider for PepperPy
+author: PepperPy Team
+
+# Categorization
+plugin_type: llm
+category: provider
+provider_name: stackspot
+entry_point: provider.StackSpotAIProvider
+
+# Version constraints
+min_framework_version: 0.1.0
+
+# Configuration schema
+config_schema:
+  type: object
+  properties:
+    client_id:
+      type: string
+      description: The StackSpot AI client ID
+    client_secret:
+      type: string
+      description: The StackSpot AI client secret
+    realm:
+      type: string
+      description: The StackSpot AI realm
+      default: stackspot-freemium
+    api_url:
+      type: string
+      description: The StackSpot AI API URL
+      default: https://genai-code-buddy-api.stackspot.com/v1
+    auth_url:
+      type: string
+      description: The StackSpot AI authentication URL
+      default: https://idm.stackspot.com
+  required:
+    - client_id
+    - client_secret
+
+# Default configuration
+default_config:
+  realm: stackspot-freemium
+  api_url: https://genai-code-buddy-api.stackspot.com/v1
+  auth_url: https://idm.stackspot.com
+
+# Examples for testing
+examples:
+  - name: basic_completion
+    description: Basic text completion example
+    input:
+      task: complete
+      prompt: What is the capital of France?
+      temperature: 0.7
+      max_tokens: 100
+    expected_output:
+      status: success
+      result: Paris is the capital of France.
+  
+  - name: chat_example
+    description: Chat interaction example
+    input:
+      task: chat
+      messages:
+        - role: user
+          content: Hello, who are you?
+      temperature: 0.7
+      max_tokens: 100
+    expected_output:
+      status: success
+      result:
+        choices:
+          - message:
+              content: I'm an AI assistant powered by StackSpot AI. 

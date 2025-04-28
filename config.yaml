@@ -171,4 +171,12 @@ plugins:
 # Memory Configuration
 memory:
   importance_threshold: 0.5
-  max_short_term_memories: 100 
+  max_short_term_memories: 100
+
+stackspot:
+  client_id: ${STACKSPOT_CLIENT_ID}
+  client_secret: ${STACKSPOT_CLIENT_SECRET}
+  realm: ${STACKSPOT_REALM}
+  api_url: ${STACKSPOT_API_URL}
+  auth_url: ${STACKSPOT_AUTH_URL}
+  ks_name: ${STACKSPOT_KS_NAME} 
